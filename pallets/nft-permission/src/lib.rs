@@ -130,13 +130,15 @@ pub mod pallet {
 				)
 				.expect("could mint new permission nft");
 
-				NftsPallet::<T>::set_typed_attribute(
-					&collection_id,
-					&item_id,
-					&PERMISSION_KEY,
-					&permission,
-				)
-				.expect("could set attribute");
+				permission.using_encoded(|permission| {
+					<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+						&collection_id,
+						&item_id,
+						PERMISSION_KEY,
+						permission,
+					)
+					.expect("could set attribute");
+				});
 			}
 		}
 	}
@@ -189,3 +191,4 @@ pub mod pallet {
 				.ok_or(Error::<T>::NotInitialized.into())
 		}
 	}
+}
