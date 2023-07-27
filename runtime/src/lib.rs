@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use frame_support::{traits::AsEnsureOriginWithArg, PalletId};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -45,8 +46,7 @@ use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the template pallet.
-pub use pallet_template;
+pub use pallet_nft_permission;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -267,10 +267,42 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
-/// Configure the pallet-template in pallets/template.
-impl pallet_template::Config for Runtime {
+impl pallet_nfts::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
+	type CollectionId = u32;
+	type ItemId = u32;
+	type Currency = Balances;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
+	type Locker = ();
+	type CollectionDeposit = ();
+	type ItemDeposit = ();
+	type MetadataDepositBase = ();
+	type AttributeDepositBase = ();
+	type DepositPerByte = ();
+	type StringLimit = ConstU32<256>;
+	type KeyLimit = ConstU32<256>;
+	type ValueLimit = ConstU32<256>;
+	type ApprovalsLimit = ();
+	type ItemAttributesApprovalsLimit = ();
+	type MaxTips = ();
+	type MaxDeadlineDuration = ();
+	type MaxAttributesPerCall = ();
+	type Features = ();
+	type OffchainSignature = Signature;
+	type OffchainPublic = <Signature as Verify>::Signer;
+	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const NftPermissionPalletId: PalletId = PalletId(*b"nft_perm");
+}
+
+impl pallet_nft_permission::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Runtime>;
+	type PalletId = NftPermissionPalletId;
+	type Permission = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -288,8 +320,8 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
-		// Include the custom logic from the pallet-template in the runtime.
-		TemplateModule: pallet_template,
+		NftPermission: pallet_nft_permission,
+		Nfts: pallet_nfts,
 	}
 );
 
