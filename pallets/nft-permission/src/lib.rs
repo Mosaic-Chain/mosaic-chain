@@ -27,7 +27,7 @@ pub mod pallet {
 	use super::WeightInfo;
 	use frame_support::{
 		inherent::Vec,
-		pallet_prelude::{DispatchResult, Encode, *},
+		pallet_prelude::{Encode, *},
 		traits::tokens::nonfungibles_v2::{Create, Inspect, InspectEnumerable, Mutate},
 		PalletId,
 	};

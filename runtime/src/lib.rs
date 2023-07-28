@@ -7,7 +7,11 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::{Decode, Encode};
-use frame_support::{traits::AsEnsureOriginWithArg, PalletId};
+use frame_support::{
+	traits::{AsEnsureOriginWithArg, ValidatorSet},
+	PalletId,
+};
+use frame_system::Account;
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -15,7 +19,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, Verify,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, OpaqueKeys,
+		Verify,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
@@ -306,6 +311,40 @@ impl pallet_nft_permission::Config for Runtime {
 	type Permission = ();
 }
 
+struct NftBasedAuthorities;
+impl
+	pallet_session::SessionManager<
+		<pallet_session::Pallet<Runtime> as ValidatorSet<AccountId>>::ValidatorId,
+	> for NftBasedAuthorities
+{
+	fn end_session(_: sp_staking::SessionIndex) {}
+	fn start_session(_: sp_staking::SessionIndex) {}
+	fn new_session(
+		idx: sp_staking::SessionIndex,
+	) -> Option<Vec<<pallet_session::Pallet<Runtime> as ValidatorSet<AccountId>>::ValidatorId>> {
+		Some(NftPermission::permission_holders(&())
+			.expect("pallet is initialized properly")
+			.into_iter().collect())
+	}
+}
+
+parameter_types! {
+	pub const Period: u32 = 2 * MINUTES;
+	pub const Offset: u32 = 0;
+}
+
+impl pallet_session::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = <Self as frame_system::Config>::AccountId;
+	type ValidatorIdOf = ();
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = (); //pallet_nft_permission
+	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = opaque::SessionKeys;
+	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -323,6 +362,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		NftPermission: pallet_nft_permission,
 		Nfts: pallet_nfts,
+		Session: pallet_session,
 	}
 );
 
@@ -445,18 +485,6 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			// This solution is temporary. We ask pallet_aura for the authorities as usual
-			// but first we update them according to our nfts.
-			// TODO: remove this block once we start using pallet_session
-
-			{
-				let authorities: Vec<AuraId> = NftPermission::permission_holders(&()).expect("pallet is initialized properly").into_iter()
-					.map(|account_id| AuraId::decode(&mut account_id.encode().as_slice()).expect("AuraId decodable from AccountId")).collect();
-
-				let authorities = authorities.try_into().expect("permission holders are fewer then max authorities");
-				Aura::change_authorities(authorities);
-			}
-
 			Aura::authorities().into_inner()
 		}
 	}
