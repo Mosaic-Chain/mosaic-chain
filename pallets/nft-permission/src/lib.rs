@@ -7,9 +7,6 @@
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
 #[cfg(test)]
@@ -25,6 +22,8 @@ pub use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use sp_std::collections::btree_set::BTreeSet;
+
 	use super::WeightInfo;
 	use frame_support::{
 		inherent::Vec,
@@ -33,8 +32,8 @@ pub mod pallet {
 		PalletId,
 	};
 	use pallet_nfts::{
-		CollectionConfig, CollectionSettings, ItemConfig, ItemSettings, MintSettings, MintType,
-		Pallet as NftsPallet,
+		CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
+		MintSettings, MintType, Pallet as NftsPallet,
 	};
 	use sp_runtime::traits::AccountIdConversion;
 
@@ -45,7 +44,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_nfts::Config {
+	pub trait Config: frame_system::Config + NftsConfig {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -60,7 +59,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn collection_id)]
-	pub type CollectionId<T: Config> = StorageValue<_, <T as pallet_nfts::Config>::CollectionId>;
+	pub type CollectionId<T: Config> = StorageValue<_, <T as NftsConfig>::CollectionId>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn pallet_account_id)]
@@ -69,7 +68,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		PermissionCollectionCreated(<T as pallet_nfts::Config>::CollectionId),
+		PermissionCollectionCreated(<T as NftsConfig>::CollectionId),
 	}
 
 	#[pallet::error]
@@ -92,7 +91,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T>
 	where
-		<T as pallet_nfts::Config>::ItemId: TryFrom<usize>,
+		<T as NftsConfig>::ItemId: TryFrom<usize>,
 		T::Permission: Encode,
 	{
 		fn build(&self) {
@@ -151,22 +150,32 @@ pub mod pallet {
 		/// This function will return an error if the pallet has not been initialized yet.
 		pub fn permission_holders(
 			permission: &T::Permission,
-		) -> Result<impl Iterator<Item = T::AccountId> + '_, DispatchError>
+		) -> Result<BTreeSet<T::AccountId>, DispatchError>
 		where
 			T::Permission: Encode,
 		{
 			Self::collection_id()
 				.map(|collection_id| {
 					let permission = permission.encode();
-					<NftsPallet<T>>::items(&collection_id).filter_map(move |item_id| {
-						NftsPallet::<T>::system_attribute(&collection_id, &item_id, PERMISSION_KEY)
+					<NftsPallet<T>>::items(&collection_id)
+						.filter_map(move |item_id| {
+							NftsPallet::<T>::system_attribute(
+								&collection_id,
+								&item_id,
+								PERMISSION_KEY,
+							)
 							.filter(|p| *p == permission)
 							.and(NftsPallet::<T>::owner(collection_id, item_id))
-					})
+						})
+						.collect()
 				})
 				.ok_or(Error::<T>::NotInitialized.into())
 		}
 
+		/// Check if an account has the provided permission
+		///
+		/// # Errors
+		/// This function will return an error if the pallet has not been initialized yet.
 		pub fn check_permission(
 			account_id: &T::AccountId,
 			permission: &T::Permission,

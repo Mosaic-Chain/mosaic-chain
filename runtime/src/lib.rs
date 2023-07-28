@@ -450,10 +450,10 @@ impl_runtime_apis! {
 			// TODO: remove this block once we start using pallet_session
 
 			{
-				let authorities: Vec<AuraId> = NftPermission::permission_holders(&()).expect("pallet is initialized properly")
+				let authorities: Vec<AuraId> = NftPermission::permission_holders(&()).expect("pallet is initialized properly").into_iter()
 					.map(|account_id| AuraId::decode(&mut account_id.encode().as_slice()).expect("AuraId decodable from AccountId")).collect();
 
-				let authorities = authorities.try_into().expect("permission holders are fewer then max authoroties");
+				let authorities = authorities.try_into().expect("permission holders are fewer then max authorities");
 				Aura::change_authorities(authorities);
 			}
 
