@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use codec::{Decode, Encode};
 use frame_support::{traits::AsEnsureOriginWithArg, PalletId};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
@@ -444,6 +445,18 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
+			// This solution is temporary. We ask pallet_aura for the authorities as usual
+			// but first we update them according to our nfts.
+			// TODO: remove this block once we start using pallet_session
+
+			{
+				let authorities: Vec<AuraId> = NftPermission::permission_holders(&()).expect("pallet is initialized properly")
+					.map(|account_id| AuraId::decode(&mut account_id.encode().as_slice()).expect("AuraId decodable from AccountId")).collect();
+
+				let authorities = authorities.try_into().expect("permission holders are fewer then max authoroties");
+				Aura::change_authorities(authorities);
+			}
+
 			Aura::authorities().into_inner()
 		}
 	}

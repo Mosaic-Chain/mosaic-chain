@@ -51,6 +51,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice")],
 				vec![
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ()),
 					(get_account_id_from_seed::<sr25519::Public>("Bob"), ()),
 					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ()),
 				],
@@ -95,8 +96,9 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 			testnet_genesis(
 				wasm_binary,
 				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
+				vec![authority_keys_from_seed("Alice")],
 				vec![
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), ()),
 					(get_account_id_from_seed::<sr25519::Public>("Bob"), ()),
 					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ()),
 					(get_account_id_from_seed::<sr25519::Public>("Dave"), ()),
