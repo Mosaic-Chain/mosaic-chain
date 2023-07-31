@@ -27,13 +27,13 @@ pub mod pallet {
 	use super::WeightInfo;
 	use frame_support::{
 		inherent::Vec,
-		pallet_prelude::{Encode, *},
+		pallet_prelude::{DispatchResult, Encode, *},
 		traits::tokens::nonfungibles_v2::{Create, Inspect, InspectEnumerable, Mutate},
 		PalletId,
 	};
 	use pallet_nfts::{
-		CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
-		MintSettings, MintType, Pallet as NftsPallet,
+		CollectionConfig, CollectionSettings, Config as NftsConfig, Incrementable, ItemConfig,
+		ItemSettings, MintSettings, MintType, Pallet as NftsPallet,
 	};
 	use sp_runtime::traits::AccountIdConversion;
 
@@ -64,6 +64,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn pallet_account_id)]
 	pub type PalletAccountId<T: Config> = StorageValue<_, T::AccountId>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn next_item_id)]
+	pub type NextItemId<T: Config> = StorageValue<_, <T as NftsConfig>::ItemId>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -138,6 +142,14 @@ pub mod pallet {
 					)
 					.expect("could set attribute");
 				});
+
+				let next_nft_id: <T as NftsConfig>::ItemId = self
+					.initial_permission_holders
+					.len()
+					.try_into()
+					.ok()
+					.expect("could convert index to ItemId");
+				NextItemId::<T>::put(next_nft_id);
 			}
 		}
 	}
@@ -198,6 +210,45 @@ pub mod pallet {
 					)
 				})
 				.ok_or(Error::<T>::NotInitialized.into())
+		}
+
+		/// Mint a new permission NFT to an account with the provided permission.
+		///
+		/// # Errors
+		///
+		/// This function will return an error if the pallet has not yet been initialized
+		/// or an error occurs within pallet_nfts
+		pub fn new_permission_token(
+			account_id: &T::AccountId,
+			permission: &T::Permission,
+		) -> DispatchResult
+		where
+			T::Permission: Encode,
+			<T as NftsConfig>::ItemId: Incrementable,
+		{
+			let item_id = Self::next_item_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+
+			NftsPallet::<T>::mint_into(
+				&collection_id,
+				&item_id,
+				account_id,
+				&ItemConfig::default(),
+				true,
+			)?;
+
+			permission.using_encoded(|permission| {
+				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+					&collection_id,
+					&item_id,
+					PERMISSION_KEY,
+					permission,
+				)
+			})?;
+
+			NextItemId::<T>::put(item_id.increment());
+
+			Ok(())
 		}
 	}
 }
