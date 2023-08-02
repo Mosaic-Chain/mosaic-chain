@@ -1,0 +1,27 @@
+include:
+  - template: "Workflows/MergeRequest-Pipelines.gitlab-ci.yml" # https://docs.gitlab.com/ee/ci/yaml/workflow.html#workflowrules-templates
+  - project: dlabs1/mozaik-chain/substrate-kitchensink-template
+    file: docker-buildkit.gitlab-ci.yml
+
+
+build:
+  stage: build
+  extends: .docker_buildkit
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  variables:
+    DOCKER_CONTEXT: . 
+    DOCKERFILE_DIR: .
+    DOCKERFILE_PATH: Dockerfile
+    PUSH_IMAGES: "name=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    PUSH_IMAGES_MAIN: "name=$CI_REGISTRY_IMAGE:latest"
+
+test:
+  stage: test
+  extends: .docker_buildkit
+  variables:
+    DOCKER_CONTEXT: . 
+    DOCKERFILE_DIR: .
+    DOCKERFILE_PATH: Dockerfile.test
+    PUSH_IMAGES: ""
+    PUSH_IMAGES_MAIN: ""

@@ -1,0 +1,75 @@
+.docker_buildkit:
+  stage: build
+  interruptible: true
+  image:
+    name: moby/buildkit:v0.11.6 # kept up-to-date by renovate
+    entrypoint: [""]
+  variables:
+    DOCKER_CONTEXT: .
+    DOCKERFILE_DIR: .
+    DOCKERFILE_PATH: "" # https://github.com/moby/buildkit/issues/684#issuecomment-429576268
+    BUILDKIT_ARGS: ""
+    # Push as commit sha by default
+    PUSH_IMAGES: "name=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    # on default branch, also tag as 'latest'
+    PUSH_IMAGES_MAIN: "name=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA,$CI_REGISTRY_IMAGE:latest"
+    DOCKER_CACHE_IMAGE: "$CI_REGISTRY_IMAGE/buildcache"
+    DOCKER_HUB_AUTH_URL: "https://index.docker.io/v1/" # that's the result of docker login locally
+    BUILDKIT_CACHE_ARGS: >
+      --export-cache type=registry,mode=max,ref=$DOCKER_CACHE_IMAGE
+      --import-cache type=registry,ref=$DOCKER_CACHE_IMAGE
+  rules:
+    # Always tag with SHA, on default branch: tag with latest
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+      variables:
+        PUSH_IMAGES: $PUSH_IMAGES_MAIN
+    - when: on_success # meaning: "else, nothing special"
+  before_script:
+    - apk add --no-cache jq moreutils
+    - export BUILDCTL_CONNECT_RETRIES_MAX=42 # workaround for timeout problem
+    - mkdir -p ~/.docker
+    - echo '{}' > ~/.docker/config.json
+    # GitLab CI login
+    - >
+      cat ~/.docker/config.json | 
+      jq ".auths += {\"$CI_REGISTRY\": {
+        auth: \"$(echo -n "$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD" | base64)\"
+      }}" | sponge ~/.docker/config.json
+    # Docker Hub login (when $DOCKER_HUB_USER is set)
+    - >
+      [[ -n "$DOCKER_HUB_USER" ]] &&
+      cat ~/.docker/config.json |
+      jq ".auths += {\"$DOCKER_HUB_AUTH_URL\": {
+        auth: \"$(echo -n "$DOCKER_HUB_USER:$DOCKER_HUB_PASSWORD" | base64)\"
+      }}" | sponge ~/.docker/config.json
+  script:
+    - >
+      echo "Docker Context: $DOCKER_CONTEXT"
+      && echo "Dockerfile directory: $DOCKERFILE_DIR"
+      && echo "Cache arguments: $BUILDKIT_CACHE_ARGS"
+      && echo "Images to push:" $(echo $PUSH_IMAGES | sed 's/name=//')
+      && echo "Authenticated registries:" $(jq ".auths | keys" ~/.docker/config.json)
+    # Prepare options
+    - '[[ -n "$TARGETPLATFORM" ]] && BUILDKIT_ARGS="$BUILDKIT_ARGS --opt platform=$TARGETPLATFORM"'
+    - '[[ -n "$DOCKERFILE_PATH" ]] && BUILDKIT_ARGS="$BUILDKIT_ARGS --opt filename=$DOCKERFILE_PATH"'
+    - '[[ -n "$PUSH_IMAGES" ]] && BUILDKIT_ARGS="$BUILDKIT_ARGS --output type=image,\"$PUSH_IMAGES\",push=true"'
+    - echo $BUILDKIT_ARGS
+    # Build!
+    - >
+      buildctl-daemonless.sh build --progress=plain
+      --frontend=dockerfile.v0 --local context=$DOCKER_CONTEXT --local dockerfile=$DOCKERFILE_DIR
+      $BUILDKIT_CACHE_ARGS
+      $BUILDKIT_ARGS
+
+.docker_buildkit_dependencyproxy:
+  extends: .docker_buildkit
+  image:
+    name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/moby/buildkit:v0.11.6 # kept up-to-date by renovate
+  before_script:
+    - !reference [.docker_buildkit, before_script]
+    # GitLab Dependency proxy login
+    - >
+      cat ~/.docker/config.json | 
+      jq ".auths += {\"$CI_DEPENDENCY_PROXY_SERVER\": {
+        auth: \"$(echo -n "$CI_DEPENDENCY_PROXY_USER:$CI_DEPENDENCY_PROXY_PASSWORD" | base64)\"
+      }}" | sponge ~/.docker/config.json

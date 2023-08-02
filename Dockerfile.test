@@ -1,0 +1,30 @@
+FROM rust:bookworm
+
+RUN apt update -y \
+    && apt upgrade -y \
+    && apt install build-essential git librocksdb-dev libsnappy-dev libclang-dev clang g++-multilib protobuf-compiler mold -y
+
+RUN rustup target add wasm32-unknown-unknown
+RUN rustup component add rustfmt clippy
+
+WORKDIR /opt/app
+COPY . .
+
+ENV RUSTFLAGS=-Dwarnings
+
+RUN cargo fmt -- --check 
+
+# without features
+RUN cargo check --color=always --tests --examples
+
+# with runtime benchmarks
+RUN cargo check --color=always --tests --examples --features runtime-benchmarks
+
+# with try-runtime
+RUN cargo check --color=always --tests --examples --features try-runtime
+
+# clippy with all features
+# disabled until we clean up the code
+#RUN cargo clippy --color=always --tests --examples --features runtime-benchmarks,try-runtime
+
+RUN cargo test --release --features runtime-benchmarks,try-runtime
