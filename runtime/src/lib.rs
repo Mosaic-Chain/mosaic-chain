@@ -344,7 +344,8 @@ impl
 }
 
 parameter_types! {
-	pub const Period: u32 = 2 * MINUTES;
+	// TODO(vismate): set a more reasonable period after validator set tests are concluded
+	pub const Period: u32 = 3 // 2 * MINUTES;
 	pub const Offset: u32 = 0;
 }
 
