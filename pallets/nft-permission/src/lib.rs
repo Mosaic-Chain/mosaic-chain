@@ -72,7 +72,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		PermissionCollectionCreated(<T as NftsConfig>::CollectionId),
+		TokenCreated { account: T::AccountId, item_id: <T as NftsConfig>::ItemId },
 	}
 
 	#[pallet::error]
@@ -245,6 +245,11 @@ pub mod pallet {
 					permission,
 				)
 			})?;
+
+			Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
+				account: account_id.clone(),
+				item_id,
+			});
 
 			NextItemId::<T>::put(item_id.increment());
 
