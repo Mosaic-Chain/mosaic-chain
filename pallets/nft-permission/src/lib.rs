@@ -20,7 +20,8 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
-#[frame_support::pallet]
+// TODO: Once the pallet is ready turn off dev_mode
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use sp_std::collections::btree_set::BTreeSet;
 
@@ -35,7 +36,9 @@ pub mod pallet {
 		CollectionConfig, CollectionSettings, Config as NftsConfig, Incrementable, ItemConfig,
 		ItemSettings, MintSettings, MintType, Pallet as NftsPallet,
 	};
-	use sp_runtime::traits::AccountIdConversion;
+	use sp_runtime::{traits::AccountIdConversion, BoundedVec};
+
+	use frame_system::pallet_prelude::OriginFor;
 
 	const PERMISSION_KEY: &[u8] = b"permission";
 	const SUSPENSION_KEY: &[u8] = b"suspended";
@@ -51,6 +54,8 @@ pub mod pallet {
 
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		type PrivilegedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		type Permission: MaybeSerializeDeserialize;
 
@@ -235,18 +240,8 @@ pub mod pallet {
 				.ok_or(Error::<T>::NotInitialized.into())
 		}
 
-		/// Mint a new permission NFT to an account with the provided permission.
-		///
-		/// # Errors
-		///
-		/// This function will return an error if the pallet has not yet been initialized
-		/// or an error occurs within pallet_nfts
-		pub fn new_permission_token(
-			account_id: &T::AccountId,
-			permission: &T::Permission,
-		) -> DispatchResult
+		fn create_token(account_id: &T::AccountId, permission: &[u8]) -> DispatchResult
 		where
-			T::Permission: Encode,
 			<T as NftsConfig>::ItemId: Incrementable,
 		{
 			let item_id = Self::next_item_id().ok_or(Error::<T>::NotInitialized)?;
@@ -260,14 +255,12 @@ pub mod pallet {
 				true,
 			)?;
 
-			permission.using_encoded(|permission| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					&collection_id,
-					&item_id,
-					PERMISSION_KEY,
-					permission,
-				)
-			})?;
+			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+				&collection_id,
+				&item_id,
+				PERMISSION_KEY,
+				permission,
+			)?;
 
 			false.using_encoded(|suspended| {
 				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
@@ -288,7 +281,24 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn do_set_suspend(
+		/// Mint a new permission NFT to an account with the provided permission.
+		///
+		/// # Errors
+		///
+		/// This function will return an error if the pallet has not yet been initialized
+		/// or an error occurs within pallet_nfts
+		pub fn do_mint_permission_token(
+			account_id: &T::AccountId,
+			permission: &T::Permission,
+		) -> DispatchResult
+		where
+			T::Permission: Encode,
+			<T as NftsConfig>::ItemId: Incrementable,
+		{
+			permission.using_encoded(|permission| Self::create_token(account_id, permission))
+		}
+
+		fn set_suspension_attribute(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
 			suspended: bool,
@@ -307,14 +317,34 @@ pub mod pallet {
 			Ok(())
 		}
 
+		fn set_all_suspension_attribute(
+			account_id: &T::AccountId,
+			permission: &[u8],
+			suspended: bool,
+		) -> DispatchResult {
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+
+			NftsPallet::<T>::owned_in_collection(&collection_id, account_id)
+				.filter(|item_id| {
+					NftsPallet::<T>::system_attribute(&collection_id, item_id, PERMISSION_KEY)
+						.is_some_and(|p| p.as_slice() == permission)
+				})
+				.try_for_each(|item_id| {
+					Self::set_suspension_attribute(&collection_id, &item_id, suspended)
+				})
+		}
+
 		/// Set the `suspended` attribute for the supplied item
 		///
 		/// # Errors
 		///
 		/// This function will return an error if the pallet has not been initialized yet or an error occurs within pallet_nfts
-		pub fn set_suspend(item_id: &<T as NftsConfig>::ItemId, suspended: bool) -> DispatchResult {
+		pub fn do_set_suspend(
+			item_id: &<T as NftsConfig>::ItemId,
+			suspended: bool,
+		) -> DispatchResult {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-			Self::do_set_suspend(&collection_id, item_id, suspended)?;
+			Self::set_suspension_attribute(&collection_id, item_id, suspended)?;
 			Ok(())
 		}
 
@@ -323,23 +353,56 @@ pub mod pallet {
 		/// # Errors
 		///
 		/// This function will return an error if the pallet has not been initialized or an error occurs within pallet_nfts
-		pub fn set_suspend_all(
+		pub fn do_set_suspend_all(
 			account_id: &T::AccountId,
 			permission: &T::Permission,
-			suspend: bool,
+			suspended: bool,
 		) -> DispatchResult
 		where
 			T::Permission: Encode,
 		{
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			permission.using_encoded(|permission| {
+				Self::set_all_suspension_attribute(account_id, permission, suspended)
+			})
+		}
+	}
 
-			let permission = permission.encode();
-			NftsPallet::<T>::owned_in_collection(&collection_id, account_id)
-				.filter(|item_id| {
-					NftsPallet::<T>::system_attribute(&collection_id, item_id, PERMISSION_KEY)
-						.is_some_and(|p| *p == permission)
-				})
-				.try_for_each(|item_id| Self::do_set_suspend(&collection_id, &item_id, suspend))
+	// TODO: calculate weights
+	// TODO(vismate): remove where clause
+	#[pallet::call]
+	impl<T: Config> Pallet<T>
+	where
+		<T as NftsConfig>::ItemId: Incrementable,
+	{
+		#[pallet::call_index(0)]
+		pub fn mint_permission_token(
+			origin: OriginFor<T>,
+			account_id: T::AccountId,
+			permission: BoundedVec<u8, <T as NftsConfig>::ValueLimit>,
+		) -> DispatchResult {
+			T::PrivilegedOrigin::ensure_origin(origin)?;
+			Self::create_token(&account_id, permission.as_slice())
+		}
+
+		#[pallet::call_index(1)]
+		pub fn set_suspend(
+			origin: OriginFor<T>,
+			item_id: <T as NftsConfig>::ItemId,
+			suspended: bool,
+		) -> DispatchResult {
+			T::PrivilegedOrigin::ensure_origin(origin)?;
+			Self::do_set_suspend(&item_id, suspended)
+		}
+
+		#[pallet::call_index(2)]
+		pub fn set_suspend_all(
+			origin: OriginFor<T>,
+			account_id: T::AccountId,
+			permission: BoundedVec<u8, <T as NftsConfig>::ValueLimit>,
+			suspended: bool,
+		) -> DispatchResult {
+			T::PrivilegedOrigin::ensure_origin(origin)?;
+			Self::set_all_suspension_attribute(&account_id, permission.as_slice(), suspended)
 		}
 	}
 }

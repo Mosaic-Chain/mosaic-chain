@@ -308,6 +308,7 @@ impl pallet_nft_permission::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Runtime>;
 	type PalletId = NftPermissionPalletId;
+	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Permission = ();
 }
 
