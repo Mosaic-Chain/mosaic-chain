@@ -38,6 +38,7 @@ pub mod pallet {
 	use sp_runtime::traits::AccountIdConversion;
 
 	const PERMISSION_KEY: &[u8] = b"permission";
+	const SUSPENSION_KEY: &[u8] = b"suspended";
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -73,6 +74,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		TokenCreated { account: T::AccountId, item_id: <T as NftsConfig>::ItemId },
+		TokenSuspendSet { item_id: <T as NftsConfig>::ItemId, suspended: bool },
 	}
 
 	#[pallet::error]
@@ -143,6 +145,16 @@ pub mod pallet {
 					.expect("could set attribute");
 				});
 
+				false.using_encoded(|suspended| {
+					<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+						&collection_id,
+						&item_id,
+						SUSPENSION_KEY,
+						suspended,
+					)
+					.expect("could set attribute");
+				});
+
 				let next_nft_id: <T as NftsConfig>::ItemId = self
 					.initial_permission_holders
 					.len()
@@ -156,7 +168,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Returns an iterator over the accounts who have the
-		/// permission provided according to their nfts.
+		/// permission provided according to their nfts and are not suspended.
 		///
 		/// # Errors
 		/// This function will return an error if the pallet has not been initialized yet.
@@ -166,6 +178,7 @@ pub mod pallet {
 		where
 			T::Permission: Encode,
 		{
+			// TODO(vismate): make it more readable and elegant
 			Self::collection_id()
 				.map(|collection_id| {
 					let permission = permission.encode();
@@ -176,7 +189,12 @@ pub mod pallet {
 								&item_id,
 								PERMISSION_KEY,
 							)
-							.filter(|p| *p == permission)
+							.zip(NftsPallet::<T>::system_attribute(
+								&collection_id,
+								&item_id,
+								SUSPENSION_KEY,
+							))
+							.filter(|(p, s)| *p == permission && *s == false.encode())
 							.and(NftsPallet::<T>::owner(collection_id, item_id))
 						})
 						.collect()
@@ -184,7 +202,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::NotInitialized.into())
 		}
 
-		/// Check if an account has the provided permission
+		/// Check if an account has the provided permission and is not suspended
 		///
 		/// # Errors
 		/// This function will return an error if the pallet has not been initialized yet.
@@ -205,7 +223,12 @@ pub mod pallet {
 								&item_id,
 								PERMISSION_KEY,
 							)
-							.is_some_and(|p| p == permission)
+							.zip(NftsPallet::<T>::system_attribute(
+								&collection_id,
+								&item_id,
+								SUSPENSION_KEY,
+							))
+							.is_some_and(|(p, s)| p == permission && *s == false.encode())
 						},
 					)
 				})
@@ -246,6 +269,15 @@ pub mod pallet {
 				)
 			})?;
 
+			false.using_encoded(|suspended| {
+				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+					&collection_id,
+					&item_id,
+					SUSPENSION_KEY,
+					suspended,
+				)
+			})?;
+
 			Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
 				account: account_id.clone(),
 				item_id,
@@ -254,6 +286,60 @@ pub mod pallet {
 			NextItemId::<T>::put(item_id.increment());
 
 			Ok(())
+		}
+
+		fn do_set_suspend(
+			collection_id: &<T as NftsConfig>::CollectionId,
+			item_id: &<T as NftsConfig>::ItemId,
+			suspended: bool,
+		) -> DispatchResult {
+			suspended.using_encoded(|suspended| {
+				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+					collection_id,
+					item_id,
+					SUSPENSION_KEY,
+					suspended,
+				)
+			})?;
+
+			Self::deposit_event(Event::<T>::TokenSuspendSet { suspended, item_id: *item_id });
+
+			Ok(())
+		}
+
+		/// Set the `suspended` attribute for the supplied item
+		///
+		/// # Errors
+		///
+		/// This function will return an error if the pallet has not been initialized yet or an error occurs within pallet_nfts
+		pub fn set_suspend(item_id: &<T as NftsConfig>::ItemId, suspended: bool) -> DispatchResult {
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			Self::do_set_suspend(&collection_id, item_id, suspended)?;
+			Ok(())
+		}
+
+		/// Set all permission token's `suspended` attribute with the supplied permission for a given account
+		///
+		/// # Errors
+		///
+		/// This function will return an error if the pallet has not been initialized or an error occurs within pallet_nfts
+		pub fn set_suspend_all(
+			account_id: &T::AccountId,
+			permission: &T::Permission,
+			suspend: bool,
+		) -> DispatchResult
+		where
+			T::Permission: Encode,
+		{
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+
+			let permission = permission.encode();
+			NftsPallet::<T>::owned_in_collection(&collection_id, account_id)
+				.filter(|item_id| {
+					NftsPallet::<T>::system_attribute(&collection_id, item_id, PERMISSION_KEY)
+						.is_some_and(|p| *p == permission)
+				})
+				.try_for_each(|item_id| Self::do_set_suspend(&collection_id, &item_id, suspend))
 		}
 	}
 }
