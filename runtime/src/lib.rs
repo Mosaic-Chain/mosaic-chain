@@ -6,12 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::{Decode, Encode};
-use frame_support::{
-	traits::{AsEnsureOriginWithArg, ValidatorSet},
-	PalletId,
-};
-use frame_system::Account;
+use frame_support::{traits::AsEnsureOriginWithArg, PalletId};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -19,8 +14,8 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentifyAccount,
-		NumberFor, One, OpaqueKeys, Verify,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, NumberFor,
+		One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
@@ -63,6 +58,8 @@ pub type Signature = MultiSignature;
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+pub type ValidatorId = AccountId;
 
 /// Balance of an account.
 pub type Balance = u128;
@@ -300,6 +297,16 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
 }
 
+impl utils::traits::Successor<u32> for Runtime {
+	fn initial() -> u32 {
+		0
+	}
+
+	fn successor(val: &u32) -> u32 {
+		val + 1
+	}
+}
+
 parameter_types! {
 	pub const NftPermissionPalletId: PalletId = PalletId(*b"nft_perm");
 }
@@ -309,31 +316,19 @@ impl pallet_nft_permission::Config for Runtime {
 	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Runtime>;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
+	type ItemIdSuccession = Self;
 	type Permission = ();
 }
 
-pub struct NftBasedAuthorities;
-impl Convert<AccountId, Option<AccountId>> for NftBasedAuthorities {
-	fn convert(a: AccountId) -> Option<AccountId> {
-		Some(a)
-	}
-}
-
-impl
-	pallet_session::SessionManager<
-		<pallet_session::Pallet<Runtime> as ValidatorSet<AccountId>>::ValidatorId,
-	> for NftBasedAuthorities
-{
-	fn new_session_genesis(
-		new_index: sp_staking::SessionIndex,
-	) -> Option<Vec<<pallet_session::Pallet<Runtime> as ValidatorSet<AccountId>>::ValidatorId>> {
+impl pallet_session::SessionManager<ValidatorId> for Runtime {
+	fn new_session_genesis(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
 		None
 	}
 	fn end_session(_: sp_staking::SessionIndex) {}
+
 	fn start_session(_: sp_staking::SessionIndex) {}
-	fn new_session(
-		idx: sp_staking::SessionIndex,
-	) -> Option<Vec<<pallet_session::Pallet<Runtime> as ValidatorSet<AccountId>>::ValidatorId>> {
+
+	fn new_session(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
 		Some(
 			NftPermission::permission_holders(&())
 				.expect("pallet is initialized properly")
@@ -345,17 +340,17 @@ impl
 
 parameter_types! {
 	// TODO(vismate): set a more reasonable period after validator set tests are concluded
-	pub const Period: u32 = 3 // 2 * MINUTES;
+	pub const Period: u32 = 3; // 2 * MINUTES;
 	pub const Offset: u32 = 0;
 }
 
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = NftBasedAuthorities;
+	type ValidatorId = ValidatorId;
+	type ValidatorIdOf = ConvertInto;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager = NftBasedAuthorities;
+	type SessionManager = Self;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;

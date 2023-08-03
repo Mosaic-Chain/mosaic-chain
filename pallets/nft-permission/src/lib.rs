@@ -3,7 +3,8 @@
 	clippy::must_use_candidate,
 	clippy::cast_possible_truncation,
 	dead_code,
-	clippy::used_underscore_binding
+	clippy::used_underscore_binding,
+	clippy::wildcard_imports
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -28,17 +29,19 @@ pub mod pallet {
 	use super::WeightInfo;
 	use frame_support::{
 		inherent::Vec,
-		pallet_prelude::{DispatchResult, Encode, *},
+		pallet_prelude::*,
 		traits::tokens::nonfungibles_v2::{Create, Inspect, InspectEnumerable, Mutate},
 		PalletId,
 	};
 	use pallet_nfts::{
-		CollectionConfig, CollectionSettings, Config as NftsConfig, Incrementable, ItemConfig,
-		ItemSettings, MintSettings, MintType, Pallet as NftsPallet,
+		CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
+		MintSettings, MintType, Pallet as NftsPallet,
 	};
 	use sp_runtime::{traits::AccountIdConversion, BoundedVec};
 
 	use frame_system::pallet_prelude::OriginFor;
+
+	use utils::traits::Successor;
 
 	const PERMISSION_KEY: &[u8] = b"permission";
 	const SUSPENSION_KEY: &[u8] = b"suspended";
@@ -58,6 +61,8 @@ pub mod pallet {
 		type PrivilegedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		type Permission: MaybeSerializeDeserialize;
+
+		type ItemIdSuccession: Successor<Self::ItemId>;
 
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
@@ -102,7 +107,6 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T>
 	where
-		<T as NftsConfig>::ItemId: TryFrom<usize>,
 		T::Permission: Encode,
 	{
 		fn build(&self) {
@@ -128,46 +132,27 @@ pub mod pallet {
 
 			CollectionId::<T>::put(collection_id);
 
-			for (idx, (holder, permission)) in self.initial_permission_holders.iter().enumerate() {
-				let item_id = idx.try_into().ok().expect("could convert index to ItemId");
-
+			let mut item_id = T::ItemIdSuccession::initial();
+			for (account_id, permission) in &self.initial_permission_holders {
 				NftsPallet::<T>::mint_into(
 					&collection_id,
 					&item_id,
-					holder,
+					account_id,
 					&ItemConfig::default(),
 					true,
 				)
 				.expect("could mint new permission nft");
 
-				permission.using_encoded(|permission| {
-					<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-						&collection_id,
-						&item_id,
-						PERMISSION_KEY,
-						permission,
-					)
-					.expect("could set attribute");
-				});
+				permission
+					.using_encoded(|permission| {
+						Pallet::<T>::init_attributes(&collection_id, &item_id, permission)
+					})
+					.expect("could initialize attributes");
 
-				false.using_encoded(|suspended| {
-					<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-						&collection_id,
-						&item_id,
-						SUSPENSION_KEY,
-						suspended,
-					)
-					.expect("could set attribute");
-				});
-
-				let next_nft_id: <T as NftsConfig>::ItemId = self
-					.initial_permission_holders
-					.len()
-					.try_into()
-					.ok()
-					.expect("could convert index to ItemId");
-				NextItemId::<T>::put(next_nft_id);
+				item_id = T::ItemIdSuccession::successor(&item_id);
 			}
+
+			NextItemId::<T>::put(item_id);
 		}
 	}
 
@@ -183,28 +168,25 @@ pub mod pallet {
 		where
 			T::Permission: Encode,
 		{
-			// TODO(vismate): make it more readable and elegant
-			Self::collection_id()
-				.map(|collection_id| {
-					let permission = permission.encode();
-					<NftsPallet<T>>::items(&collection_id)
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let holders = permission.using_encoded(|permission| {
+				false.using_encoded(|not_suspended| {
+					NftsPallet::<T>::items(&collection_id)
 						.filter_map(move |item_id| {
-							NftsPallet::<T>::system_attribute(
+							Self::check_attributes(
 								&collection_id,
 								&item_id,
-								PERMISSION_KEY,
+								permission,
+								not_suspended,
 							)
-							.zip(NftsPallet::<T>::system_attribute(
-								&collection_id,
-								&item_id,
-								SUSPENSION_KEY,
-							))
-							.filter(|(p, s)| *p == permission && *s == false.encode())
-							.and(NftsPallet::<T>::owner(collection_id, item_id))
+							.then_some(NftsPallet::<T>::owner(collection_id, item_id))
+							.flatten()
 						})
 						.collect()
 				})
-				.ok_or(Error::<T>::NotInitialized.into())
+			});
+
+			Ok(holders)
 		}
 
 		/// Check if an account has the provided permission and is not suspended
@@ -218,67 +200,17 @@ pub mod pallet {
 		where
 			T::Permission: Encode,
 		{
-			Self::collection_id()
-				.map(|collection_id| {
-					let permission = permission.encode();
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+
+			Ok(permission.using_encoded(|permission| {
+				false.using_encoded(|suspended| {
 					NftsPallet::<T>::owned_in_collection(&collection_id, account_id).any(
 						|item_id| {
-							NftsPallet::<T>::system_attribute(
-								&collection_id,
-								&item_id,
-								PERMISSION_KEY,
-							)
-							.zip(NftsPallet::<T>::system_attribute(
-								&collection_id,
-								&item_id,
-								SUSPENSION_KEY,
-							))
-							.is_some_and(|(p, s)| p == permission && *s == false.encode())
+							Self::check_attributes(&collection_id, &item_id, permission, suspended)
 						},
 					)
 				})
-				.ok_or(Error::<T>::NotInitialized.into())
-		}
-
-		fn create_token(account_id: &T::AccountId, permission: &[u8]) -> DispatchResult
-		where
-			<T as NftsConfig>::ItemId: Incrementable,
-		{
-			let item_id = Self::next_item_id().ok_or(Error::<T>::NotInitialized)?;
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-
-			NftsPallet::<T>::mint_into(
-				&collection_id,
-				&item_id,
-				account_id,
-				&ItemConfig::default(),
-				true,
-			)?;
-
-			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-				&collection_id,
-				&item_id,
-				PERMISSION_KEY,
-				permission,
-			)?;
-
-			false.using_encoded(|suspended| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					&collection_id,
-					&item_id,
-					SUSPENSION_KEY,
-					suspended,
-				)
-			})?;
-
-			Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
-				account: account_id.clone(),
-				item_id,
-			});
-
-			NextItemId::<T>::put(item_id.increment());
-
-			Ok(())
+			}))
 		}
 
 		/// Mint a new permission NFT to an account with the provided permission.
@@ -293,9 +225,40 @@ pub mod pallet {
 		) -> DispatchResult
 		where
 			T::Permission: Encode,
-			<T as NftsConfig>::ItemId: Incrementable,
 		{
 			permission.using_encoded(|permission| Self::create_token(account_id, permission))
+		}
+
+		/// Set the `suspended` attribute for the supplied item
+		///
+		/// # Errors
+		///
+		/// This function will return an error if the pallet has not been initialized yet or an error occurs within pallet_nfts
+		pub fn do_set_suspend(
+			item_id: &<T as NftsConfig>::ItemId,
+			suspended: bool,
+		) -> DispatchResult {
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			Self::set_suspension_attribute(&collection_id, item_id, suspended)?;
+			Ok(())
+		}
+
+		/// Set all permission token's `suspended` attribute with the supplied permission for a given account
+		///
+		/// # Errors
+		///
+		/// This function will return an error if the pallet has not been initialized or an error occurs within pallet_nfts
+		pub fn do_set_suspend_all(
+			account_id: &T::AccountId,
+			permission: &T::Permission,
+			suspended: bool,
+		) -> DispatchResult
+		where
+			T::Permission: Encode,
+		{
+			permission.using_encoded(|permission| {
+				Self::set_all_suspension_attribute(account_id, permission, suspended)
+			})
 		}
 
 		fn set_suspension_attribute(
@@ -334,46 +297,67 @@ pub mod pallet {
 				})
 		}
 
-		/// Set the `suspended` attribute for the supplied item
-		///
-		/// # Errors
-		///
-		/// This function will return an error if the pallet has not been initialized yet or an error occurs within pallet_nfts
-		pub fn do_set_suspend(
+		fn init_attributes(
+			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
-			suspended: bool,
+			permission: &[u8],
 		) -> DispatchResult {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-			Self::set_suspension_attribute(&collection_id, item_id, suspended)?;
-			Ok(())
+			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+				collection_id,
+				item_id,
+				PERMISSION_KEY,
+				permission,
+			)?;
+
+			false.using_encoded(|suspended| {
+				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+					collection_id,
+					item_id,
+					SUSPENSION_KEY,
+					suspended,
+				)
+			})
 		}
 
-		/// Set all permission token's `suspended` attribute with the supplied permission for a given account
-		///
-		/// # Errors
-		///
-		/// This function will return an error if the pallet has not been initialized or an error occurs within pallet_nfts
-		pub fn do_set_suspend_all(
-			account_id: &T::AccountId,
-			permission: &T::Permission,
-			suspended: bool,
-		) -> DispatchResult
-		where
-			T::Permission: Encode,
-		{
-			permission.using_encoded(|permission| {
-				Self::set_all_suspension_attribute(account_id, permission, suspended)
-			})
+		fn check_attributes(
+			collection_id: &<T as NftsConfig>::CollectionId,
+			item_id: &<T as NftsConfig>::ItemId,
+			permission: &[u8],
+			suspended: &[u8],
+		) -> bool {
+			NftsPallet::<T>::system_attribute(collection_id, item_id, PERMISSION_KEY)
+				.zip(NftsPallet::<T>::system_attribute(collection_id, item_id, SUSPENSION_KEY))
+				.is_some_and(|(p, s)| p.as_slice() == permission && s.as_slice() == suspended)
+		}
+
+		fn create_token(account_id: &T::AccountId, permission: &[u8]) -> DispatchResult {
+			let item_id = Self::next_item_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+
+			NftsPallet::<T>::mint_into(
+				&collection_id,
+				&item_id,
+				account_id,
+				&ItemConfig::default(),
+				true,
+			)?;
+
+			Self::init_attributes(&collection_id, &item_id, permission)?;
+
+			Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
+				account: account_id.clone(),
+				item_id,
+			});
+
+			NextItemId::<T>::put(T::ItemIdSuccession::successor(&item_id));
+
+			Ok(())
 		}
 	}
 
 	// TODO: calculate weights
-	// TODO(vismate): remove where clause
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		<T as NftsConfig>::ItemId: Incrementable,
-	{
+	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		pub fn mint_permission_token(
 			origin: OriginFor<T>,
