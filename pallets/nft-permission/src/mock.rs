@@ -1,9 +1,14 @@
-use crate as pallet_template;
-use frame_support::traits::{ConstU16, ConstU64};
-use sp_core::H256;
+use crate as nft_permission;
+use frame_support::{
+	parameter_types,
+	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64, GenesisBuild},
+	PalletId,
+};
+use sp_core::{ConstU32, H256};
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	MultiSignature,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -17,9 +22,15 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
-		TemplateModule: pallet_template,
+		Balances: pallet_balances,
+		Nfts: pallet_nfts,
+		NftPermission: nft_permission,
 	}
 );
+
+pub type Signature = MultiSignature;
+pub type AccountPublic = <Signature as Verify>::Signer;
+pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -32,14 +43,14 @@ impl frame_system::Config for Test {
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
+	type AccountId = AccountId;
+	type Lookup = IdentityLookup<AccountId>;
 	type Header = Header;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -48,12 +59,81 @@ impl frame_system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_template::Config for Test {
+impl pallet_balances::Config for Test {
+	type Balance = u64;
+	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
+	type ExistentialDeposit = ConstU64<1>;
+	type AccountStore = System;
 	type WeightInfo = ();
+	type MaxLocks = ();
+	type MaxReserves = ConstU32<50>;
+	type ReserveIdentifier = [u8; 8];
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type HoldIdentifier = ();
+	type MaxHolds = ();
+}
+
+impl pallet_nfts::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type CollectionId = u32;
+	type ItemId = u32;
+	type Currency = Balances;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<Self::AccountId>>;
+	type Locker = ();
+	type CollectionDeposit = ();
+	type ItemDeposit = ();
+	type MetadataDepositBase = ();
+	type AttributeDepositBase = ();
+	type DepositPerByte = ();
+	type StringLimit = ConstU32<256>;
+	type KeyLimit = ConstU32<256>;
+	type ValueLimit = ConstU32<256>;
+	type ApprovalsLimit = ();
+	type ItemAttributesApprovalsLimit = ();
+	type MaxTips = ();
+	type MaxDeadlineDuration = ();
+	type MaxAttributesPerCall = ();
+	type Features = ();
+	type OffchainSignature = Signature;
+	type OffchainPublic = AccountPublic;
+	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Test>;
+}
+
+parameter_types! {
+	pub const NftPermissionPalletId: PalletId = PalletId(*b"nft_perm");
+}
+
+impl utils::traits::Successor<u32> for Test {
+	fn initial() -> u32 {
+		0
+	}
+
+	fn successor(val: &u32) -> u32 {
+		val + 1
+	}
+}
+
+impl nft_permission::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = nft_permission::weights::SubstrateWeight<Test>;
+	type PalletId = NftPermissionPalletId;
+	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
+	type ItemIdSuccession = Self;
+	type Permission = String;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+	nft_permission::GenesisConfig::<Test> {
+		initial_permission_holders: vec![],
+	}.assimilate_storage(&mut t).unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }
