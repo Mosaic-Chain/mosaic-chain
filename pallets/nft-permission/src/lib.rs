@@ -264,7 +264,7 @@ pub mod pallet {
 		pub fn do_mint_permission_token(
 			account_id: &T::AccountId,
 			permission: &T::Permission,
-		) -> DispatchResult
+		) -> Result<<T as NftsConfig>::ItemId, DispatchError>
 		where
 			T::Permission: Encode,
 		{
@@ -372,7 +372,10 @@ pub mod pallet {
 				.is_some_and(|(p, s)| p.as_slice() == permission && s.as_slice() == suspended)
 		}
 
-		fn create_token(account_id: &T::AccountId, permission: &[u8]) -> DispatchResult {
+		fn create_token(
+			account_id: &T::AccountId,
+			permission: &[u8],
+		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
 			let item_id = Self::next_item_id().ok_or(Error::<T>::NotInitialized)?;
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 
@@ -393,7 +396,7 @@ pub mod pallet {
 
 			NextItemId::<T>::put(T::ItemIdSuccession::successor(&item_id));
 
-			Ok(())
+			Ok(item_id)
 		}
 	}
 
@@ -413,7 +416,7 @@ pub mod pallet {
 			permission: BoundedVec<u8, <T as NftsConfig>::ValueLimit>,
 		) -> DispatchResult {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
-			Self::create_token(&account_id, permission.as_slice())
+			Self::create_token(&account_id, permission.as_slice()).map(|_| ())
 		}
 
 		/// Set the `suspended` attribute for the supplied item
