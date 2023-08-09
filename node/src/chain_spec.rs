@@ -100,7 +100,14 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 			testnet_genesis(
 				wasm_binary,
 				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice")],
+				vec![
+					authority_keys_from_seed("Alice"),
+					authority_keys_from_seed("Bob"),
+					authority_keys_from_seed("Charlie"),
+					authority_keys_from_seed("Dave"),
+					authority_keys_from_seed("Eve"),
+					authority_keys_from_seed("Ferdie"),
+				],
 				vec![
 					(get_account_id_from_seed::<sr25519::Public>("Alice"), (), true, 100),
 					(get_account_id_from_seed::<sr25519::Public>("Bob"), (), true, 100),

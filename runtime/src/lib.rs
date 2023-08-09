@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -47,7 +48,9 @@ use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
+pub use pallet_insecure_randomness_collective_flip;
 pub use pallet_nft_permission;
+pub use pallet_validator_subset_selection;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -331,20 +334,45 @@ impl pallet_staking::Config for Runtime {
 	type MinimumStakingDuration = ConstU32<256>;
 }
 
+pub struct MyRandomGenerator;
+
+impl Randomness<u128, BlockNumber> for MyRandomGenerator {
+	fn random(subject: &[u8]) -> (u128, BlockNumber) {
+		let (random_hash, block_number) = InsecureRandomnessCollectiveFlip::random(subject);
+		let mut random_number: u128 = 0;
+		//first half of 256 bit hash is lost
+		for digit in random_hash.as_ref() {
+			random_number += (*digit) as u128;
+			random_number <<= 8;
+		}
+		(random_number, block_number)
+	}
+}
+
+impl pallet_validator_subset_selection::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = AccountId;
+	type RandomGenerator = MyRandomGenerator;
+	type SubsetSize = ConstU64<3>;
+}
+
+impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
+
 impl pallet_session::SessionManager<ValidatorId> for Runtime {
 	fn new_session_genesis(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
 		None
 	}
+
 	fn end_session(_: sp_staking::SessionIndex) {}
 
 	fn start_session(_: sp_staking::SessionIndex) {}
 
 	fn new_session(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
-		Some(
-			NftPermission::accounts_with_bound_permission()
+		Some(ValidatorSubsetSelection::select_subset(
+			&NftPermission::accounts_with_bound_permission()
 				.expect("pallet is initialized properly")
 				.collect(),
-		)
+		))
 	}
 }
 
@@ -380,6 +408,8 @@ construct_runtime!(
 		NftPermission: pallet_nft_permission,
 		Staking: pallet_staking,
 		Session: pallet_session,
+		ValidatorSubsetSelection: pallet_validator_subset_selection,
+		InsecureRandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 	}
 );
 
