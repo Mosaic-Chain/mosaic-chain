@@ -58,13 +58,15 @@ pub use weights::*;
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use sp_std::collections::btree_set::BTreeSet;
+	use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 	use super::WeightInfo;
 	use frame_support::{
-		inherent::Vec,
 		pallet_prelude::*,
-		traits::tokens::nonfungibles_v2::{Create, Inspect, InspectEnumerable, Mutate},
+		traits::{
+			tokens::nonfungibles_v2::{Create, Inspect, InspectEnumerable, Mutate},
+			BuildGenesisConfig,
+		},
 		PalletId,
 	};
 	use pallet_nfts::{
@@ -139,15 +141,14 @@ pub mod pallet {
 		pub initial_permission_holders: Vec<(T::AccountId, T::Permission)>,
 	}
 
-	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { initial_permission_holders: vec![] }
+			Self { initial_permission_holders: Vec::new() }
 		}
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T>
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
 	where
 		T::Permission: Encode,
 	{

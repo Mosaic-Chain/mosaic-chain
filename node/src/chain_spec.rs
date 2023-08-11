@@ -1,6 +1,6 @@
 use node_template_runtime::{
-	opaque::SessionKeys, AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
-	NftPermissionConfig, SessionConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	opaque::SessionKeys, AccountId, BalancesConfig, NftPermissionConfig, RuntimeGenesisConfig,
+	SessionConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -12,7 +12,7 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -149,18 +149,19 @@ fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
-) -> GenesisConfig {
-	GenesisConfig {
+) -> RuntimeGenesisConfig {
+	RuntimeGenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
 			code: wasm_binary.to_vec(),
+			..Default::default()
 		},
 		balances: BalancesConfig {
 			// Configure endowed accounts with initial balance of 1 << 60.
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
-		aura: AuraConfig { authorities: vec![] },
-		grandpa: GrandpaConfig { authorities: vec![] },
+		aura: Default::default(),
+		grandpa: Default::default(),
 		sudo: SudoConfig {
 			// Assign network admin rights.
 			key: Some(root_key),
