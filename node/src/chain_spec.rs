@@ -1,6 +1,6 @@
 use node_template_runtime::{
-	opaque::SessionKeys, AccountId, BalancesConfig, NftPermissionConfig, RuntimeGenesisConfig,
-	SessionConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	opaque::SessionKeys, AccountId, Balance, BalancesConfig, NftPermissionConfig,
+	RuntimeGenesisConfig, SessionConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -55,9 +55,9 @@ pub fn development_config() -> Result<ChainSpec, String> {
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice")],
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), ()),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), ()),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ()),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), (), true, 100),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), (), true, 100),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie"), (), false, 100),
 				],
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -102,10 +102,10 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				// Initial PoA authorities
 				vec![authority_keys_from_seed("Alice")],
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), ()),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), ()),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), ()),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), ()),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), (), true, 100),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), (), true, 100),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie"), (), false, 100),
+					(get_account_id_from_seed::<sr25519::Public>("Dave"), (), false, 100),
 				],
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -145,7 +145,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId, AccountId)>,
-	initial_permission_holders: Vec<(AccountId, ())>,
+	initial_permission_holders: Vec<(AccountId, (), bool, Balance)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,

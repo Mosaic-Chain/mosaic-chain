@@ -318,6 +318,8 @@ impl pallet_nft_permission::Config for Runtime {
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type ItemIdSuccession = Self;
 	type Permission = ();
+	type BondInterface = ();
+	type Balance = Balance;
 }
 
 impl pallet_session::SessionManager<ValidatorId> for Runtime {
@@ -330,9 +332,8 @@ impl pallet_session::SessionManager<ValidatorId> for Runtime {
 
 	fn new_session(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
 		Some(
-			NftPermission::permission_holders(&())
+			NftPermission::accounts_with_bonded_permission()
 				.expect("pallet is initialized properly")
-				.into_iter()
 				.collect(),
 		)
 	}

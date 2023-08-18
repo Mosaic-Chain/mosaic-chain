@@ -1,3 +1,4 @@
+//TODO: Rewrite docs
 //! # NFT permission pallet
 //! This module makes it possible to use NFTs as permission tokens.
 //! It allows you to define and manage permissions for accounts
@@ -58,13 +59,18 @@ pub use weights::*;
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+	use sp_std::{
+		collections::btree_map::{BTreeMap, Entry},
+		vec::Vec,
+	};
+
+	use codec::Codec;
 
 	use super::WeightInfo;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
-			tokens::nonfungibles_v2::{Create, Inspect, InspectEnumerable, Mutate},
+			tokens::nonfungibles_v2::{Create, Inspect, Mutate, Transfer},
 			BuildGenesisConfig,
 		},
 		PalletId,
@@ -73,14 +79,58 @@ pub mod pallet {
 		CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
 		MintSettings, MintType, Pallet as NftsPallet,
 	};
-	use sp_runtime::{traits::AccountIdConversion, BoundedVec};
+	use sp_runtime::{traits::AccountIdConversion, BoundedVec, DispatchError, FixedPointOperand};
 
-	use frame_system::pallet_prelude::OriginFor;
+	use frame_system::{ensure_signed, pallet_prelude::OriginFor};
 
 	use utils::traits::Successor;
 
-	const PERMISSION_KEY: &[u8] = b"permission";
-	const SUSPENSION_KEY: &[u8] = b"suspended";
+	pub trait PermissionBondInterface<AccountId, Permission, Balance> {
+		fn bond(
+			account_id: AccountId,
+			permission: Permission,
+			nominal_value: Balance,
+		) -> DispatchResult;
+		fn unbond(
+			account_id: AccountId,
+			permission: Permission,
+			nominal_value: Balance,
+		) -> Result<Balance, DispatchError>;
+		fn chill(
+			account_id: AccountId,
+			permission: Permission,
+			nominal_value: Balance,
+		) -> DispatchResult;
+		fn unchill(
+			account_id: AccountId,
+			permission: Permission,
+			nominal_value: Balance,
+		) -> DispatchResult;
+	}
+
+	impl<AccountId, Permission, Balance> PermissionBondInterface<AccountId, Permission, Balance>
+		for ()
+	{
+		fn bond(_: AccountId, _: Permission, _: Balance) -> DispatchResult {
+			Ok(())
+		}
+		fn unbond(
+			_: AccountId,
+			_: Permission,
+			nominal_value: Balance,
+		) -> Result<Balance, DispatchError> {
+			Ok(nominal_value)
+		}
+		fn chill(_: AccountId, _: Permission, _: Balance) -> DispatchResult {
+			Ok(())
+		}
+		fn unchill(_: AccountId, _: Permission, _: Balance) -> DispatchResult {
+			Ok(())
+		}
+	}
+
+	const PERMISSION_KEY: &[u8] = b"PERMISSION";
+	const NOMINAL_VALUE_KEY: &[u8] = b"NOMINAL_VALUE";
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -98,8 +148,27 @@ pub mod pallet {
 		/// The origin that is authorized to mint new tokens and modify existing ones.
 		type PrivilegedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+		/// Used for the nominal value of permission tokens
+		type Balance: Parameter
+			+ Member
+			+ sp_runtime::traits::AtLeast32BitUnsigned
+			+ Codec
+			+ Default
+			+ Copy
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ TypeInfo
+			+ FixedPointOperand;
+
 		/// The permission type that is stored amongst the token's attributes.
-		type Permission: MaybeSerializeDeserialize;
+		type Permission: Parameter + Member + Codec + MaybeSerializeDeserialize;
+
+		/// Interface through which tokens can be bound
+		type BondInterface: PermissionBondInterface<
+			Self::AccountId,
+			Self::Permission,
+			Self::Balance,
+		>;
 
 		/// A way the next item's id is generated.
 		type ItemIdSuccession: Successor<Self::ItemId>;
@@ -122,6 +191,10 @@ pub mod pallet {
 	#[pallet::getter(fn next_item_id)]
 	pub type NextItemId<T: Config> = StorageValue<_, <T as NftsConfig>::ItemId>;
 
+	#[pallet::storage]
+	pub type BondedTokens<T: Config> =
+		StorageValue<_, BTreeMap<T::AccountId, (<T as NftsConfig>::ItemId, bool)>>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -129,16 +202,29 @@ pub mod pallet {
 		TokenCreated { account: T::AccountId, item_id: <T as NftsConfig>::ItemId },
 		/// A token's suspend status has been modified.
 		TokenSuspendSet { item_id: <T as NftsConfig>::ItemId, suspended: bool },
+		/// A token has been successfully bonded
+		TokenBonded { item_id: <T as NftsConfig>::ItemId },
+		/// A token has been successfully unbonded
+		TokenUnbonded { item_id: <T as NftsConfig>::ItemId },
+		/// A token has been successfully chilled
+		TokenChilled { item_id: <T as NftsConfig>::ItemId },
+		/// A token has been successfully unchilled
+		TokenUnchilled { item_id: <T as NftsConfig>::ItemId },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		NotInitialized,
+		WrongOwner,
+		AlreadyBonded,
+		NotBonded,
+		AlreadyChilled,
+		NotChilled,
 	}
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub initial_permission_holders: Vec<(T::AccountId, T::Permission)>,
+		pub initial_permission_holders: Vec<(T::AccountId, T::Permission, bool, T::Balance)>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -148,10 +234,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
-	where
-		T::Permission: Encode,
-	{
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			let admin: T::AccountId = T::PalletId::get().into_account_truncating();
 			PalletAccountId::<T>::put(admin.clone());
@@ -174,9 +257,12 @@ pub mod pallet {
 			.expect("could create collection");
 
 			CollectionId::<T>::put(collection_id);
+			let mut bonded_tokens =
+				BTreeMap::<T::AccountId, (<T as NftsConfig>::ItemId, bool)>::new();
 
 			let mut item_id = T::ItemIdSuccession::initial();
-			for (account_id, permission) in &self.initial_permission_holders {
+			for (account_id, permission, bonded, nominal_value) in &self.initial_permission_holders
+			{
 				NftsPallet::<T>::mint_into(
 					&collection_id,
 					&item_id,
@@ -186,74 +272,166 @@ pub mod pallet {
 				)
 				.expect("could mint new permission nft");
 
-				permission
-					.using_encoded(|permission| {
-						Pallet::<T>::init_attributes(&collection_id, &item_id, permission)
+				nominal_value
+					.using_encoded(|nominal_value| {
+						permission.using_encoded(|permission| {
+							Pallet::<T>::init_attributes(
+								&collection_id,
+								&item_id,
+								permission,
+								nominal_value,
+							)
+						})
 					})
 					.expect("could initialize attributes");
 
 				item_id = T::ItemIdSuccession::successor(&item_id);
+
+				if *bonded {
+					<NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, &item_id)
+						.expect("could disable transfer");
+					T::BondInterface::bond(account_id.clone(), permission.clone(), *nominal_value)
+						.expect("could bond");
+					bonded_tokens.insert(account_id.clone(), (item_id, false));
+				}
 			}
 
 			NextItemId::<T>::put(item_id);
+			BondedTokens::<T>::put(bonded_tokens);
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Returns an iterator over the accounts who have the
-		/// permission provided according to their nfts and are not suspended.
-		///
-		/// # Errors
-		/// This function will return an error if the pallet has not been initialized yet.
-		pub fn permission_holders(
-			permission: &T::Permission,
-		) -> Result<BTreeSet<T::AccountId>, DispatchError>
-		where
-			T::Permission: Encode,
-		{
+		pub fn do_bond(
+			account_id: &T::AccountId,
+			item_id: &<T as NftsConfig>::ItemId,
+		) -> DispatchResult {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-			let holders = permission.using_encoded(|permission| {
-				false.using_encoded(|not_suspended| {
-					NftsPallet::<T>::items(&collection_id)
-						.filter_map(move |item_id| {
-							Self::check_attributes(
-								&collection_id,
-								&item_id,
-								permission,
-								not_suspended,
-							)
-							.then_some(NftsPallet::<T>::owner(collection_id, item_id))
-							.flatten()
-						})
-						.collect()
-				})
-			});
 
-			Ok(holders)
+			ensure!(
+				NftsPallet::<T>::owner(collection_id, *item_id)
+					.is_some_and(|owner| owner == *account_id),
+				Error::<T>::WrongOwner
+			);
+
+			let mut bonded_tokens = BondedTokens::<T>::get().ok_or(Error::<T>::NotInitialized)?;
+
+			if let Entry::Vacant(c) = bonded_tokens.entry(account_id.clone()) {
+				c.insert((*item_id, false));
+
+				<NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, item_id)?;
+
+				let permission = Self::get_permission(&collection_id, item_id)?;
+				let nominal_value = Self::get_nominal_value(&collection_id, item_id)?;
+				T::BondInterface::bond(account_id.clone(), permission, nominal_value)?;
+
+				BondedTokens::<T>::put(bonded_tokens);
+				Self::deposit_event(Event::<T>::TokenBonded { item_id: *item_id });
+
+				Ok(())
+			} else {
+				Err(Error::<T>::AlreadyBonded.into())
+			}
 		}
 
-		/// Check if an account has the provided permission and is not suspended
-		///
-		/// # Errors
-		/// This function will return an error if the pallet has not been initialized yet.
-		pub fn check_permission(
-			account_id: &T::AccountId,
-			permission: &T::Permission,
-		) -> Result<bool, DispatchError>
-		where
-			T::Permission: Encode,
-		{
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+		pub fn do_unbond(account_id: &T::AccountId) -> DispatchResult {
+			let mut bonded_tokens = BondedTokens::<T>::get().ok_or(Error::<T>::NotInitialized)?;
 
-			Ok(permission.using_encoded(|permission| {
-				false.using_encoded(|suspended| {
-					NftsPallet::<T>::owned_in_collection(&collection_id, account_id).any(
-						|item_id| {
-							Self::check_attributes(&collection_id, &item_id, permission, suspended)
-						},
+			if let Entry::Occupied(entry) = bonded_tokens.entry(account_id.clone()) {
+				if !entry.get().1 {
+					return Err(Error::<T>::NotChilled.into());
+				}
+				let (_account_id, (item_id, _chilled)) = entry.remove_entry();
+
+				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+
+				let old_nominal_value = Self::get_nominal_value(&collection_id, &item_id)?;
+				let permission = Self::get_permission(&collection_id, &item_id)?;
+
+				let new_nominal_value =
+					T::BondInterface::unbond(account_id.clone(), permission, old_nominal_value)?;
+
+				new_nominal_value.using_encoded(|nominal_value| {
+					<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+						&collection_id,
+						&item_id,
+						NOMINAL_VALUE_KEY,
+						nominal_value,
 					)
-				})
-			}))
+				})?;
+
+				<NftsPallet<T> as Transfer<_>>::enable_transfer(&collection_id, &item_id)?;
+
+				BondedTokens::<T>::put(bonded_tokens);
+				Self::deposit_event(Event::<T>::TokenUnbonded { item_id });
+
+				Ok(())
+			} else {
+				Err(Error::<T>::NotBonded.into())
+			}
+		}
+
+		pub fn do_chill(account_id: &T::AccountId) -> DispatchResult {
+			let mut bonded_tokens = BondedTokens::<T>::get().ok_or(Error::<T>::NotInitialized)?;
+
+			if let Entry::Occupied(mut c) = bonded_tokens.entry(account_id.clone()) {
+				if c.get().1 {
+					return Err(Error::<T>::AlreadyChilled.into());
+				}
+
+				let (item_id, chilled) = c.get_mut();
+				*chilled = true;
+
+				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+
+				let nominal_value = Self::get_nominal_value(&collection_id, item_id)?;
+				let permission = Self::get_permission(&collection_id, item_id)?;
+
+				T::BondInterface::chill(account_id.clone(), permission, nominal_value)?;
+
+				Self::deposit_event(Event::<T>::TokenChilled { item_id: *item_id });
+				BondedTokens::<T>::put(bonded_tokens);
+
+				Ok(())
+			} else {
+				Err(Error::<T>::NotBonded.into())
+			}
+		}
+
+		pub fn do_unchill(account_id: &T::AccountId) -> DispatchResult {
+			let mut bonded_tokens = BondedTokens::<T>::get().ok_or(Error::<T>::NotInitialized)?;
+
+			if let Entry::Occupied(mut c) = bonded_tokens.entry(account_id.clone()) {
+				if !(c.get().1) {
+					return Err(Error::<T>::NotChilled.into());
+				}
+
+				let (item_id, chilled) = c.get_mut();
+				*chilled = false;
+
+				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+
+				let nominal_value = Self::get_nominal_value(&collection_id, item_id)?;
+				let permission = Self::get_permission(&collection_id, item_id)?;
+
+				T::BondInterface::unchill(account_id.clone(), permission, nominal_value)?;
+
+				Self::deposit_event(Event::<T>::TokenUnchilled { item_id: *item_id });
+				BondedTokens::<T>::put(bonded_tokens);
+
+				Ok(())
+			} else {
+				Err(Error::<T>::NotBonded.into())
+			}
+		}
+
+		/// Returns an iterator over account ids
+		pub fn accounts_with_bonded_permission(
+		) -> Result<impl Iterator<Item = T::AccountId>, DispatchError> {
+			let bonded_tokens = BondedTokens::<T>::get().ok_or(Error::<T>::NotInitialized)?;
+			Ok(bonded_tokens
+				.into_iter()
+				.filter_map(|(account_id, (_, chilled))| (!chilled).then_some(account_id)))
 		}
 
 		/// Mint a new permission NFT to an account with the provided permission.
@@ -265,85 +443,44 @@ pub mod pallet {
 		pub fn do_mint_permission_token(
 			account_id: &T::AccountId,
 			permission: &T::Permission,
-		) -> Result<<T as NftsConfig>::ItemId, DispatchError>
-		where
-			T::Permission: Encode,
-		{
-			permission.using_encoded(|permission| Self::create_token(account_id, permission))
-		}
-
-		/// Set the `suspended` attribute for the supplied item
-		///
-		/// # Errors
-		///
-		/// This function will return an error if the pallet has not been initialized yet or an error occurs within pallet_nfts
-		pub fn do_set_suspend(
-			item_id: &<T as NftsConfig>::ItemId,
-			suspended: bool,
-		) -> DispatchResult {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-			Self::set_suspension_attribute(&collection_id, item_id, suspended)?;
-			Ok(())
-		}
-
-		/// Set all permission token's `suspended` attribute with the supplied permission for a given account
-		///
-		/// # Errors
-		///
-		/// This function will return an error if the pallet has not been initialized or an error occurs within pallet_nfts
-		pub fn do_set_suspend_all(
-			account_id: &T::AccountId,
-			permission: &T::Permission,
-			suspended: bool,
-		) -> DispatchResult
-		where
-			T::Permission: Encode,
-		{
-			permission.using_encoded(|permission| {
-				Self::set_all_suspension_attribute(account_id, permission, suspended)
+			nominal_value: &T::Balance,
+		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
+			nominal_value.using_encoded(|nominal_value| {
+				permission.using_encoded(|permission| {
+					Self::create_token(account_id, permission, nominal_value)
+				})
 			})
 		}
 
-		fn set_suspension_attribute(
+		fn get_nominal_value(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
-			suspended: bool,
-		) -> DispatchResult {
-			suspended.using_encoded(|suspended| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					collection_id,
-					item_id,
-					SUSPENSION_KEY,
-					suspended,
-				)
-			})?;
-
-			Self::deposit_event(Event::<T>::TokenSuspendSet { suspended, item_id: *item_id });
-
-			Ok(())
+		) -> Result<T::Balance, DispatchError> {
+			T::Balance::decode(
+				&mut NftsPallet::<T>::system_attribute(collection_id, item_id, NOMINAL_VALUE_KEY)
+					.ok_or(Error::<T>::NotInitialized)?
+					.as_slice(),
+			)
+			.map_err(|_| Error::<T>::NotInitialized.into())
 		}
 
-		fn set_all_suspension_attribute(
-			account_id: &T::AccountId,
-			permission: &[u8],
-			suspended: bool,
-		) -> DispatchResult {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-
-			NftsPallet::<T>::owned_in_collection(&collection_id, account_id)
-				.filter(|item_id| {
-					NftsPallet::<T>::system_attribute(&collection_id, item_id, PERMISSION_KEY)
-						.is_some_and(|p| p.as_slice() == permission)
-				})
-				.try_for_each(|item_id| {
-					Self::set_suspension_attribute(&collection_id, &item_id, suspended)
-				})
+		fn get_permission(
+			collection_id: &<T as NftsConfig>::CollectionId,
+			item_id: &<T as NftsConfig>::ItemId,
+		) -> Result<T::Permission, DispatchError> {
+			T::Permission::decode(
+				&mut NftsPallet::<T>::system_attribute(collection_id, item_id, PERMISSION_KEY)
+					.ok_or(Error::<T>::NotInitialized)?
+					.as_slice(),
+			)
+			.map_err(|_| Error::<T>::NotInitialized.into())
 		}
 
 		fn init_attributes(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
 			permission: &[u8],
+			nominal_value: &[u8],
 		) -> DispatchResult {
 			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 				collection_id,
@@ -352,30 +489,18 @@ pub mod pallet {
 				permission,
 			)?;
 
-			false.using_encoded(|suspended| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					collection_id,
-					item_id,
-					SUSPENSION_KEY,
-					suspended,
-				)
-			})
-		}
-
-		fn check_attributes(
-			collection_id: &<T as NftsConfig>::CollectionId,
-			item_id: &<T as NftsConfig>::ItemId,
-			permission: &[u8],
-			suspended: &[u8],
-		) -> bool {
-			NftsPallet::<T>::system_attribute(collection_id, item_id, PERMISSION_KEY)
-				.zip(NftsPallet::<T>::system_attribute(collection_id, item_id, SUSPENSION_KEY))
-				.is_some_and(|(p, s)| p.as_slice() == permission && s.as_slice() == suspended)
+			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+				collection_id,
+				item_id,
+				NOMINAL_VALUE_KEY,
+				nominal_value,
+			)
 		}
 
 		fn create_token(
 			account_id: &T::AccountId,
 			permission: &[u8],
+			nominal_value: &[u8],
 		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
 			let item_id = Self::next_item_id().ok_or(Error::<T>::NotInitialized)?;
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
@@ -388,7 +513,7 @@ pub mod pallet {
 				true,
 			)?;
 
-			Self::init_attributes(&collection_id, &item_id, permission)?;
+			Self::init_attributes(&collection_id, &item_id, permission, nominal_value)?;
 
 			Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
 				account: account_id.clone(),
@@ -415,42 +540,35 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			account_id: T::AccountId,
 			permission: BoundedVec<u8, <T as NftsConfig>::ValueLimit>,
+			nominal_value: BoundedVec<u8, <T as NftsConfig>::ValueLimit>,
 		) -> DispatchResult {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
-			Self::create_token(&account_id, permission.as_slice()).map(|_| ())
+			Self::create_token(&account_id, permission.as_slice(), nominal_value.as_slice())
+				.map(|_| ())
 		}
 
-		/// Set the `suspended` attribute for the supplied item
-		///
-		/// # Errors
-		///
-		/// This function will return an error if the pallet has not been initialized yet,
-		/// an error occurs within pallet_nfts or the origin isn't the privileged one.
 		#[pallet::call_index(1)]
-		pub fn set_suspend(
-			origin: OriginFor<T>,
-			item_id: <T as NftsConfig>::ItemId,
-			suspended: bool,
-		) -> DispatchResult {
-			T::PrivilegedOrigin::ensure_origin(origin)?;
-			Self::do_set_suspend(&item_id, suspended)
+		pub fn bond(origin: OriginFor<T>, item_id: <T as NftsConfig>::ItemId) -> DispatchResult {
+			let account_id = ensure_signed(origin)?;
+			Self::do_bond(&account_id, &item_id)
 		}
 
-		/// Set all permission token's `suspended` attribute with the supplied permission for a given account
-		///
-		/// # Errors
-		///
-		/// This function will return an error if the pallet has not been initialized,
-		///  an error occurs within pallet_nfts or the origin isn't the privileged one.
 		#[pallet::call_index(2)]
-		pub fn set_suspend_all(
-			origin: OriginFor<T>,
-			account_id: T::AccountId,
-			permission: BoundedVec<u8, <T as NftsConfig>::ValueLimit>,
-			suspended: bool,
-		) -> DispatchResult {
-			T::PrivilegedOrigin::ensure_origin(origin)?;
-			Self::set_all_suspension_attribute(&account_id, permission.as_slice(), suspended)
+		pub fn unbond(origin: OriginFor<T>) -> DispatchResult {
+			let account_id = ensure_signed(origin)?;
+			Self::do_unbond(&account_id)
+		}
+
+		#[pallet::call_index(3)]
+		pub fn chill(origin: OriginFor<T>) -> DispatchResult {
+			let account_id = ensure_signed(origin)?;
+			Self::do_chill(&account_id)
+		}
+
+		#[pallet::call_index(4)]
+		pub fn unchill(origin: OriginFor<T>) -> DispatchResult {
+			let account_id = ensure_signed(origin)?;
+			Self::do_unchill(&account_id)
 		}
 	}
 }
