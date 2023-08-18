@@ -51,6 +51,7 @@ pub use sp_runtime::{Perbill, Permill};
 pub use pallet_insecure_randomness_collective_flip;
 pub use pallet_nft_permission;
 pub use pallet_validator_subset_selection;
+use pallet_validator_subset_selection::Random128;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -336,16 +337,14 @@ impl pallet_staking::Config for Runtime {
 
 pub struct MyRandomGenerator;
 
-impl Randomness<u128, BlockNumber> for MyRandomGenerator {
-	fn random(subject: &[u8]) -> (u128, BlockNumber) {
-		let (random_hash, block_number) = InsecureRandomnessCollectiveFlip::random(subject);
-		let mut random_number: u128 = 0;
-		//first half of 256 bit hash is lost
-		for digit in random_hash.as_ref() {
-			random_number += (*digit) as u128;
-			random_number <<= 8;
-		}
-		(random_number, block_number)
+impl Random128 for MyRandomGenerator {
+	fn random(subject: &[u8]) -> u128 {
+		let (random_hash, _block_number) = InsecureRandomnessCollectiveFlip::random(subject);
+		u128::from_le_bytes(
+			random_hash.as_ref()[0..16]
+				.try_into()
+				.expect("Can't convert first part of random hash to u128!"),
+		)
 	}
 }
 
