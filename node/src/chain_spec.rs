@@ -1,6 +1,9 @@
+use std::marker::PhantomData;
+
 use node_template_runtime::{
 	opaque::SessionKeys, AccountId, Balance, BalancesConfig, NftPermissionConfig,
-	RuntimeGenesisConfig, SessionConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	RuntimeGenesisConfig, SessionConfig, Signature, SudoConfig, SystemConfig, ValidatorSubsetSelectionConfig,
+	WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -70,6 +73,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
 				],
+				3,
 				true,
 			)
 		},
@@ -131,6 +135,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
+				3,
 				true,
 			)
 		},
@@ -155,6 +160,7 @@ fn testnet_genesis(
 	initial_permission_holders: Vec<(AccountId, (), bool, Balance)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
+	initial_subset_size: u64,
 	_enable_println: bool,
 ) -> RuntimeGenesisConfig {
 	RuntimeGenesisConfig {
@@ -186,6 +192,10 @@ fn testnet_genesis(
 					)
 				})
 				.collect::<Vec<_>>(),
+		},
+		validator_subset_selection: ValidatorSubsetSelectionConfig {
+			initial_subset_size,
+			_phantom: PhantomData,
 		},
 	}
 }

@@ -352,7 +352,6 @@ impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type RandomGenerator = MyRandomGenerator;
-	type SubsetSize = ConstU64<3>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
