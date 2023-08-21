@@ -83,53 +83,9 @@ pub mod pallet {
 	};
 	use sp_runtime::{traits::AccountIdConversion, BoundedVec, DispatchError, FixedPointOperand};
 
-	use frame_system::{ensure_signed, pallet_prelude::OriginFor};
+	use frame_system::pallet_prelude::OriginFor;
 
 	use utils::traits::Successor;
-
-	pub trait PermissionBondInterface<AccountId, Permission, Balance> {
-		fn bond(
-			account_id: AccountId,
-			permission: Permission,
-			nominal_value: Balance,
-		) -> DispatchResult;
-		fn unbond(
-			account_id: AccountId,
-			permission: Permission,
-			nominal_value: Balance,
-		) -> Result<Balance, DispatchError>;
-		fn chill(
-			account_id: AccountId,
-			permission: Permission,
-			nominal_value: Balance,
-		) -> DispatchResult;
-		fn unchill(
-			account_id: AccountId,
-			permission: Permission,
-			nominal_value: Balance,
-		) -> DispatchResult;
-	}
-
-	impl<AccountId, Permission, Balance> PermissionBondInterface<AccountId, Permission, Balance>
-		for ()
-	{
-		fn bond(_: AccountId, _: Permission, _: Balance) -> DispatchResult {
-			Ok(())
-		}
-		fn unbond(
-			_: AccountId,
-			_: Permission,
-			nominal_value: Balance,
-		) -> Result<Balance, DispatchError> {
-			Ok(nominal_value)
-		}
-		fn chill(_: AccountId, _: Permission, _: Balance) -> DispatchResult {
-			Ok(())
-		}
-		fn unchill(_: AccountId, _: Permission, _: Balance) -> DispatchResult {
-			Ok(())
-		}
-	}
 
 	const PERMISSION_KEY: &[u8] = b"PERMISSION";
 	const NOMINAL_VALUE_KEY: &[u8] = b"NOMINAL_VALUE";
@@ -164,13 +120,6 @@ pub mod pallet {
 
 		/// The permission type that is stored amongst the token's attributes.
 		type Permission: Parameter + Member + Codec + MaybeSerializeDeserialize;
-
-		/// Interface through which tokens can be bound
-		type BondInterface: PermissionBondInterface<
-			Self::AccountId,
-			Self::Permission,
-			Self::Balance,
-		>;
 
 		/// A way the next item's id is generated.
 		type ItemIdSuccession: Successor<Self::ItemId>;
@@ -292,8 +241,6 @@ pub mod pallet {
 				if *bonded {
 					<NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, &item_id)
 						.expect("could disable transfer");
-					T::BondInterface::bond(account_id.clone(), permission.clone(), *nominal_value)
-						.expect("could bond");
 					bonded_tokens.insert(account_id.clone(), (item_id, false));
 				}
 			}
@@ -315,7 +262,7 @@ pub mod pallet {
 		pub fn do_bond(
 			account_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
-		) -> DispatchResult {
+		) -> Result<(T::Permission, T::Balance), DispatchError> {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 
 			ensure!(
@@ -333,12 +280,11 @@ pub mod pallet {
 
 				let permission = Self::get_permission(&collection_id, item_id)?;
 				let nominal_value = Self::get_nominal_value(&collection_id, item_id)?;
-				T::BondInterface::bond(account_id.clone(), permission, nominal_value)?;
 
 				BondedTokens::<T>::put(bonded_tokens);
 				Self::deposit_event(Event::<T>::TokenBonded { item_id: *item_id });
 
-				Ok(())
+				Ok((permission, nominal_value))
 			} else {
 				Err(Error::<T>::AlreadyBonded.into())
 			}
@@ -350,7 +296,10 @@ pub mod pallet {
 		///
 		/// - Pallet is not initialized.
 		/// - NFT is not chilled.
-		pub fn do_unbond(account_id: &T::AccountId) -> DispatchResult {
+		pub fn do_unbond(
+			account_id: &T::AccountId,
+			new_nominal_value: &T::Balance,
+		) -> DispatchResult {
 			let mut bonded_tokens = BondedTokens::<T>::get().ok_or(Error::<T>::NotInitialized)?;
 
 			if let Entry::Occupied(entry) = bonded_tokens.entry(account_id.clone()) {
@@ -360,12 +309,6 @@ pub mod pallet {
 				let (_account_id, (item_id, _chilled)) = entry.remove_entry();
 
 				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-
-				let old_nominal_value = Self::get_nominal_value(&collection_id, &item_id)?;
-				let permission = Self::get_permission(&collection_id, &item_id)?;
-
-				let new_nominal_value =
-					T::BondInterface::unbond(account_id.clone(), permission, old_nominal_value)?;
 
 				new_nominal_value.using_encoded(|nominal_value| {
 					<NftsPallet<T> as Mutate<_, _>>::set_attribute(
@@ -405,13 +348,6 @@ pub mod pallet {
 				let (item_id, chilled) = c.get_mut();
 				*chilled = true;
 
-				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-
-				let nominal_value = Self::get_nominal_value(&collection_id, item_id)?;
-				let permission = Self::get_permission(&collection_id, item_id)?;
-
-				T::BondInterface::chill(account_id.clone(), permission, nominal_value)?;
-
 				Self::deposit_event(Event::<T>::TokenChilled { item_id: *item_id });
 				BondedTokens::<T>::put(bonded_tokens);
 
@@ -438,13 +374,6 @@ pub mod pallet {
 
 				let (item_id, chilled) = c.get_mut();
 				*chilled = false;
-
-				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-
-				let nominal_value = Self::get_nominal_value(&collection_id, item_id)?;
-				let permission = Self::get_permission(&collection_id, item_id)?;
-
-				T::BondInterface::unchill(account_id.clone(), permission, nominal_value)?;
 
 				Self::deposit_event(Event::<T>::TokenUnchilled { item_id: *item_id });
 				BondedTokens::<T>::put(bonded_tokens);
@@ -589,78 +518,6 @@ pub mod pallet {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
 			Self::create_token(&account_id, permission.as_slice(), nominal_value.as_slice())
 				.map(|_| ())
-		}
-
-		/// Bond a permission NFT to an account, locking its use.
-		///
-		/// # Parameters
-		///
-		/// - `origin`: Caller's origin.
-		/// - `item_id`: ID of the NFT to bond.
-		///
-		/// # Errors
-		///
-		/// - Pallet is not initialized.
-		/// - Origin is not authorized.
-		/// - NFT is not owned by caller.
-		/// - An NFT is already bonded.
-		#[pallet::call_index(1)]
-		pub fn bond(origin: OriginFor<T>, item_id: <T as NftsConfig>::ItemId) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			Self::do_bond(&account_id, &item_id)
-		}
-
-		/// Unbond a bonded permission NFT, releasing its use.
-		///
-		/// # Parameters
-		///
-		/// - `origin`: Caller's origin.
-		///
-		/// # Errors
-		///
-		/// - Pallet is not initialized.
-		/// - Origin is not authorized.
-		/// - NFT is not chilled.
-		#[pallet::call_index(2)]
-		pub fn unbond(origin: OriginFor<T>) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			Self::do_unbond(&account_id)
-		}
-
-		/// Temporarily chill a bonded permission NFT, disabling its use.
-		///
-		/// # Parameters
-		///
-		/// - `origin`: Caller's origin.
-		///
-		/// # Errors
-		///
-		/// - Pallet is not initialized.
-		/// - Origin is not authorized.
-		/// - NFT is not bonded.
-		/// - NFT is already chilled.
-		#[pallet::call_index(3)]
-		pub fn chill(origin: OriginFor<T>) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			Self::do_chill(&account_id)
-		}
-
-		/// Unchill a chilled permission NFT, re-enabling its use.
-		///
-		/// # Parameters
-		///
-		/// - `origin`: Caller's origin.
-		///
-		/// # Errors
-		///
-		/// - Pallet is not initialized.
-		/// - Origin is not authorized.
-		/// - NFT is not bonded.
-		/// - NFT is not chilled.
-		#[pallet::call_index(4)]
-		pub fn unchill(origin: OriginFor<T>) -> DispatchResult {
-			let account_id = ensure_signed(origin)?;
-			Self::do_unchill(&account_id)
 		}
 	}
 }

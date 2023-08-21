@@ -318,7 +318,6 @@ impl pallet_nft_permission::Config for Runtime {
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type ItemIdSuccession = Self;
 	type Permission = ();
-	type BondInterface = ();
 	type Balance = Balance;
 }
 
