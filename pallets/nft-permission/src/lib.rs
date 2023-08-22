@@ -255,6 +255,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Bind a permission NFT to an account, locking its use.
+		/// Returns the associated permission an nominal value decoded from token.
 		///
 		/// # Errors
 		///
@@ -293,6 +294,7 @@ pub mod pallet {
 		}
 
 		/// Unbind a bound permission NFT, releasing its use.
+		/// The supplied nominal value will be set as item attribute.
 		///
 		/// # Errors
 		///
