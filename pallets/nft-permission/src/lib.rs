@@ -259,7 +259,6 @@ pub mod pallet {
 		/// # Errors
 		///
 		/// - Pallet is not initialized.
-		/// - Origin is not authorized.
 		/// - NFT is not owned by caller.
 		/// - An NFT is already bound.
 		pub fn do_bind(
@@ -281,8 +280,8 @@ pub mod pallet {
 
 				<NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, item_id)?;
 
-				let permission = Self::get_permission(&collection_id, item_id)?;
-				let nominal_value = Self::get_nominal_value(&collection_id, item_id)?;
+				let permission = Self::decode_permission(&collection_id, item_id)?;
+				let nominal_value = Self::decode_nominal_value(&collection_id, item_id)?;
 
 				BoundTokens::<T>::put(bound_tokens);
 				Self::deposit_event(Event::<T>::TokenBound { item_id: *item_id });
@@ -421,7 +420,33 @@ pub mod pallet {
 			})
 		}
 
-		fn get_nominal_value(
+		/// Returns the nominal value of the provided item
+		///
+		/// # Errors
+		///  - Pallet is not initialized
+		///  - NFT is not initialized
+		///  - Failed to decode data
+		pub fn nominal_value_of(
+			item_id: &<T as NftsConfig>::ItemId,
+		) -> Result<T::Balance, DispatchError> {
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			Self::decode_nominal_value(&collection_id, item_id)
+		}
+
+		/// Returns the permission of the provided item
+		///
+		/// # Errors
+		///  - Pallet is not initialized
+		///  - NFT is not initialized
+		///  - Failed to decode data
+		pub fn permission_of(
+			item_id: &<T as NftsConfig>::ItemId,
+		) -> Result<T::Permission, DispatchError> {
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			Self::decode_permission(&collection_id, item_id)
+		}
+
+		fn decode_nominal_value(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
@@ -433,7 +458,7 @@ pub mod pallet {
 			.map_err(|_| Error::<T>::NotInitialized.into())
 		}
 
-		fn get_permission(
+		fn decode_permission(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Permission, DispatchError> {
