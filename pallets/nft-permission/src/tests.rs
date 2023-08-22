@@ -1,5 +1,6 @@
-use crate::{mock::*, Event};
-use frame_support::assert_ok;
+use crate::{mock::*, Error, Event};
+use frame_support::{assert_err, assert_ok};
+use frame_system::RawOrigin;
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 
@@ -11,129 +12,130 @@ fn account(id: u8) -> AccountId {
 fn mint_permission_should_work() {
 	new_test_ext().execute_with(|| {
 		let permission = "ValidPermission".into();
-		let account = account(1);
+		let nominal_value = 42;
+		let owner = account(1);
 
-		assert_ok!(NftPermission::do_mint_permission_token(&account, &permission));
+		let item_id =
+			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
+
 		System::assert_last_event(
 			Event::TokenCreated {
-				account: account.clone(),
+				account: owner,
 				item_id: <Test as utils::traits::Successor<u32>>::initial(),
 			}
 			.into(),
 		);
 
-		assert_ok!(NftPermission::check_permission(&account, &"InvalidPermission".into()), false);
-		assert_ok!(NftPermission::check_permission(&account, &permission), true);
+		assert_ok!(NftPermission::permission_of(&item_id), permission);
+		assert_ok!(NftPermission::nominal_value_of(&item_id), nominal_value);
 	});
 }
 
 #[test]
-fn permission_query_should_work() {
-	new_test_ext().execute_with(|| {
-		let even_permission = "EvenPermission".into();
-		let odd_permission = "OddPermission".into();
-
-		for acc in 1..10 {
-			let permission = if acc % 2 == 0 { &even_permission } else { &odd_permission };
-			assert_ok!(NftPermission::do_mint_permission_token(&account(acc), permission));
-		}
-
-		assert_ok!(NftPermission::check_permission(&account(1), &even_permission), false);
-		assert_eq!(NftPermission::check_permission(&account(3), &odd_permission), Ok(true));
-
-		assert_ok!(NftPermission::check_permission(&account(42), &even_permission), false);
-
-		assert_ok!(
-			NftPermission::permission_holders(&even_permission)
-				.map(|v| v.into_iter().collect::<Vec<_>>()),
-			vec![account(2), account(4), account(6), account(8)]
-		);
-
-		assert_ok!(
-			NftPermission::permission_holders(&"InvalidPermission".into()).map(|v| v.is_empty()),
-			true
-		);
-	});
-}
-
-#[test]
-fn suspend_should_work() {
+fn bind_should_work() {
 	new_test_ext().execute_with(|| {
 		let permission = "ValidPermission".into();
-		let account = account(1);
+		let nominal_value = 42;
+		let owner = account(1);
 
-		let item_id = NftPermission::do_mint_permission_token(&account, &permission).unwrap();
+		let item1 =
+			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
+		let item2 =
+			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
-		assert_ok!(NftPermission::check_permission(&account, &permission), true);
+		assert_err!(NftPermission::do_bind(&account(2), &item1), Error::<Test>::WrongOwner);
 
-		assert_ok!(NftPermission::do_set_suspend(&item_id, true));
-		System::assert_last_event(Event::TokenSuspendSet { item_id, suspended: true }.into());
-		assert_ok!(NftPermission::check_permission(&account, &permission), false);
+		assert_ok!(NftPermission::do_bind(&owner, &item1), (permission, nominal_value));
 
-		assert_ok!(NftPermission::do_set_suspend(&item_id, false));
-		System::assert_last_event(Event::TokenSuspendSet { item_id, suspended: false }.into());
-		assert_ok!(NftPermission::check_permission(&account, &permission), true);
+		System::assert_last_event(Event::TokenBound { item_id: item1 }.into());
+
+		assert_err!(NftPermission::do_bind(&owner, &item2), Error::<Test>::AlreadyBound);
+
+		Nfts::transfer(
+			RawOrigin::Signed(owner).into(),
+			NftPermission::collection_id().unwrap(),
+			item1,
+			account(2),
+		)
+		.unwrap_err();
 	});
 }
 
 #[test]
-fn suspend_all_should_work() {
+fn unbind_should_work() {
 	new_test_ext().execute_with(|| {
 		let permission = "ValidPermission".into();
-		let account = account(1);
+		let nominal_value = 42;
+		let owner = account(1);
 
-		let item_ids: Vec<_> = (0..3)
-			.map(|_| NftPermission::do_mint_permission_token(&account, &permission).unwrap())
-			.collect();
+		let item =
+			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
-		assert_ok!(
-			NftPermission::permission_holders(&permission)
-				.map(|v| v.into_iter().collect::<Vec<_>>()),
-			vec![account.clone()]
-		);
+		assert_err!(NftPermission::do_unbind(&owner, &0), Error::<Test>::NotBound);
 
-		assert_ok!(NftPermission::do_set_suspend_all(&account, &permission, true));
+		assert_ok!(NftPermission::do_bind(&owner, &item), (permission, nominal_value));
 
-		for id in &item_ids {
-			System::assert_has_event(
-				Event::TokenSuspendSet { item_id: *id, suspended: true }.into(),
-			);
-		}
+		assert_err!(NftPermission::do_unbind(&owner, &0), Error::<Test>::NotChilled);
 
-		assert_ok!(NftPermission::check_permission(&account, &permission), false);
+		assert_ok!(NftPermission::do_chill(&owner));
 
-		assert_ok!(NftPermission::do_set_suspend_all(&account, &permission, false));
+		assert_ok!(NftPermission::do_unbind(&owner, &0));
 
-		for id in &item_ids {
-			System::assert_has_event(
-				Event::TokenSuspendSet { item_id: *id, suspended: false }.into(),
-			);
-		}
+		System::assert_last_event(Event::TokenUnbound { item_id: item }.into());
 
-		assert_ok!(NftPermission::check_permission(&account, &permission), true);
+		assert_ok!(NftPermission::nominal_value_of(&item), 0);
+
+		assert_ok!(Nfts::transfer(
+			RawOrigin::Signed(owner).into(),
+			NftPermission::collection_id().unwrap(),
+			item,
+			account(2),
+		));
 	});
 }
 
 #[test]
-fn nft_operations_should_work() {
+fn chill_should_work() {
 	new_test_ext().execute_with(|| {
-		let alice = account(1);
-		let bob = account(2);
 		let permission = "ValidPermission".into();
-		let collection = NftPermission::collection_id().unwrap();
+		let nominal_value = 42;
+		let owner = account(1);
 
-		let item_id = NftPermission::do_mint_permission_token(&alice, &permission).unwrap();
+		let item =
+			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
-		assert_ok!(NftPermission::check_permission(&alice, &permission), true);
-		assert_ok!(NftPermission::check_permission(&bob, &permission), false);
+		assert_err!(NftPermission::do_chill(&owner), Error::<Test>::NotBound);
 
-		assert_ok!(Nfts::do_transfer(collection, item_id, bob.clone(), |_, _| { Ok(()) }));
+		assert_ok!(NftPermission::do_bind(&owner, &item), (permission, nominal_value));
 
-		assert_ok!(NftPermission::check_permission(&alice, &permission), false);
-		assert_ok!(NftPermission::check_permission(&bob, &permission), true);
+		assert_ok!(NftPermission::do_chill(&owner));
 
-		assert_ok!(Nfts::do_burn(collection, item_id, |_| { Ok(()) }));
+		System::assert_last_event(Event::TokenChilled { item_id: item }.into());
 
-		assert_ok!(NftPermission::permission_holders(&permission).map(|v| v.is_empty()), true);
+		assert_err!(NftPermission::do_chill(&owner), Error::<Test>::AlreadyChilled);
+	});
+}
+
+#[test]
+fn unchill_should_work() {
+	new_test_ext().execute_with(|| {
+		let permission = "ValidPermission".into();
+		let nominal_value = 42;
+		let owner = account(1);
+
+		let item =
+			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
+
+		assert_err!(NftPermission::do_unchill(&owner), Error::<Test>::NotBound);
+
+		assert_ok!(NftPermission::do_bind(&owner, &item), (permission, nominal_value));
+
+		assert_ok!(NftPermission::do_chill(&owner));
+
+		assert_ok!(NftPermission::do_unchill(&owner));
+
+		System::assert_last_event(Event::TokenUnchilled { item_id: item }.into());
+
+		assert_err!(NftPermission::do_unchill(&owner), Error::<Test>::NotChilled);
 	});
 }

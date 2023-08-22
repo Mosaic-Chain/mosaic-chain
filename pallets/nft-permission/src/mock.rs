@@ -118,6 +118,7 @@ impl nft_permission::Config for Test {
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type ItemIdSuccession = Self;
 	type Permission = String;
+	type Balance = u64;
 }
 
 // Build genesis storage according to the mock runtime.
