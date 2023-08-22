@@ -352,25 +352,17 @@ impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type RandomGenerator = MyRandomGenerator;
+	type ValidatorSuperset = Self;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
-impl pallet_session::SessionManager<ValidatorId> for Runtime {
-	fn new_session_genesis(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
-		None
-	}
-
-	fn end_session(_: sp_staking::SessionIndex) {}
-
-	fn start_session(_: sp_staking::SessionIndex) {}
-
-	fn new_session(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
-		Some(ValidatorSubsetSelection::select_subset(
-			&NftPermission::accounts_with_bound_permission()
-				.expect("pallet is initialized properly")
-				.collect(),
-		))
+impl pallet_validator_subset_selection::ValidatorSuperset<AccountId> for Runtime {
+	fn get_superset() -> Vec<AccountId> {
+		NftPermission::accounts_with_bound_permission()
+			.expect("pallet is initialized properly")
+			.into_iter()
+			.collect()
 	}
 }
 
@@ -384,9 +376,9 @@ impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = ValidatorId;
 	type ValidatorIdOf = ConvertInto;
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type ShouldEndSession = ValidatorSubsetSelection;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager = Self;
+	type SessionManager = ValidatorSubsetSelection;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;

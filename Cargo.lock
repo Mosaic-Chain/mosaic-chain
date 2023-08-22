@@ -4985,10 +4985,12 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-session",
  "parity-scale-codec",
  "scale-info",
  "sp-application-crypto",
  "sp-runtime",
+ "sp-staking",
  "sp-std",
  "sp-tracing",
 ]
