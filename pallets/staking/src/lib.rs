@@ -23,7 +23,6 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_system::pallet_prelude::*;
-	use pallet_nft_permission::Pallet as PermissionPallet;
 	use pallet_nfts::Config as NftsConfig;
 	use sp_runtime::FixedPointOperand;
 	use sp_runtime::Perbill;

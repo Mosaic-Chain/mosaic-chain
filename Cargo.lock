@@ -4851,7 +4851,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
- "pallet-nft-permission",
  "pallet-nfts",
  "parity-scale-codec",
  "scale-info",
