@@ -37,9 +37,6 @@ pub mod pallet {
 		) -> Result<(Metadata, Balance), DispatchError>;
 		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult;
 
-		fn chill(account_id: &AccountId) -> DispatchResult;
-		fn unchill(account_id: &AccountId) -> DispatchResult;
-
 		fn slash(
 			validator_id: &AccountId,
 			account_id: &AccountId,
@@ -47,29 +44,36 @@ pub mod pallet {
 		) -> DispatchResult;
 	}
 
+	pub trait NftChilling<AccountId> {
+		fn chill(account_id: &AccountId) -> DispatchResult;
+		fn unchill(account_id: &AccountId) -> DispatchResult;
+	}
+
 	impl<AccountId, Balance, Metadata, ItemId> NftStaking<AccountId, Balance, Metadata, ItemId> for () {
 		fn bind(
-			account_id: &AccountId,
-			item_id: &ItemId,
+			_account_id: &AccountId,
+			_item_id: &ItemId,
 		) -> Result<(Metadata, Balance), DispatchError> {
 			todo!()
 		}
-		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult {
-			Ok(())
-		}
-
-		fn chill(account_id: &AccountId) -> DispatchResult {
-			Ok(())
-		}
-		fn unchill(account_id: &AccountId) -> DispatchResult {
+		fn unbind(_account_id: &AccountId, _item_id: &ItemId) -> DispatchResult {
 			Ok(())
 		}
 
 		fn slash(
-			validator_id: &AccountId,
-			account_id: &AccountId,
-			slash_proportion: Perbill,
+			_validator_id: &AccountId,
+			_account_id: &AccountId,
+			_slash_proportion: Perbill,
 		) -> DispatchResult {
+			Ok(())
+		}
+	}
+
+	impl<AccountId> NftChilling<AccountId> for () {
+		fn chill(_account_id: &AccountId) -> DispatchResult {
+			Ok(())
+		}
+		fn unchill(_account_id: &AccountId) -> DispatchResult {
 			Ok(())
 		}
 	}
@@ -110,12 +114,8 @@ pub mod pallet {
 			Self::ItemId,
 		>;
 
-		type NftDelegatingHandler: NftStaking<
-			Self::AccountId,
-			Self::Balance,
-			ValidatorVariants,
-			Self::ItemId,
-		>;
+		type NftDelegatingHandler: NftStaking<Self::AccountId, Self::Balance, ValidatorVariants, Self::ItemId>
+			+ NftChilling<Self::AccountId>;
 
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
@@ -207,6 +207,8 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(AccountExposure::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
+
+			Self::do_bind(&who, &item_id)?;
 
 			Ok(())
 		}
