@@ -4795,6 +4795,7 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "pallet-nfts",
+ "pallet-staking",
  "parity-scale-codec",
  "scale-info",
  "sp-core",

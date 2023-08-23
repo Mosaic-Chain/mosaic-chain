@@ -341,7 +341,7 @@ impl pallet_session::SessionManager<ValidatorId> for Runtime {
 
 	fn new_session(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
 		Some(
-			NftPermission::accounts_with_bonded_permission()
+			NftPermission::accounts_with_bound_permission()
 				.expect("pallet is initialized properly")
 				.collect(),
 		)
