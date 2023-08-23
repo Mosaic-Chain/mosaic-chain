@@ -38,11 +38,7 @@ pub mod pallet {
 
 		fn unbind(account_id: &AccountId) -> DispatchResult;
 
-		fn slash(
-			validator_id: &AccountId,
-			account_id: &AccountId,
-			slash_proportion: Perbill,
-		) -> DispatchResult;
+		fn slash(account_id: &AccountId, slash_proportion: Perbill) -> DispatchResult;
 
 		fn chill(account_id: &AccountId) -> DispatchResult;
 
