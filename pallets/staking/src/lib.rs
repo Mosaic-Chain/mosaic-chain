@@ -36,7 +36,7 @@ pub mod pallet {
 			item_id: &ItemId,
 		) -> Result<(Variant, Balance), DispatchError>;
 
-		fn unbind(account_id: &AccountId) -> DispatchResult;
+		fn unbind(account_id: &AccountId) -> Result<Balance, DispatchError>;
 
 		fn slash(account_id: &AccountId, slash_proportion: Perbill) -> DispatchResult;
 
@@ -51,7 +51,7 @@ pub mod pallet {
 			item_id: &ItemId,
 		) -> Result<(sp_staking::SessionIndex, Balance), DispatchError>;
 
-		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult;
+		fn unbind(account_id: &AccountId, item_id: &ItemId) -> Result<Balance, DispatchError>;
 
 		fn slash(
 			validator_id: &AccountId,
@@ -68,7 +68,7 @@ pub mod pallet {
 			unimplemented!()
 		}
 
-		fn unbind(_account_id: &AccountId) -> DispatchResult {
+		fn unbind(_account_id: &AccountId) -> Result<Balance, DispatchError> {
 			unimplemented!()
 		}
 
@@ -93,7 +93,7 @@ pub mod pallet {
 			unimplemented!()
 		}
 
-		fn unbind(_account_id: &AccountId, _item_id: &ItemId) -> DispatchResult {
+		fn unbind(_account_id: &AccountId, _item_id: &ItemId) -> Result<Balance, DispatchError> {
 			unimplemented!()
 		}
 
