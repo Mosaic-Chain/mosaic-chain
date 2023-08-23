@@ -54,7 +54,7 @@ pub mod pallet {
 		) -> Result<(Metadata, Balance), DispatchError> {
 			todo!()
 		}
-		fn unbind(account_id: &AccountId, new_nominal_value: &Balance) -> DispatchResult {
+		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult {
 			Ok(())
 		}
 
