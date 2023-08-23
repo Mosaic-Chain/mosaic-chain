@@ -62,49 +62,45 @@ pub mod pallet {
 
 	impl<AccountId, Balance, Variant, ItemId> NftStaking<AccountId, Balance, Variant, ItemId> for () {
 		fn bind(
-			account_id: &AccountId,
-			item_id: &ItemId,
+			_account_id: &AccountId,
+			_item_id: &ItemId,
 		) -> Result<(Variant, Balance), DispatchError> {
 			unimplemented!()
 		}
 
-		fn unbind(account_id: &AccountId) -> DispatchResult {
+		fn unbind(_account_id: &AccountId) -> DispatchResult {
 			unimplemented!()
 		}
 
-		fn slash(
-			validator_id: &AccountId,
-			account_id: &AccountId,
-			slash_proportion: Perbill,
-		) -> DispatchResult {
+		fn slash(_account_id: &AccountId, _slash_proportion: Perbill) -> DispatchResult {
 			unimplemented!()
 		}
 
-		fn chill(account_id: &AccountId) -> DispatchResult {
+		fn chill(_account_id: &AccountId) -> DispatchResult {
 			unimplemented!()
 		}
 
-		fn unchill(account_id: &AccountId) -> DispatchResult {
+		fn unchill(_account_id: &AccountId) -> DispatchResult {
 			unimplemented!()
 		}
 	}
 
 	impl<AccountId, Balance, ItemId> NftDelegation<AccountId, Balance, ItemId> for () {
 		fn bind(
-			account_id: &AccountId,
-			item_id: &ItemId,
+			_account_id: &AccountId,
+			_item_id: &ItemId,
 		) -> Result<(sp_staking::SessionIndex, Balance), DispatchError> {
 			unimplemented!()
 		}
 
-		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult {
+		fn unbind(_account_id: &AccountId, _item_id: &ItemId) -> DispatchResult {
 			unimplemented!()
 		}
 
 		fn slash(
-			validator_id: &AccountId,
-			account_id: &AccountId,
-			slash_proportion: Perbill,
+			_validator_id: &AccountId,
+			_account_id: &AccountId,
+			_slash_proportion: Perbill,
 		) -> DispatchResult {
 			unimplemented!()
 		}
@@ -141,9 +137,9 @@ pub mod pallet {
 		serde::Serialize,
 		serde::Deserialize,
 	)]
-	enum NftVaraint {
+	enum NftVariant<T: Config> {
 		Permission(ValidatorVariant),
-		Delegation,
+		Delegation(T::ItemId),
 	}
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -177,7 +173,7 @@ pub mod pallet {
 			Self::ItemId,
 		>;
 
-		type NftDelegatingHandler: NftDelegation<Self::AccountId, Self::Balance, Self::ItemId>;
+		type NftDelegationHandler: NftDelegation<Self::AccountId, Self::Balance, Self::ItemId>;
 
 		type MinimumStakingDuration: Get<u32>;
 
@@ -222,7 +218,7 @@ pub mod pallet {
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/main-docs/build/events-errors/
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	// #[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
@@ -261,8 +257,16 @@ pub mod pallet {
 			T::NftStakingHandler::bind(&who, &item_id)
 		}
 
-		fn do_unbind(who: &T::AccountId, item_id: &T::ItemId) -> DispatchResult {
-			T::NftStakingHandler::unbind(&who)
+		fn do_unbind(who: &T::AccountId, nft_variant: NftVariant<T>) -> DispatchResult {
+			match nft_variant {
+				NftVariant::<T>::Permission(permission_variant) => {
+					// TODO: match on permission and clean up stake and delegation logic (for dpos)
+					T::NftStakingHandler::unbind(&who)
+				},
+				NftVariant::<T>::Delegation(item_id) => {
+					T::NftDelegationHandler::unbind(&who, &item_id)
+				},
+			}
 		}
 	}
 

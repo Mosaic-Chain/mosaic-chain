@@ -325,7 +325,7 @@ impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
-	type NftDelegatingHandler = ();
+	type NftDelegationHandler = ();
 	type NftStakingHandler = ();
 	type Balance = Balance;
 	type MinimumStakingDuration = ConstU32<256>;
