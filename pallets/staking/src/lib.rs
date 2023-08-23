@@ -30,13 +30,32 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	pub trait NftStaking<AccountId, Balance, Metadata, ItemId> {
+	pub trait NftStaking<AccountId, Balance, Variant, ItemId> {
 		fn bind(
 			account_id: &AccountId,
 			item_id: &ItemId,
-		) -> Result<(Metadata, Balance), DispatchError>;
+		) -> Result<(Variant, Balance), DispatchError>;
 
-		fn unbind(account_id: &AccountId, item_id: Option<&ItemId>) -> DispatchResult;
+		fn unbind(account_id: &AccountId) -> DispatchResult;
+
+		fn slash(
+			validator_id: &AccountId,
+			account_id: &AccountId,
+			slash_proportion: Perbill,
+		) -> DispatchResult;
+
+		fn chill(account_id: &AccountId) -> DispatchResult;
+
+		fn unchill(account_id: &AccountId) -> DispatchResult;
+	}
+
+	pub trait NftDelegation<AccountId, Balance, ItemId> {
+		fn bind(
+			account_id: &AccountId,
+			item_id: &ItemId,
+		) -> Result<(sp_staking::SessionIndex, Balance), DispatchError>;
+
+		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult;
 
 		fn slash(
 			validator_id: &AccountId,
@@ -45,45 +64,90 @@ pub mod pallet {
 		) -> DispatchResult;
 	}
 
-	pub trait NftChilling<AccountId> {
-		fn chill(account_id: &AccountId) -> DispatchResult;
-
-		fn unchill(account_id: &AccountId) -> DispatchResult;
-	}
-
-	impl<AccountId, Balance, Metadata, ItemId> NftStaking<AccountId, Balance, Metadata, ItemId> for () {
+	impl<AccountId, Balance, Variant, ItemId> NftStaking<AccountId, Balance, Variant, ItemId> for () {
 		fn bind(
-			_account_id: &AccountId,
-			_item_id: &ItemId,
-		) -> Result<(Metadata, Balance), DispatchError> {
-			todo!()
+			account_id: &AccountId,
+			item_id: &ItemId,
+		) -> Result<(Variant, Balance), DispatchError> {
+			unimplemented!()
 		}
 
-		fn unbind(_account_id: &AccountId, _item_id: Option<&ItemId>) -> DispatchResult {
-			Ok(())
+		fn unbind(account_id: &AccountId) -> DispatchResult {
+			unimplemented!()
 		}
 
 		fn slash(
-			_validator_id: &AccountId,
-			_account_id: &AccountId,
-			_slash_proportion: Perbill,
+			validator_id: &AccountId,
+			account_id: &AccountId,
+			slash_proportion: Perbill,
 		) -> DispatchResult {
-			Ok(())
+			unimplemented!()
+		}
+
+		fn chill(account_id: &AccountId) -> DispatchResult {
+			unimplemented!()
+		}
+
+		fn unchill(account_id: &AccountId) -> DispatchResult {
+			unimplemented!()
 		}
 	}
 
-	impl<AccountId> NftChilling<AccountId> for () {
-		fn chill(_account_id: &AccountId) -> DispatchResult {
-			Ok(())
+	impl<AccountId, Balance, ItemId> NftDelegation<AccountId, Balance, ItemId> for () {
+		fn bind(
+			account_id: &AccountId,
+			item_id: &ItemId,
+		) -> Result<(sp_staking::SessionIndex, Balance), DispatchError> {
+			unimplemented!()
 		}
-		fn unchill(_account_id: &AccountId) -> DispatchResult {
-			Ok(())
+
+		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult {
+			unimplemented!()
+		}
+
+		fn slash(
+			validator_id: &AccountId,
+			account_id: &AccountId,
+			slash_proportion: Perbill,
+		) -> DispatchResult {
+			unimplemented!()
 		}
 	}
 
+	#[derive(
+		Copy,
+		Clone,
+		PartialEq,
+		Eq,
+		Encode,
+		Decode,
+		RuntimeDebug,
+		TypeInfo,
+		MaxEncodedLen,
+		serde::Serialize,
+		serde::Deserialize,
+	)]
 	pub enum ValidatorVariant {
 		PoS,
 		DPos,
+	}
+
+	#[derive(
+		Copy,
+		Clone,
+		PartialEq,
+		Eq,
+		Encode,
+		Decode,
+		RuntimeDebug,
+		TypeInfo,
+		MaxEncodedLen,
+		serde::Serialize,
+		serde::Deserialize,
+	)]
+	enum NftVaraint {
+		Permission(ValidatorVariant),
+		Delegation,
 	}
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -117,8 +181,7 @@ pub mod pallet {
 			Self::ItemId,
 		>;
 
-		type NftDelegatingHandler: NftStaking<Self::AccountId, Self::Balance, ValidatorVariant, Self::ItemId>
-			+ NftChilling<Self::AccountId>;
+		type NftDelegatingHandler: NftDelegation<Self::AccountId, Self::Balance, Self::ItemId>;
 
 		type MinimumStakingDuration: Get<u32>;
 
@@ -203,7 +266,7 @@ pub mod pallet {
 		}
 
 		fn do_unbind(who: &T::AccountId, item_id: &T::ItemId) -> DispatchResult {
-			T::NftStakingHandler::unbind(&who, Some(item_id))
+			T::NftStakingHandler::unbind(&who)
 		}
 	}
 
