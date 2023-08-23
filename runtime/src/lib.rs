@@ -321,6 +321,15 @@ impl pallet_nft_permission::Config for Runtime {
 	type Balance = Balance;
 }
 
+impl pallet_staking::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type Currency = Balances;
+	type NftDelegatingHandler = ();
+	type NftStakingHandler = ();
+	type Balance = Balance;
+}
+
 impl pallet_session::SessionManager<ValidatorId> for Runtime {
 	fn new_session_genesis(_: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
 		None
@@ -368,6 +377,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		Nfts: pallet_nfts,
 		NftPermission: pallet_nft_permission,
+		Staking: pallet_staking,
 		Session: pallet_session,
 	}
 );

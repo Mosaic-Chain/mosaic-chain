@@ -19,25 +19,105 @@ pub use weights::*;
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
+	use frame_support::dispatch::Codec;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_system::pallet_prelude::*;
 	use pallet_nft_permission::Pallet as PermissionPallet;
 	use pallet_nfts::Config as NftsConfig;
+	use sp_runtime::FixedPointOperand;
+	use sp_runtime::Perbill;
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	pub trait NftStaking<AccountId, Balance, Metadata, ItemId> {
+		fn bind(
+			account_id: &AccountId,
+			item_id: &ItemId,
+		) -> Result<(Metadata, Balance), DispatchError>;
+		fn unbind(account_id: &AccountId, new_nominal_value: &Balance) -> DispatchResult;
+
+		fn chill(account_id: &AccountId) -> DispatchResult;
+		fn unchill(account_id: &AccountId) -> DispatchResult;
+
+		fn slash(
+			validator_id: &AccountId,
+			account_id: &AccountId,
+			slash_proportion: Perbill,
+		) -> DispatchResult;
+	}
+
+	impl<AccountId, Balance, Metadata, ItemId> NftStaking<AccountId, Balance, Metadata, ItemId> for () {
+		fn bind(
+			account_id: &AccountId,
+			item_id: &ItemId,
+		) -> Result<(Metadata, Balance), DispatchError> {
+			todo!()
+		}
+		fn unbind(account_id: &AccountId, new_nominal_value: &Balance) -> DispatchResult {
+			Ok(())
+		}
+
+		fn chill(account_id: &AccountId) -> DispatchResult {
+			Ok(())
+		}
+		fn unchill(account_id: &AccountId) -> DispatchResult {
+			Ok(())
+		}
+
+		fn slash(
+			validator_id: &AccountId,
+			account_id: &AccountId,
+			slash_proportion: Perbill,
+		) -> DispatchResult {
+			Ok(())
+		}
+	}
+
+	pub enum ValidatorVariants {
+		PoS,
+		DPos,
+	}
+
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_nft_permission::Config {
+	pub trait Config: frame_system::Config + NftsConfig {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// Used for the nominal value of permission tokens
+		type Balance: Parameter
+			+ Member
+			+ sp_runtime::traits::AtLeast32BitUnsigned
+			+ Codec
+			+ Default
+			+ Copy
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ TypeInfo
+			+ FixedPointOperand;
 
 		type Currency: frame_support::traits::LockableCurrency<
 			Self::AccountId,
 			Moment = BlockNumberFor<Self>,
 			Balance = Self::Balance,
 		>;
+
+		type NftStakingHandler: NftStaking<
+			Self::AccountId,
+			Self::Balance,
+			ValidatorVariants,
+			Self::ItemId,
+		>;
+
+		type NftDelegatingHandler: NftStaking<
+			Self::AccountId,
+			Self::Balance,
+			ValidatorVariants,
+			Self::ItemId,
+		>;
+
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -51,9 +131,26 @@ pub mod pallet {
 	pub type AccountExposure<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::Balance>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn individual_exposure)]
-	pub type IndividualExposure<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, T::AccountId, T::Balance>;
+	#[pallet::getter(fn currency_exposure)]
+	pub type CurrencyExposure<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId, // ValidatorId
+		Twox64Concat,
+		T::AccountId, // DelegatorId
+		T::Balance,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn nft_exposure)]
+	pub type NftExposure<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId, // ValidatorId
+		Twox64Concat,
+		T::AccountId, // DelegatorId
+		T::Balance,
+	>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/main-docs/build/events-errors/
@@ -74,6 +171,28 @@ pub mod pallet {
 		AlreadyBound,
 	}
 
+	impl<T: Config> Pallet<T> {
+		fn do_stake(who: &T::AccountId, nominal_value: T::Balance) -> DispatchResult {
+			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
+			TotalStake::<T>::put(total + nominal_value);
+
+			AccountExposure::<T>::insert(&who, nominal_value);
+			NftExposure::<T>::insert(&who, &who, nominal_value);
+			Ok(())
+		}
+
+		fn do_unstake() {}
+		fn do_bind(
+			who: &T::AccountId,
+			item_id: &T::ItemId,
+		) -> Result<(ValidatorVariants, T::Balance), DispatchError> {
+			T::NftStakingHandler::bind(&who, &item_id)
+		}
+		fn do_unbind(who: &T::AccountId, nominal_value: T::Balance) -> DispatchResult {
+			T::NftStakingHandler::unbind(&who, &nominal_value)
+		}
+	}
+
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -90,24 +209,18 @@ pub mod pallet {
 
 			ensure!(AccountExposure::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 
-			let (permission, nominal_value) = PermissionPallet::<T>::do_bond(&who, &item_id)?;
-
-			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
-			TotalStake::<T>::put(total + nominal_value);
-
-			AccountExposure::<T>::insert(&who, nominal_value);
-			IndividualExposure::<T>::insert(&who, &who, nominal_value);
-
 			Ok(())
 		}
 
 		/// An example dispatchable that may throw a custom error.
 		#[pallet::call_index(1)]
-		pub fn unstake_nft(origin: OriginFor<T>) -> DispatchResult {
+		pub fn unstake_nft(
+			origin: OriginFor<T>,
+			item_id: <T as NftsConfig>::ItemId,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let unstaked_value: u32 = 0;
-			PermissionPallet::<T>::do_unbond(&who, &unstaked_value.into())?;
 			Ok(())
 		}
 
