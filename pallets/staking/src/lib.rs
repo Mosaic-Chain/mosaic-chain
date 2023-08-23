@@ -35,7 +35,8 @@ pub mod pallet {
 			account_id: &AccountId,
 			item_id: &ItemId,
 		) -> Result<(Metadata, Balance), DispatchError>;
-		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult;
+
+		fn unbind(account_id: &AccountId, item_id: Option<&ItemId>) -> DispatchResult;
 
 		fn slash(
 			validator_id: &AccountId,
@@ -46,6 +47,7 @@ pub mod pallet {
 
 	pub trait NftChilling<AccountId> {
 		fn chill(account_id: &AccountId) -> DispatchResult;
+
 		fn unchill(account_id: &AccountId) -> DispatchResult;
 	}
 
@@ -56,7 +58,8 @@ pub mod pallet {
 		) -> Result<(Metadata, Balance), DispatchError> {
 			todo!()
 		}
-		fn unbind(_account_id: &AccountId, _item_id: &ItemId) -> DispatchResult {
+
+		fn unbind(_account_id: &AccountId, _item_id: Option<&ItemId>) -> DispatchResult {
 			Ok(())
 		}
 
@@ -78,7 +81,7 @@ pub mod pallet {
 		}
 	}
 
-	pub enum ValidatorVariants {
+	pub enum ValidatorVariant {
 		PoS,
 		DPos,
 	}
@@ -110,12 +113,14 @@ pub mod pallet {
 		type NftStakingHandler: NftStaking<
 			Self::AccountId,
 			Self::Balance,
-			ValidatorVariants,
+			ValidatorVariant,
 			Self::ItemId,
 		>;
 
-		type NftDelegatingHandler: NftStaking<Self::AccountId, Self::Balance, ValidatorVariants, Self::ItemId>
+		type NftDelegatingHandler: NftStaking<Self::AccountId, Self::Balance, ValidatorVariant, Self::ItemId>
 			+ NftChilling<Self::AccountId>;
+
+		type MinimumStakingDuration: Get<u32>;
 
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
@@ -128,6 +133,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn account_exposure)]
 	pub type AccountExposure<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::Balance>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn pos_exposure)]
+	pub type PoSExposure<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::Balance>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn currency_exposure)]
@@ -171,9 +180,13 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn do_stake(who: &T::AccountId, nominal_value: T::Balance) -> DispatchResult {
+		fn do_stake(
+			who: &T::AccountId,
+			nominal_value: &T::Balance,
+			variant: &ValidatorVariant,
+		) -> DispatchResult {
 			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
-			TotalStake::<T>::put(total + nominal_value);
+			TotalStake::<T>::put(total + *nominal_value);
 
 			AccountExposure::<T>::insert(&who, nominal_value);
 			NftExposure::<T>::insert(&who, &who, nominal_value);
@@ -181,14 +194,16 @@ pub mod pallet {
 		}
 
 		fn do_unstake() {}
+
 		fn do_bind(
 			who: &T::AccountId,
 			item_id: &T::ItemId,
-		) -> Result<(ValidatorVariants, T::Balance), DispatchError> {
+		) -> Result<(ValidatorVariant, T::Balance), DispatchError> {
 			T::NftStakingHandler::bind(&who, &item_id)
 		}
+
 		fn do_unbind(who: &T::AccountId, item_id: &T::ItemId) -> DispatchResult {
-			T::NftStakingHandler::unbind(&who, item_id)
+			T::NftStakingHandler::unbind(&who, Some(item_id))
 		}
 	}
 
@@ -208,7 +223,8 @@ pub mod pallet {
 
 			ensure!(AccountExposure::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 
-			Self::do_bind(&who, &item_id)?;
+			let (variant, nominal_value) = Self::do_bind(&who, &item_id)?;
+			Self::do_stake(&who, &nominal_value, &variant)?;
 
 			Ok(())
 		}
@@ -265,7 +281,7 @@ pub mod pallet {
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/main-docs/build/origins/
 			let _who = ensure_signed(origin)?;
-			// Return a successful DispatchResultWithPostInfo
+
 			Ok(())
 		}
 	}

@@ -328,6 +328,7 @@ impl pallet_staking::Config for Runtime {
 	type NftDelegatingHandler = ();
 	type NftStakingHandler = ();
 	type Balance = Balance;
+	type MinimumStakingDuration = ConstU32<256>;
 }
 
 impl pallet_session::SessionManager<ValidatorId> for Runtime {
