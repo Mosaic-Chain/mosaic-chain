@@ -35,7 +35,7 @@ pub mod pallet {
 			account_id: &AccountId,
 			item_id: &ItemId,
 		) -> Result<(Metadata, Balance), DispatchError>;
-		fn unbind(account_id: &AccountId, new_nominal_value: &Balance) -> DispatchResult;
+		fn unbind(account_id: &AccountId, item_id: &ItemId) -> DispatchResult;
 
 		fn chill(account_id: &AccountId) -> DispatchResult;
 		fn unchill(account_id: &AccountId) -> DispatchResult;
@@ -187,8 +187,8 @@ pub mod pallet {
 		) -> Result<(ValidatorVariants, T::Balance), DispatchError> {
 			T::NftStakingHandler::bind(&who, &item_id)
 		}
-		fn do_unbind(who: &T::AccountId, nominal_value: T::Balance) -> DispatchResult {
-			T::NftStakingHandler::unbind(&who, &nominal_value)
+		fn do_unbind(who: &T::AccountId, item_id: &T::ItemId) -> DispatchResult {
+			T::NftStakingHandler::unbind(&who, item_id)
 		}
 	}
 
@@ -244,7 +244,6 @@ pub mod pallet {
 			// https://docs.substrate.io/main-docs/build/origins/
 			let _who = ensure_signed(origin)?;
 
-			// Update storage.
 			Ok(())
 		}
 
