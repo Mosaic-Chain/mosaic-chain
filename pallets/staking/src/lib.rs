@@ -261,10 +261,10 @@ pub mod pallet {
 			match nft_variant {
 				NftVariant::<T>::Permission(permission_variant) => {
 					// TODO: match on permission and clean up stake and delegation logic (for dpos)
-					T::NftStakingHandler::unbind(&who)
+					T::NftStakingHandler::unbind(&who).map(|_| ())
 				},
 				NftVariant::<T>::Delegation(item_id) => {
-					T::NftDelegationHandler::unbind(&who, &item_id)
+					T::NftDelegationHandler::unbind(&who, &item_id).map(|_| ())
 				},
 			}
 		}
