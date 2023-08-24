@@ -1,6 +1,7 @@
 use crate::{mock::*, Error, Event};
 use frame_support::{assert_err, assert_ok};
 use frame_system::RawOrigin;
+use pallet_staking::NftStaking;
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 
@@ -43,13 +44,13 @@ fn bind_should_work() {
 		let item2 =
 			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
-		assert_err!(NftPermission::do_bind(&account(2), &item1), Error::<Test>::WrongOwner);
+		assert_err!(NftPermission::bind(&account(2), &item1), Error::<Test>::WrongOwner);
 
-		assert_ok!(NftPermission::do_bind(&owner, &item1), (permission, nominal_value));
+		assert_ok!(NftPermission::bind(&owner, &item1), (permission, nominal_value));
 
 		System::assert_last_event(Event::TokenBound { item_id: item1 }.into());
 
-		assert_err!(NftPermission::do_bind(&owner, &item2), Error::<Test>::AlreadyBound);
+		assert_err!(NftPermission::bind(&owner, &item2), Error::<Test>::AlreadyBound);
 
 		Nfts::transfer(
 			RawOrigin::Signed(owner).into(),
@@ -71,19 +72,17 @@ fn unbind_should_work() {
 		let item =
 			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
-		assert_err!(NftPermission::do_unbind(&owner, &0), Error::<Test>::NotBound);
+		assert_err!(NftPermission::unbind(&owner), Error::<Test>::NotBound);
 
-		assert_ok!(NftPermission::do_bind(&owner, &item), (permission, nominal_value));
+		assert_ok!(NftPermission::bind(&owner, &item), (permission, nominal_value));
 
-		assert_err!(NftPermission::do_unbind(&owner, &0), Error::<Test>::NotChilled);
+		assert_err!(NftPermission::unbind(&owner), Error::<Test>::NotChilled);
 
-		assert_ok!(NftPermission::do_chill(&owner));
+		assert_ok!(NftPermission::chill(&owner));
 
-		assert_ok!(NftPermission::do_unbind(&owner, &0));
+		assert_ok!(NftPermission::unbind(&owner));
 
 		System::assert_last_event(Event::TokenUnbound { item_id: item }.into());
-
-		assert_ok!(NftPermission::nominal_value_of(&item), 0);
 
 		assert_ok!(Nfts::transfer(
 			RawOrigin::Signed(owner).into(),
@@ -104,15 +103,15 @@ fn chill_should_work() {
 		let item =
 			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
-		assert_err!(NftPermission::do_chill(&owner), Error::<Test>::NotBound);
+		assert_err!(NftPermission::chill(&owner), Error::<Test>::NotBound);
 
-		assert_ok!(NftPermission::do_bind(&owner, &item), (permission, nominal_value));
+		assert_ok!(NftPermission::bind(&owner, &item), (permission, nominal_value));
 
-		assert_ok!(NftPermission::do_chill(&owner));
+		assert_ok!(NftPermission::chill(&owner));
 
 		System::assert_last_event(Event::TokenChilled { item_id: item }.into());
 
-		assert_err!(NftPermission::do_chill(&owner), Error::<Test>::AlreadyChilled);
+		assert_err!(NftPermission::chill(&owner), Error::<Test>::AlreadyChilled);
 	});
 }
 
@@ -126,16 +125,16 @@ fn unchill_should_work() {
 		let item =
 			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
-		assert_err!(NftPermission::do_unchill(&owner), Error::<Test>::NotBound);
+		assert_err!(NftPermission::unchill(&owner), Error::<Test>::NotBound);
 
-		assert_ok!(NftPermission::do_bind(&owner, &item), (permission, nominal_value));
+		assert_ok!(NftPermission::bind(&owner, &item), (permission, nominal_value));
 
-		assert_ok!(NftPermission::do_chill(&owner));
+		assert_ok!(NftPermission::chill(&owner));
 
-		assert_ok!(NftPermission::do_unchill(&owner));
+		assert_ok!(NftPermission::unchill(&owner));
 
 		System::assert_last_event(Event::TokenUnchilled { item_id: item }.into());
 
-		assert_err!(NftPermission::do_unchill(&owner), Error::<Test>::NotChilled);
+		assert_err!(NftPermission::unchill(&owner), Error::<Test>::NotChilled);
 	});
 }
