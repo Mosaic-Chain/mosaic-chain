@@ -505,7 +505,7 @@ pub mod pallet {
 		///
 		/// - Pallet is not initialized.
 		/// - NFT is not chilled.
-		fn unbind(account_id: &T::AccountId) -> DispatchResult {
+		fn unbind(account_id: &T::AccountId) -> Result<T::Balance, DispatchError> {
 			let mut bound_tokens = Self::bound_tokens().ok_or(Error::<T>::NotInitialized)?;
 
 			if let Entry::Occupied(entry) = bound_tokens.entry(account_id.clone()) {
@@ -521,7 +521,7 @@ pub mod pallet {
 				BoundTokens::<T>::put(bound_tokens);
 				Self::deposit_event(Event::<T>::TokenUnbound { item_id });
 
-				Ok(())
+				Self::decode_nominal_value(&collection_id, &item_id)
 			} else {
 				Err(Error::<T>::NotBound.into())
 			}

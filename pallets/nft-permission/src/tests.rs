@@ -80,7 +80,7 @@ fn unbind_should_work() {
 
 		assert_ok!(NftPermission::chill(&owner));
 
-		assert_ok!(NftPermission::unbind(&owner));
+		assert_ok!(NftPermission::unbind(&owner), nominal_value);
 
 		System::assert_last_event(Event::TokenUnbound { item_id: item }.into());
 
