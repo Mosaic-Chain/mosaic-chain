@@ -2,6 +2,7 @@ use crate::{mock::*, Error, Event};
 use frame_support::{assert_err, assert_ok};
 use frame_system::RawOrigin;
 use pallet_staking::NftStaking;
+use sp_runtime::Perbill;
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 
@@ -136,5 +137,28 @@ fn unchill_should_work() {
 		System::assert_last_event(Event::TokenUnchilled { item_id: item }.into());
 
 		assert_err!(NftPermission::unchill(&owner), Error::<Test>::NotChilled);
+	});
+}
+
+#[test]
+fn slash_should_work() {
+	new_test_ext().execute_with(|| {
+		let permission = "ValidPermission".into();
+		let nominal_value = 100;
+		let owner = account(1);
+
+		let item =
+			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
+
+		assert_err!(
+			NftPermission::slash(&owner, Perbill::from_percent(16)),
+			Error::<Test>::NotBound
+		);
+
+		assert_ok!(NftPermission::bind(&owner, &item), (permission, nominal_value));
+
+		assert_ok!(NftPermission::slash(&owner, Perbill::from_percent(16)));
+
+		System::assert_last_event(Event::TokenSlashed { item_id: item, nominal_value: 84 }.into());
 	});
 }
