@@ -45,14 +45,23 @@ pub mod pallet {
 		fn unchill(account_id: &AccountId) -> DispatchResult;
 	}
 
+	// TODO: Who stores what state? How could storage be optimized?
+	// Should we consider slashing each delegator token from this pallet?
 	pub trait NftDelegation<AccountId, Balance, ItemId> {
 		fn bind(
+			validator_id: &AccountId,
 			account_id: &AccountId,
 			item_id: &ItemId,
 		) -> Result<(sp_staking::SessionIndex, Balance), DispatchError>;
 
-		fn unbind(account_id: &AccountId, item_id: &ItemId) -> Result<Balance, DispatchError>;
+		fn unbind(
+			validator_id: &AccountId,
+			account_id: &AccountId,
+			item_id: &ItemId,
+		) -> Result<Balance, DispatchError>;
 
+		// TODO: How will the stake be updated after slashing multiple items? 
+		// Will both pallets slash?
 		fn slash(
 			validator_id: &AccountId,
 			account_id: &AccountId,
@@ -87,13 +96,18 @@ pub mod pallet {
 
 	impl<AccountId, Balance, ItemId> NftDelegation<AccountId, Balance, ItemId> for () {
 		fn bind(
+			_validator_id: &AccountId,
 			_account_id: &AccountId,
 			_item_id: &ItemId,
 		) -> Result<(sp_staking::SessionIndex, Balance), DispatchError> {
 			unimplemented!()
 		}
 
-		fn unbind(_account_id: &AccountId, _item_id: &ItemId) -> Result<Balance, DispatchError> {
+		fn unbind(
+			_validator_id: &AccountId,
+			_account_id: &AccountId,
+			_item_id: &ItemId,
+		) -> Result<Balance, DispatchError> {
 			unimplemented!()
 		}
 
@@ -264,7 +278,8 @@ pub mod pallet {
 					T::NftStakingHandler::unbind(&who).map(|_| ())
 				},
 				NftVariant::<T>::Delegation(item_id) => {
-					T::NftDelegationHandler::unbind(&who, &item_id).map(|_| ())
+					//T::NftDelegationHandler::unbind(&who, &item_id).map(|_| ())
+					todo!()
 				},
 			}
 		}

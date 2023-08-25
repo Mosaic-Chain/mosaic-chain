@@ -1,4 +1,4 @@
 [workspace]
-members = ["node", "pallets/nft-permission", "pallets/staking", "runtime"]
+members = ["node", "pallets/nft-permission", "pallets/staking", "pallets/nft-delegation", "runtime"]
 [profile.release]
 panic = "unwind"

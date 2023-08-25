@@ -4787,6 +4787,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nft-delegation"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-nfts",
+ "pallet-session",
+ "pallet-staking",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
+ "sp-std",
+ "utils",
+]
+
+[[package]]
 name = "pallet-nft-permission"
 version = "0.1.0"
 dependencies = [
