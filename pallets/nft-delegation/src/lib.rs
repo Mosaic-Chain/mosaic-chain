@@ -124,6 +124,9 @@ pub mod pallet {
 		Vec<<T as NftsConfig>::ItemId>,
 	>;
 
+	#[pallet::storage]
+	pub type BindCache<T: Config> = StorageMap<_, Twox64Concat, <T as NftsConfig>::ItemId, ()>;
+
 	// TODO: More useful events (more data)
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -264,6 +267,18 @@ pub mod pallet {
 		) -> Result<sp_staking::SessionIndex, DispatchError> {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 			Self::decode_expiration(&collection_id, item_id)
+		}
+
+		pub fn is_bound(item_id: &<T as NftsConfig>::ItemId) -> bool {
+			BindCache::<T>::get(item_id).is_some()
+		}
+
+		fn bind_cache(item_id: &<T as NftsConfig>::ItemId) {
+			BindCache::<T>::set(item_id, Some(()));
+		}
+
+		fn bind_uncache(item_id: &<T as NftsConfig>::ItemId) {
+			BindCache::<T>::set(item_id, None);
 		}
 
 		fn encode_nominal_value(
@@ -418,9 +433,7 @@ pub mod pallet {
 				Error::<T>::WrongOwner
 			);
 
-			//TODO: Consider making this O(1)
-			let mut bound_on_account = BoundTokens::<T>::iter_prefix(account_id);
-			if bound_on_account.any(|(_, itms)| itms.contains(item_id)) {
+			if Self::is_bound(item_id) {
 				return Err(Error::<T>::AlreadyBound.into());
 			}
 
@@ -428,6 +441,8 @@ pub mod pallet {
 				Some(v) => v.push(*item_id),
 				None => *itms = Some(vec![*item_id]),
 			});
+
+			Self::bind_cache(item_id);
 
 			<NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, item_id)?;
 
@@ -451,6 +466,8 @@ pub mod pallet {
 			if let Some(idx) = items.iter().position(|id| id == item_id) {
 				items.swap_remove(idx);
 				BoundTokens::<T>::set(account_id, validator_id, Some(items));
+
+				Self::bind_uncache(item_id);
 
 				<NftsPallet<T> as Transfer<_>>::enable_transfer(&collection_id, item_id)?;
 
