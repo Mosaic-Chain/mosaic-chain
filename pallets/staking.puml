@@ -1,0 +1,104 @@
+@startuml Pallets
+!theme blueprint
+skinparam DefaultFontName 'Noto Sans CJK HK'
+
+package frame {
+
+package nft  {
+    interface ItemId
+}
+
+}
+
+package staking {
+
+enum ValidatorVariant {
+    PoS
+    DPoS
+}
+
+enum NftVariant {
+    Permission(ValidatorVariant)
+    Delegation(ItemId)
+}
+
+interface NftStaking {
+    bind(validator_id, item_id): (validator_variant, balance)?
+    unbind(validator_id): nominal_value?
+    slash(validator_id, slash_proportion): ()?
+
+    chill(validator_id): ()?
+    unchill(validator_id): ()?
+}
+
+interface NftDelegation {
+    bind(validator_id, item_id): (expiry_in_session_idx, balance)?
+    unbind(validator_id, item_id): nominal_value?
+    slash(validator_id, delegator_id, slash_proportion): ()?
+}
+
+object Staking {
+    TotalStake: Balance
+    AccountExposure: validator_id -> Balance
+    IndividualExposure: (validator_id, delegator_id) -> Balance
+    AccountVariant: validator_id -> ValidatorVariant
+    --    
+    +delegate_nft(SignedOrigin, item_id, validator_id): ()?
+    +undelegate_nft(SignedOrigin, item_id, validator_id): ()?
+    +bind_nft(SignedOrigin, item_id): ()?
+    +unbind_nft(SignedOrigin): ()?
+    +stake_currency(SignedOrigin, balance): ()?
+    +unstake_currency(SignedOrigin, balance): ()?
+}
+
+Staking .-down-> NftStaking: NftStakingHandler
+Staking .-down-> NftDelegation: NftDelegationHandler
+
+}
+
+package nft_permission {
+
+enum ChillState {
+    Chilled,
+    Unchilled,
+}
+
+object NftPermission {
+    CollectionId: CollectionId
+    PalletAccountId: AccountId
+    NextItemId: ItemId
+    BoundTokens: AccountId -> (ItemId, ChillState)
+    --
+    accounts_with_bound_permission(): [AccountId]
+    -do_mint_permission_token(account_id, permission, nominal_value)
+    --
+    +mint_permission_token(PrivilegedOrigin, account_id, permission, nominal_value): ()?
+}
+
+NftPermission -up-|> NftStaking
+NftPermission -down-> nft
+
+}
+
+package nft_delegation {
+
+interface OnNftExpire {
+    on_expire(delegator_id, validator_id, item_id, nominal_value)
+}
+
+object "NftDelegation" as NftDelegationPallet {
+    CollectionId: CollectionId
+    PalletAccountId: AccountId
+    NextItemId: ItemId
+    BoundTokens: (delegator_id, validator_id) -> [ItemId]
+    --
+    +mint_delegator_token(PrivilegedOrigin, account_id, expiration, nominal_value): ()?
+}
+
+NftDelegationPallet -up-|> NftDelegation
+NftDelegationPallet .-down-> OnNftExpire: NftExpirationHandler
+NftDelegationPallet -down-> nft
+
+}
+
+@enduml
