@@ -111,13 +111,10 @@ pub mod pallet {
 	#[pallet::getter(fn next_item_id)]
 	pub type NextItemId<T: Config> = StorageValue<_, <T as NftsConfig>::ItemId>;
 
-	// TODO(vismate): Storage optimization
 	#[pallet::storage]
 	#[pallet::getter(fn bound_tokens)]
-	pub type BoundTokens<T: Config> = StorageDoubleMap<
+	pub type BoundTokens<T: Config> = StorageMap<
 		_,
-		Twox64Concat,
-		T::AccountId, // DelegatorId
 		Twox64Concat,
 		T::AccountId, // ValidatorId
 		//TODO(vismate): use a bonded structure instead (with a fairly low number of max items) to make weight calculation easier.
@@ -437,7 +434,7 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyBound.into());
 			}
 
-			BoundTokens::<T>::mutate(account_id, validator_id, |itms| match itms {
+			BoundTokens::<T>::mutate(validator_id, |itms| match itms {
 				Some(v) => v.push(*item_id),
 				None => *itms = Some(vec![*item_id]),
 			});
@@ -456,16 +453,15 @@ pub mod pallet {
 
 		fn unbind(
 			validator_id: &T::AccountId,
-			account_id: &T::AccountId,
+			_account_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 			// TODO: make this O(1)*
-			let mut items =
-				Self::bound_tokens(account_id, validator_id).ok_or(Error::<T>::NotBound)?;
+			let mut items = Self::bound_tokens(validator_id).ok_or(Error::<T>::NotBound)?;
 			if let Some(idx) = items.iter().position(|id| id == item_id) {
 				items.swap_remove(idx);
-				BoundTokens::<T>::set(account_id, validator_id, Some(items));
+				BoundTokens::<T>::set(validator_id, Some(items));
 
 				Self::bind_uncache(item_id);
 
@@ -483,11 +479,11 @@ pub mod pallet {
 
 		fn slash(
 			validator_id: &T::AccountId,
-			account_id: &T::AccountId,
+			_account_id: &T::AccountId,
 			slash_proportion: Perbill,
 		) -> DispatchResult {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-			let items = Self::bound_tokens(account_id, validator_id).ok_or(Error::<T>::NotBound)?;
+			let items = Self::bound_tokens(validator_id).ok_or(Error::<T>::NotBound)?;
 
 			let factor = slash_proportion.left_from_one();
 			for item in items {
@@ -514,10 +510,10 @@ pub mod pallet {
 		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
 			if let Some(collection_id) = Pallet::<T>::collection_id() {
 				// FIXME: HANDLE ERROR!!!
-				for (owner, target, items) in BoundTokens::<T>::iter() {
+				for (target, items) in BoundTokens::<T>::iter() {
 					for item in items {
 						T::NftExpirationHandler::on_expire(BoundItem {
-							owner: owner.clone(),
+							owner: NftsPallet::<T>::owner(collection_id, item).unwrap(),
 							target: target.clone(),
 							item,
 							nominal_value: Pallet::<T>::decode_nominal_value(&collection_id, &item)
