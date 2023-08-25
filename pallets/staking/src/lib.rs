@@ -135,7 +135,7 @@ pub mod pallet {
 	)]
 	pub enum ValidatorVariant {
 		PoS,
-		DPos,
+		DPoS,
 	}
 
 	#[derive(
@@ -232,19 +232,19 @@ pub mod pallet {
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Error names should be descriptive.
 		BadState,
-		/// Errors should have helpful documentation associated with them.
 		AlreadyBound,
+		TargetNotDPoS,
+		InvalidTarget,
+		NotBound,
 	}
 
 	impl<T: Config> Pallet<T> {
 		fn do_stake_validator(validator_id: &T::AccountId, value: &T::Balance) -> DispatchResult {
 			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
-			let account_exposure =
-				AccountExposure::<T>::get(&validator_id).ok_or(Error::<T>::BadState)?;
-			let individual_exposure = IndividualExposure::<T>::get(&validator_id, &validator_id)
-				.ok_or(Error::<T>::BadState)?;
+			let account_exposure = AccountExposure::<T>::get(&validator_id).unwrap_or_default();
+			let individual_exposure =
+				IndividualExposure::<T>::get(&validator_id, &validator_id).unwrap_or_default();
 
 			TotalStake::<T>::put(total + *value);
 			AccountExposure::<T>::set(&validator_id, Some(account_exposure + *value));
@@ -281,8 +281,8 @@ pub mod pallet {
 			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
 			let account_exposure =
 				AccountExposure::<T>::get(&validator_id).ok_or(Error::<T>::BadState)?;
-			let individual_exposure = IndividualExposure::<T>::get(&validator_id, &delegator_id)
-				.ok_or(Error::<T>::BadState)?;
+			let individual_exposure =
+				IndividualExposure::<T>::get(&validator_id, &delegator_id).unwrap_or_default();
 
 			TotalStake::<T>::put(total + *value);
 			AccountExposure::<T>::set(&validator_id, Some(account_exposure + *value));
@@ -328,6 +328,7 @@ pub mod pallet {
 		) -> Result<(sp_staking::SessionIndex, T::Balance), DispatchError> {
 			T::NftDelegationHandler::bind(&who, &item_id)
 		}
+
 		fn do_unbind(
 			who: &T::AccountId,
 			nft_variant: NftVariant<T>,
@@ -353,10 +354,14 @@ pub mod pallet {
 			target: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// TODO: session index unnecessary?
-			let (_session_index, nominal_value) = Self::do_bind_delegation(&who, &item_id)?;
-			Self::do_stake_delegator(&who, &target, &nominal_value)?;
 
+			let target_variant = AccountVariant::<T>::get(&target);
+			ensure!(target_variant.is_some(), Error::<T>::InvalidTarget);
+			ensure!(target_variant == Some(ValidatorVariant::DPoS), Error::<T>::TargetNotDPoS);
+
+			let (_expiry_in_session, nominal_value) = Self::do_bind_delegation(&who, &item_id)?;
+			// TODO: check whether expiry date falls outside of lock duration, if so return error
+			Self::do_stake_delegator(&who, &target, &nominal_value)?;
 			Ok(())
 		}
 
@@ -395,7 +400,7 @@ pub mod pallet {
 		pub fn unbind_nft(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let variant = AccountVariant::<T>::get(&who).ok_or(Error::<T>::BadState)?;
+			let variant = AccountVariant::<T>::get(&who).ok_or(Error::<T>::NotBound)?;
 			let nominal_value = Self::do_unbind(&who, NftVariant::Permission(variant))?;
 			Self::do_unstake_validator(&who, &nominal_value)?;
 			AccountVariant::<T>::remove(&who);
@@ -407,39 +412,19 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] value: T::Balance,
 		) -> DispatchResult {
-			let stash = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
-			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
+			frame_system::Pallet::<T>::inc_consumers(&who).map_err(|_| Error::<T>::BadState)?;
 
-			let stash_balance = <T as pallet::Config>::Currency::free_balance(&stash);
+			let stash_balance = <T as pallet::Config>::Currency::free_balance(&who);
 			let value = value.min(stash_balance);
-			Self::do_stake_validator(&stash, &value)?;
+			Self::do_stake_validator(&who, &value)?;
 
 			Ok(())
 		}
 
 		#[pallet::call_index(5)]
 		pub fn unstake_currency(origin: OriginFor<T>) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
-			let _who = ensure_signed(origin)?;
-
-			Ok(())
-		}
-
-		#[pallet::call_index(6)]
-		pub fn stake_deletated_nft(origin: OriginFor<T>) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
-			let _who = ensure_signed(origin)?;
-
-			Ok(())
-		}
-
-		#[pallet::call_index(7)]
-		pub fn unstake_deletated_nft(origin: OriginFor<T>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/main-docs/build/origins/
