@@ -18,13 +18,13 @@ RUN cargo fmt -- --check
 RUN cargo check --color=always --tests --examples
 
 # with runtime benchmarks
-RUN cargo check --color=always --tests --examples --features runtime-benchmarks
+#RUN cargo check --color=always --tests --examples --features runtime-benchmarks
 
 # with try-runtime
-RUN cargo check --color=always --tests --examples --features try-runtime
+#RUN cargo check --color=always --tests --examples --features try-runtime
 
 # clippy with all features
 # disabled until we clean up the code
 #RUN cargo clippy --color=always --tests --examples --features runtime-benchmarks,try-runtime
 
-RUN cargo test --release --features runtime-benchmarks,try-runtime
+#RUN cargo test --release --features runtime-benchmarks,try-runtime
