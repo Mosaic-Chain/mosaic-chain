@@ -453,11 +453,16 @@ pub mod pallet {
 
 		fn unbind(
 			validator_id: &T::AccountId,
-			_account_id: &T::AccountId,
+			account_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-			// TODO: make this O(1)*
+			ensure!(
+				NftsPallet::<T>::owner(collection_id, *item_id)
+					.is_some_and(|owner| owner == *account_id),
+				Error::<T>::WrongOwner
+			);
+
 			let mut items = Self::bound_tokens(validator_id).ok_or(Error::<T>::NotBound)?;
 			if let Some(idx) = items.iter().position(|id| id == item_id) {
 				items.swap_remove(idx);
