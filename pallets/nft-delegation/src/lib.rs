@@ -84,7 +84,8 @@ pub mod pallet {
 	};
 
 	use sp_runtime::{
-		traits::AccountIdConversion, BoundedVec, DispatchError, FixedPointOperand, Perbill,
+		traits::AccountIdConversion, BoundedVec, DispatchError, FixedPointOperand, PerThing,
+		Perbill,
 	};
 
 	use pallet_staking::NftDelegation;
