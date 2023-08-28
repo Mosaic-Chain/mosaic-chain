@@ -533,7 +533,10 @@ pub mod pallet {
 		/// - Pallet is not initialized
 		/// - NFT is not bound
 		/// - New nominal value could not be encoded
-		fn slash(account_id: &T::AccountId, slash_proportion: Perbill) -> DispatchResult {
+		fn slash(
+			account_id: &T::AccountId,
+			slash_proportion: Perbill,
+		) -> Result<T::Balance, DispatchError> {
 			let mut bound_tokens = Self::bound_tokens().ok_or(Error::<T>::NotInitialized)?;
 
 			if let Entry::Occupied(c) = bound_tokens.entry(account_id.clone()) {
@@ -553,7 +556,7 @@ pub mod pallet {
 
 				BoundTokens::<T>::put(bound_tokens);
 
-				Ok(())
+				Ok(new_nominal_value)
 			} else {
 				Err(Error::<T>::NotBound.into())
 			}

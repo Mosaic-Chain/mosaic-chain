@@ -418,15 +418,15 @@ pub mod pallet {
 		pallet_staking::NftDelegation<T::AccountId, T::Balance, <T as NftsConfig>::ItemId> for Pallet<T>
 	{
 		fn bind(
+			delegator_id: &T::AccountId,
 			validator_id: &T::AccountId,
-			account_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<(sp_staking::SessionIndex, T::Balance), DispatchError> {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 
 			ensure!(
 				NftsPallet::<T>::owner(collection_id, *item_id)
-					.is_some_and(|owner| owner == *account_id),
+					.is_some_and(|owner| owner == *delegator_id),
 				Error::<T>::WrongOwner
 			);
 
@@ -452,14 +452,14 @@ pub mod pallet {
 		}
 
 		fn unbind(
+			delegator_id: &T::AccountId,
 			validator_id: &T::AccountId,
-			account_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 			ensure!(
 				NftsPallet::<T>::owner(collection_id, *item_id)
-					.is_some_and(|owner| owner == *account_id),
+					.is_some_and(|owner| owner == *delegator_id),
 				Error::<T>::WrongOwner
 			);
 
@@ -484,26 +484,26 @@ pub mod pallet {
 
 		fn slash(
 			validator_id: &T::AccountId,
-			_account_id: &T::AccountId,
+			_delegator_id: &T::AccountId,
 			slash_proportion: Perbill,
-		) -> DispatchResult {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-			let items = Self::bound_tokens(validator_id).ok_or(Error::<T>::NotBound)?;
+		) -> Result<T::Balance, DispatchError> {
+			// let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			// let items = Self::bound_tokens(validator_id).ok_or(Error::<T>::NotBound)?;
 
-			let factor = slash_proportion.left_from_one();
-			for item in items {
-				let old_nominal_value = Self::decode_nominal_value(&collection_id, &item)?;
-				let new_nominal_value = factor * old_nominal_value;
-				Self::encode_nominal_value(&collection_id, &item, &new_nominal_value)?;
+			// let factor = slash_proportion.left_from_one();
+			// for item in items {
+			// 	let old_nominal_value = Self::decode_nominal_value(&collection_id, &item)?;
+			// 	let new_nominal_value = factor * old_nominal_value;
+			// 	Self::encode_nominal_value(&collection_id, &item, &new_nominal_value)?;
 
-				// TODO: do we really want to do this?
-				Self::deposit_event(Event::<T>::TokenSlashed {
-					item_id: item,
-					nominal_value: new_nominal_value,
-				});
-			}
-
-			Ok(())
+			// 	// TODO: do we really want to do this?
+			// 	Self::deposit_event(Event::<T>::TokenSlashed {
+			// 		item_id: item,
+			// 		nominal_value: new_nominal_value,
+			// 	});
+			// }
+			// Ok(())
+			todo!()
 		}
 	}
 

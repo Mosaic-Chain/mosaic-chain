@@ -38,7 +38,10 @@ pub mod pallet {
 
 		fn unbind(account_id: &AccountId) -> Result<Balance, DispatchError>;
 
-		fn slash(account_id: &AccountId, slash_proportion: Perbill) -> DispatchResult;
+		fn slash(
+			account_id: &AccountId,
+			slash_proportion: Perbill,
+		) -> Result<Balance, DispatchError>;
 
 		fn chill(account_id: &AccountId) -> DispatchResult;
 
@@ -49,24 +52,24 @@ pub mod pallet {
 	// Should we consider slashing each delegator token from this pallet?
 	pub trait NftDelegation<AccountId, Balance, ItemId> {
 		fn bind(
+			delegator_id: &AccountId,
 			validator_id: &AccountId,
-			account_id: &AccountId,
 			item_id: &ItemId,
 		) -> Result<(sp_staking::SessionIndex, Balance), DispatchError>;
 
 		fn unbind(
+			delegator_id: &AccountId,
 			validator_id: &AccountId,
-			account_id: &AccountId,
 			item_id: &ItemId,
 		) -> Result<Balance, DispatchError>;
 
-		// TODO: How will the stake be updated after slashing multiple items? 
+		// TODO: How will the stake be updated after slashing multiple items?
 		// Will both pallets slash?
 		fn slash(
+			delegator_id: &AccountId,
 			validator_id: &AccountId,
-			account_id: &AccountId,
 			slash_proportion: Perbill,
-		) -> DispatchResult;
+		) -> Result<Balance, DispatchError>;
 	}
 
 	impl<AccountId, Balance, Variant, ItemId> NftStaking<AccountId, Balance, Variant, ItemId> for () {
@@ -81,7 +84,10 @@ pub mod pallet {
 			unimplemented!()
 		}
 
-		fn slash(_account_id: &AccountId, _slash_proportion: Perbill) -> DispatchResult {
+		fn slash(
+			_account_id: &AccountId,
+			_slash_proportion: Perbill,
+		) -> Result<Balance, DispatchError> {
 			unimplemented!()
 		}
 
@@ -115,7 +121,7 @@ pub mod pallet {
 			_validator_id: &AccountId,
 			_account_id: &AccountId,
 			_slash_proportion: Perbill,
-		) -> DispatchResult {
+		) -> Result<Balance, DispatchError> {
 			unimplemented!()
 		}
 	}
@@ -324,24 +330,24 @@ pub mod pallet {
 
 		fn do_bind_delegation(
 			who: &T::AccountId,
+			validator_id: &T::AccountId,
 			item_id: &T::ItemId,
 		) -> Result<(sp_staking::SessionIndex, T::Balance), DispatchError> {
-			T::NftDelegationHandler::bind(&who, &item_id)
+			T::NftDelegationHandler::bind(who, validator_id, item_id)
 		}
 
-		fn do_unbind(
+		fn do_unbind_permission(
 			who: &T::AccountId,
-			nft_variant: NftVariant<T>,
+			validator_variant: ValidatorVariant,
 		) -> Result<T::Balance, DispatchError> {
-			match nft_variant {
-				NftVariant::<T>::Permission(_permission_variant) => {
-					// TODO: match on permission and clean up stake and delegation logic (for dpos)
-					T::NftStakingHandler::unbind(&who)
-				},
-				NftVariant::<T>::Delegation(item_id) => {
-					T::NftDelegationHandler::unbind(&who, &item_id)
-				},
-			}
+			T::NftStakingHandler::unbind(&who)
+		}
+		fn do_unbind_delegation(
+			who: &T::AccountId,
+			validator_id: &T::AccountId,
+			item_id: <T as NftsConfig>::ItemId,
+		) -> Result<T::Balance, DispatchError> {
+			T::NftDelegationHandler::unbind(who, validator_id, &item_id)
 		}
 	}
 
@@ -359,7 +365,8 @@ pub mod pallet {
 			ensure!(target_variant.is_some(), Error::<T>::InvalidTarget);
 			ensure!(target_variant == Some(ValidatorVariant::DPoS), Error::<T>::TargetNotDPoS);
 
-			let (_expiry_in_session, nominal_value) = Self::do_bind_delegation(&who, &item_id)?;
+			let (_expiry_in_session, nominal_value) =
+				Self::do_bind_delegation(&who, &target, &item_id)?;
 			// TODO: check whether expiry date falls outside of lock duration, if so return error
 			Self::do_stake_delegator(&who, &target, &nominal_value)?;
 			Ok(())
@@ -373,7 +380,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let nominal_value = Self::do_unbind(&who, NftVariant::Delegation(item_id))?;
+			let nominal_value = Self::do_unbind_delegation(&who, &target, item_id)?;
 			Self::do_unstake_delegator(&who, &target, &nominal_value)?;
 			Ok(())
 		}
@@ -397,11 +404,12 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		pub fn unbind_nft(origin: OriginFor<T>) -> DispatchResult {
+		pub fn unbind_nft(origin: OriginFor<T>, validator_id: T::AccountId) -> DispatchResult {
+			// TODO: clean up stake and delegation logic (for dpos)
 			let who = ensure_signed(origin)?;
 
 			let variant = AccountVariant::<T>::get(&who).ok_or(Error::<T>::NotBound)?;
-			let nominal_value = Self::do_unbind(&who, NftVariant::Permission(variant))?;
+			let nominal_value = Self::do_unbind_permission(&who, variant)?;
 			Self::do_unstake_validator(&who, &nominal_value)?;
 			AccountVariant::<T>::remove(&who);
 			Ok(())
