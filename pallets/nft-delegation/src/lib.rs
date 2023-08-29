@@ -19,17 +19,28 @@ pub struct BoundItem<AccountId, ItemId, Balance> {
 	nominal_value: Balance,
 }
 pub trait OnNftExpire<AccountId, ItemId, Balance> {
-	fn on_expire(item: BoundItem<AccountId, ItemId, Balance>);
+	fn on_expire(
+		owner: &AccountId,
+		validator: &AccountId,
+		item_id: &ItemId,
+		nominal_value: &Balance,
+	);
 }
 
 impl<AccountId, ItemId, Balance> OnNftExpire<AccountId, ItemId, Balance> for () {
-	fn on_expire(_item: BoundItem<AccountId, ItemId, Balance>) {}
+	fn on_expire(
+		_owner: &AccountId,
+		_validator: &AccountId,
+		_item_id: &ItemId,
+		_nominal_value: &Balance,
+	) {
+	}
 }
 
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use super::{BoundItem, OnNftExpire};
+	use super::OnNftExpire;
 	use sp_std::vec::Vec;
 
 	use codec::Codec;
@@ -50,6 +61,8 @@ pub mod pallet {
 	use sp_runtime::{
 		traits::AccountIdConversion, BoundedVec, DispatchError, FixedPointOperand, Perbill,
 	};
+
+	use pallet_staking::NftDelegation;
 
 	use frame_system::pallet_prelude::OriginFor;
 
@@ -136,6 +149,8 @@ pub mod pallet {
 		/// A token has been successfully unchilled
 		TokenSlashed { item_id: <T as NftsConfig>::ItemId, nominal_value: T::Balance },
 		/// A token has been expired
+		/// Currently this event is only emitted if the token is bound when it expires.
+		/// For now indexers should not rely on this to track expiry.
 		TokenExpired { item_id: <T as NftsConfig>::ItemId },
 	}
 
@@ -377,6 +392,25 @@ pub mod pallet {
 
 			Ok(item_id)
 		}
+
+		fn check_expire(
+			owner: &T::AccountId,
+			validator: &T::AccountId,
+			collection_id: &<T as NftsConfig>::CollectionId,
+			item_id: &<T as NftsConfig>::ItemId,
+			session_index: sp_staking::SessionIndex,
+		) -> DispatchResult {
+			let expiration = Pallet::<T>::decode_expiration(collection_id, item_id)?;
+			if expiration == session_index {
+				let nominal_value = Self::decode_nominal_value(collection_id, item_id)?;
+				T::NftExpirationHandler::on_expire(owner, validator, item_id, &nominal_value);
+
+				Self::unbind(owner, validator, item_id)?;
+				Self::deposit_event(Event::<T>::TokenExpired { item_id: *item_id });
+			}
+
+			Ok(())
+		}
 	}
 
 	// TODO: calculate weights
@@ -413,9 +447,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config>
-		pallet_staking::NftDelegation<T::AccountId, T::Balance, <T as NftsConfig>::ItemId> for Pallet<T>
-	{
+	impl<T: Config> NftDelegation<T::AccountId, T::Balance, <T as NftsConfig>::ItemId> for Pallet<T> {
 		fn bind(
 			delegator_id: &T::AccountId,
 			validator_id: &T::AccountId,
@@ -513,28 +545,26 @@ pub mod pallet {
 		}
 	}
 
+	//TODO: We need to answer the following questions:
+	//		- What do we do on errors? Can we fail gracefully? Are the errors fatal?
+	//		- Only bound tokens are checked for performance reasons, so `TokenExpired` events are only fired
+	//			for items bound on expiry. Can / should we solve this?
+	//		- Currently its the staking pallet's responsibility to check for expiration before binding.
+	//			I think this should chnage but this requires a modified API.
+	//		- How and where do we calculate the weight for this operation? Session pallet?
+	//			- As this is an essesntial operation it WILL fit into a block, even if otherwise it wouldn't
+	//			- Is this acceptable behaviour once we become a parachain?
+
+	/// A wrapper around an other `SessionManager` that also checks for
+	/// bound delegator NFTs that have expired.
+	/// If the expiration of an NFT is - lets say - 5, then the `OnNftExpire` implementation will be called
+	/// in the beginning of the 5th session.  
 	pub struct SessionManager<T, I>(sp_std::marker::PhantomData<T>, sp_std::marker::PhantomData<I>);
 
 	impl<T: Config, ValidatorId, I: pallet_session::SessionManager<ValidatorId>>
 		pallet_session::SessionManager<ValidatorId> for SessionManager<T, I>
 	{
 		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
-			if let Some(collection_id) = Pallet::<T>::collection_id() {
-				// FIXME: HANDLE ERROR!!!
-				for (target, items) in BoundTokens::<T>::iter() {
-					for item in items {
-						T::NftExpirationHandler::on_expire(BoundItem {
-							owner: NftsPallet::<T>::owner(collection_id, item).unwrap(),
-							target: target.clone(),
-							item,
-							nominal_value: Pallet::<T>::decode_nominal_value(&collection_id, &item)
-								.unwrap(), // FIXME: HANDLE ERROR!!!
-						});
-
-						Pallet::<T>::deposit_event(Event::<T>::TokenExpired { item_id: item });
-					}
-				}
-			}
 			I::new_session(new_index)
 		}
 
@@ -546,6 +576,20 @@ pub mod pallet {
 			I::end_session(end_index);
 		}
 		fn start_session(start_index: sp_staking::SessionIndex) {
+			let collection_id = Pallet::<T>::collection_id().expect("could get collection_id"); //FIXME: Handle error more gracefully
+			for (owner, validator, items) in BoundTokens::<T>::iter() {
+				for item_id in items {
+					Pallet::<T>::check_expire(
+						&owner,
+						&validator,
+						&collection_id,
+						&item_id,
+						start_index,
+					)
+					.expect("could check expiration"); //FIXME: Handle error more gracefully
+				}
+			}
+
 			I::start_session(start_index);
 		}
 	}
