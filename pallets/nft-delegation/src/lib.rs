@@ -12,6 +12,12 @@
 
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 pub struct BoundItem<AccountId, ItemId, Balance> {
 	owner: AccountId,
 	target: AccountId,
@@ -389,7 +395,6 @@ pub mod pallet {
 				account: account_id.clone(),
 				item_id,
 			});
-
 
 			NextItemId::<T>::put(T::ItemIdSuccession::successor(&item_id));
 
