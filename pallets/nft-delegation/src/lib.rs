@@ -475,7 +475,9 @@ pub mod pallet {
 
 			BoundTokens::<T>::mutate(validator_id, |itms| match itms {
 				Some(v) => v.push(*item_id),
-				None => *itms = Some(vec![*item_id]),
+				None => {
+					*itms = Some([*item_id].to_vec());
+				},
 			});
 
 			Self::bind_cache(item_id);
