@@ -390,6 +390,9 @@ pub mod pallet {
 				item_id,
 			});
 
+
+			NextItemId::<T>::put(T::ItemIdSuccession::successor(&item_id));
+
 			Ok(item_id)
 		}
 
