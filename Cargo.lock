@@ -4524,6 +4524,7 @@ dependencies = [
  "pallet-balances",
  "pallet-grandpa",
  "pallet-insecure-randomness-collective-flip",
+ "pallet-nft-delegation",
  "pallet-nft-permission",
  "pallet-nfts",
  "pallet-session",

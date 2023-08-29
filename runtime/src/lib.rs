@@ -301,7 +301,8 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
 }
 
-impl utils::traits::Successor<u32> for Runtime {
+pub struct NftIdSuccession;
+impl utils::traits::Successor<u32> for NftIdSuccession {
 	fn initial() -> u32 {
 		0
 	}
@@ -320,7 +321,7 @@ impl pallet_nft_permission::Config for Runtime {
 	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Runtime>;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
-	type ItemIdSuccession = Self;
+	type ItemIdSuccession = NftIdSuccession;
 	type Permission = ();
 	type Balance = Balance;
 }
@@ -329,7 +330,7 @@ impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
-	type NftDelegationHandler = ();
+	type NftDelegationHandler = NftDelegation;
 	type NftStakingHandler = ();
 	type Balance = Balance;
 	type MinimumStakingDuration = ConstU32<256>;
@@ -378,10 +379,23 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = ConvertInto;
 	type ShouldEndSession = ValidatorSubsetSelection;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager = ValidatorSubsetSelection;
+	type SessionManager = pallet_nft_delegation::SessionManager<Self, ValidatorSubsetSelection>;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const NftDelegationPalletId: PalletId = PalletId(*b"nft_perm");
+}
+
+impl pallet_nft_delegation::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = NftDelegationPalletId;
+	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
+	type Balance = Balance;
+	type NftExpirationHandler = ();
+	type ItemIdSuccession = NftIdSuccession;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -395,6 +409,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
 		Nfts: pallet_nfts,
+		NftDelegation: pallet_nft_delegation,
 		NftPermission: pallet_nft_permission,
 		Staking: pallet_staking,
 		Session: pallet_session,

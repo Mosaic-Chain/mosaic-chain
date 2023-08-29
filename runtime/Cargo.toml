@@ -57,6 +57,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 
 # Local Dependencies
 pallet-nft-permission = { version = "0.1.0", default-features = false, path = "../pallets/nft-permission" }
+pallet-nft-delegation = { version = "0.1.0", default-features = false, path = "../pallets/nft-delegation" }
 pallet-staking = { version = "0.1.0", default-features = false, path = "../pallets/staking" }
 pallet-validator-subset-selection = {version = "0.1.0",  default-features = false, path = "../pallets/validator-subset-selection"}
 
