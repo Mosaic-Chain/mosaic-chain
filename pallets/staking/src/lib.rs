@@ -48,8 +48,6 @@ pub mod pallet {
 		fn unchill(account_id: &AccountId) -> DispatchResult;
 	}
 
-	// TODO: Who stores what state? How could storage be optimized?
-	// Should we consider slashing each delegator token from this pallet?
 	pub trait NftDelegation<AccountId, Balance, ItemId> {
 		fn bind(
 			delegator_id: &AccountId,
@@ -63,8 +61,6 @@ pub mod pallet {
 			item_id: &ItemId,
 		) -> Result<Balance, DispatchError>;
 
-		// TODO: How will the stake be updated after slashing multiple items?
-		// Will both pallets slash?
 		fn slash(
 			delegator_id: &AccountId,
 			validator_id: &AccountId,
@@ -139,27 +135,9 @@ pub mod pallet {
 		serde::Serialize,
 		serde::Deserialize,
 	)]
-	pub enum ValidatorVariant {
+	pub enum PermissionType {
 		PoS,
 		DPoS,
-	}
-
-	#[derive(
-		Copy,
-		Clone,
-		PartialEq,
-		Eq,
-		Encode,
-		Decode,
-		RuntimeDebug,
-		TypeInfo,
-		MaxEncodedLen,
-		serde::Serialize,
-		serde::Deserialize,
-	)]
-	enum NftVariant<T: Config> {
-		Permission(ValidatorVariant),
-		Delegation(T::ItemId),
 	}
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -189,7 +167,7 @@ pub mod pallet {
 		type NftStakingHandler: NftStaking<
 			Self::AccountId,
 			Self::Balance,
-			ValidatorVariant,
+			PermissionType,
 			Self::ItemId,
 		>;
 
@@ -197,9 +175,11 @@ pub mod pallet {
 
 		type MinimumStakingDuration: Get<u32>;
 
-		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
 	}
+
+	type ValidatorId<T> = <T as frame_system::Config>::AccountId;
+	type DelegatorId<T> = <T as frame_system::Config>::AccountId;
 
 	#[pallet::storage]
 	#[pallet::getter(fn total_stake)]
@@ -207,31 +187,26 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn account_exposure)]
-	pub type AccountExposure<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::Balance>;
+	pub type AccountExposure<T: Config> = StorageMap<_, Twox64Concat, ValidatorId<T>, T::Balance>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn individual_exposure)]
-	pub type IndividualExposure<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AccountId, // ValidatorId
-		Twox64Concat,
-		T::AccountId, // DelegatorId
-		T::Balance,
-	>;
+	pub type NftExposure<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, ValidatorId<T>, Twox64Concat, DelegatorId<T>, T::Balance>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn currency_exposure)]
+	pub type CurrencyExposure<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, ValidatorId<T>, Twox64Concat, DelegatorId<T>, T::Balance>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn account_variant)]
 	pub type AccountVariant<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, ValidatorVariant>;
+		StorageMap<_, Twox64Concat, ValidatorId<T>, PermissionType>;
 
-	// Pallets use events to inform users when important changes are made.
-	// https://docs.substrate.io/main-docs/build/events-errors/
 	#[pallet::event]
 	// #[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Event documentation should end with an array that provides descriptive names for event
-		/// parameters. [something, who]
 		SomethingStored { who: T::AccountId },
 	}
 
@@ -246,108 +221,67 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn do_stake_validator(validator_id: &T::AccountId, value: &T::Balance) -> DispatchResult {
-			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
-			let account_exposure = AccountExposure::<T>::get(&validator_id).unwrap_or_default();
-			let individual_exposure =
-				IndividualExposure::<T>::get(&validator_id, &validator_id).unwrap_or_default();
-
-			TotalStake::<T>::put(total + *value);
-			AccountExposure::<T>::set(&validator_id, Some(account_exposure + *value));
-			IndividualExposure::<T>::set(
-				&validator_id,
-				&validator_id,
-				Some(individual_exposure + *value),
-			);
-			Ok(())
-		}
-
-		fn do_unstake_validator(validator_id: &T::AccountId, value: &T::Balance) -> DispatchResult {
-			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
-			let account_exposure =
-				AccountExposure::<T>::get(&validator_id).ok_or(Error::<T>::BadState)?;
-			let individual_exposure = IndividualExposure::<T>::get(&validator_id, &validator_id)
-				.ok_or(Error::<T>::BadState)?;
-
-			TotalStake::<T>::put(total - *value);
-			AccountExposure::<T>::set(&validator_id, Some(account_exposure - *value));
-			IndividualExposure::<T>::set(
-				&validator_id,
-				&validator_id,
-				Some(individual_exposure - *value),
-			);
-			Ok(())
-		}
-
-		fn do_stake_delegator(
-			delegator_id: &T::AccountId,
-			validator_id: &T::AccountId,
-			value: &T::Balance,
+		fn do_stake_currency(
+			node_id: &ValidatorId<T>,
+			staker_id: &T::AccountId,
+			value: T::Balance,
 		) -> DispatchResult {
 			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
-			let account_exposure =
-				AccountExposure::<T>::get(&validator_id).ok_or(Error::<T>::BadState)?;
-			let individual_exposure =
-				IndividualExposure::<T>::get(&validator_id, &delegator_id).unwrap_or_default();
+			let node_exposure = AccountExposure::<T>::get(node_id).unwrap_or_default();
+			let currency_exposure =
+				CurrencyExposure::<T>::get(node_id, node_id).unwrap_or_default();
 
-			TotalStake::<T>::put(total + *value);
-			AccountExposure::<T>::set(&validator_id, Some(account_exposure + *value));
-			IndividualExposure::<T>::set(
-				&validator_id,
-				&delegator_id,
-				Some(individual_exposure + *value),
-			);
+			TotalStake::<T>::put(total + value);
+			AccountExposure::<T>::set(node_id, Some(node_exposure + value));
+			CurrencyExposure::<T>::set(node_id, staker_id, Some(currency_exposure + value));
 			Ok(())
 		}
 
-		fn do_unstake_delegator(
-			validator_id: &T::AccountId,
-			delegator_id: &T::AccountId,
-			value: &T::Balance,
+		fn do_unstake_currency(
+			node_id: &ValidatorId<T>,
+			staker_id: &T::AccountId,
+			value: T::Balance,
 		) -> DispatchResult {
 			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
-			let account_exposure =
-				AccountExposure::<T>::get(&validator_id).ok_or(Error::<T>::BadState)?;
-			let individual_exposure = IndividualExposure::<T>::get(&validator_id, &delegator_id)
-				.ok_or(Error::<T>::BadState)?;
+			let node_exposure = AccountExposure::<T>::get(node_id).ok_or(Error::<T>::BadState)?;
+			let currency_exposure =
+				CurrencyExposure::<T>::get(node_id, staker_id).ok_or(Error::<T>::BadState)?;
 
-			TotalStake::<T>::put(total - *value);
-			AccountExposure::<T>::set(&validator_id, Some(account_exposure - *value));
-			IndividualExposure::<T>::set(
-				&validator_id,
-				&delegator_id,
-				Some(individual_exposure - *value),
-			);
+			TotalStake::<T>::put(total - value);
+			AccountExposure::<T>::set(node_id, Some(node_exposure - value));
+			CurrencyExposure::<T>::set(node_id, staker_id, Some(currency_exposure - value));
 			Ok(())
 		}
 
-		fn do_bind_permission(
-			who: &T::AccountId,
-			item_id: &T::ItemId,
-		) -> Result<(ValidatorVariant, T::Balance), DispatchError> {
-			T::NftStakingHandler::bind(&who, &item_id)
+		fn do_stake_nft(
+			node_id: &ValidatorId<T>,
+			staker_id: &T::AccountId,
+			value: T::Balance,
+		) -> DispatchResult {
+			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
+			let node_exposure = AccountExposure::<T>::get(node_id).ok_or(Error::<T>::BadState)?;
+			let nft_exposure = NftExposure::<T>::get(node_id, staker_id).unwrap_or_default();
+
+			TotalStake::<T>::put(total + value);
+			AccountExposure::<T>::set(node_id, Some(node_exposure + value));
+			NftExposure::<T>::set(node_id, staker_id, Some(nft_exposure + value));
+			Ok(())
 		}
 
-		fn do_bind_delegation(
-			who: &T::AccountId,
-			validator_id: &T::AccountId,
-			item_id: &T::ItemId,
-		) -> Result<(sp_staking::SessionIndex, T::Balance), DispatchError> {
-			T::NftDelegationHandler::bind(who, validator_id, item_id)
-		}
+		fn do_unstake_nft(
+			node_id: &ValidatorId<T>,
+			staker_id: &T::AccountId,
+			value: T::Balance,
+		) -> DispatchResult {
+			let total = TotalStake::<T>::get().ok_or(Error::<T>::BadState)?;
+			let node_exposure = AccountExposure::<T>::get(node_id).ok_or(Error::<T>::BadState)?;
+			let nft_exposure =
+				NftExposure::<T>::get(node_id, staker_id).ok_or(Error::<T>::BadState)?;
 
-		fn do_unbind_permission(
-			who: &T::AccountId,
-			_validator_variant: ValidatorVariant,
-		) -> Result<T::Balance, DispatchError> {
-			T::NftStakingHandler::unbind(&who)
-		}
-		fn do_unbind_delegation(
-			who: &T::AccountId,
-			validator_id: &T::AccountId,
-			item_id: <T as NftsConfig>::ItemId,
-		) -> Result<T::Balance, DispatchError> {
-			T::NftDelegationHandler::unbind(who, validator_id, &item_id)
+			TotalStake::<T>::put(total - value);
+			AccountExposure::<T>::set(node_id, Some(node_exposure - value));
+			NftExposure::<T>::set(node_id, staker_id, Some(nft_exposure - value));
+			Ok(())
 		}
 	}
 
@@ -357,18 +291,18 @@ pub mod pallet {
 		pub fn delegate_nft(
 			origin: OriginFor<T>,
 			item_id: <T as NftsConfig>::ItemId,
-			target: T::AccountId,
+			target: ValidatorId<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let target_variant = AccountVariant::<T>::get(&target);
 			ensure!(target_variant.is_some(), Error::<T>::InvalidTarget);
-			ensure!(target_variant == Some(ValidatorVariant::DPoS), Error::<T>::TargetNotDPoS);
+			ensure!(target_variant == Some(PermissionType::DPoS), Error::<T>::TargetNotDPoS);
 
 			let (_expiry_in_session, nominal_value) =
-				Self::do_bind_delegation(&who, &target, &item_id)?;
+				T::NftDelegationHandler::bind(&who, &target, &item_id)?;
 			// TODO: check whether expiry date falls outside of lock duration, if so return error
-			Self::do_stake_delegator(&who, &target, &nominal_value)?;
+			Self::do_stake_nft(&who, &target, nominal_value)?;
 			Ok(())
 		}
 
@@ -376,12 +310,12 @@ pub mod pallet {
 		pub fn undelegate_nft(
 			origin: OriginFor<T>,
 			item_id: <T as NftsConfig>::ItemId,
-			target: T::AccountId,
+			target: ValidatorId<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let nominal_value = Self::do_unbind_delegation(&who, &target, item_id)?;
-			Self::do_unstake_delegator(&who, &target, &nominal_value)?;
+			let nominal_value = T::NftDelegationHandler::unbind(&who, &target, &item_id)?;
+			Self::do_unstake_nft(&who, &target, nominal_value)?;
 			Ok(())
 		}
 
@@ -395,22 +329,22 @@ pub mod pallet {
 			ensure!(AccountExposure::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 			ensure!(AccountVariant::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 
-			let (variant, nominal_value) = Self::do_bind_permission(&who, &item_id)?;
-			Self::do_stake_validator(&who, &nominal_value)?;
+			let (variant, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
+			Self::do_stake_nft(&who, &who, nominal_value)?;
 
-			AccountVariant::<T>::insert(&who, &variant);
+			AccountVariant::<T>::insert(&who, variant);
 
 			Ok(())
 		}
 
 		#[pallet::call_index(3)]
-		pub fn unbind_nft(origin: OriginFor<T>, _validator_id: T::AccountId) -> DispatchResult {
+		pub fn unbind_nft(origin: OriginFor<T>, _validator_id: ValidatorId<T>) -> DispatchResult {
 			// TODO: clean up stake and delegation logic (for dpos)
 			let who = ensure_signed(origin)?;
 
-			let variant = AccountVariant::<T>::get(&who).ok_or(Error::<T>::NotBound)?;
-			let nominal_value = Self::do_unbind_permission(&who, variant)?;
-			Self::do_unstake_validator(&who, &nominal_value)?;
+			let _variant = AccountVariant::<T>::get(&who).ok_or(Error::<T>::NotBound)?;
+			let nominal_value = T::NftStakingHandler::unbind(&who)?;
+			Self::do_unstake_nft(&who, &who, nominal_value)?;
 			AccountVariant::<T>::remove(&who);
 			Ok(())
 		}
@@ -426,17 +360,18 @@ pub mod pallet {
 
 			let stash_balance = <T as pallet::Config>::Currency::free_balance(&who);
 			let value = value.min(stash_balance);
-			Self::do_stake_validator(&who, &value)?;
+			Self::do_stake_currency(&who, &who, value)?;
 
 			Ok(())
 		}
 
 		#[pallet::call_index(5)]
-		pub fn unstake_currency(origin: OriginFor<T>) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
-			let _who = ensure_signed(origin)?;
+		pub fn unstake_currency(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: T::Balance,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_unstake_currency(&who, &who, value)?;
 
 			Ok(())
 		}
