@@ -19,6 +19,12 @@
 #![allow(dead_code)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 use core::marker::PhantomData;
 
 use frame_support::pallet_prelude::*;
