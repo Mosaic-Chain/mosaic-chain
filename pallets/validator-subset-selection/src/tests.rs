@@ -17,7 +17,7 @@ fn select_subset_statistics() {
 		}
 		let n_rounds = 42; //Approximately one week
 		for _ in 0..n_rounds {
-			let subset = ValidatorSubsetSelection::select_subset(superset.clone());
+			let subset = ValidatorSubsetSelection::select_subset(superset.clone(), false);
 			let size = subset.len();
 			subset_sizes.push(size);
 			if (size as i64 - 250i64).abs() > 100 {
@@ -75,7 +75,7 @@ fn event_fewer_validators_than_subset() {
 		System::assert_last_event(Event::SubsetSizeChanged(new_subset_size).into());
 
 		let superset = <Test as ValidatorSuperset<AccountId>>::get_superset();
-		let subset = ValidatorSubsetSelection::select_subset(superset);
+		let subset = ValidatorSubsetSelection::select_subset(superset, false);
 		System::assert_last_event(Event::FewerValidatorsThenSubset.into());
 		assert_eq!(subset.len(), 1000, "All validators should be selected.");
 		assert_eq!(System::events().len(), 2, "Two events are expected.");

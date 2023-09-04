@@ -16,7 +16,6 @@
 //! - **ShouldEndSession implementation**
 //!
 
-#![allow(dead_code)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
@@ -70,6 +69,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type ValidatorId: Member + Parameter + Ss58Codec;
 		type RandomGenerator: Random128;
+		type InitialRandomGenerator: Random128;
 		type ValidatorSuperset: ValidatorSuperset<Self::ValidatorId>;
 		type SessionHook: SessionHook;
 	}
@@ -133,7 +133,10 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Select a subset of the validators for the next session with the two buckets algorithm
-		pub fn select_subset(validators: Vec<T::ValidatorId>) -> Vec<T::ValidatorId> {
+		pub fn select_subset(
+			validators: Vec<T::ValidatorId>,
+			is_genesis: bool,
+		) -> Vec<T::ValidatorId> {
 			let subset_size = Self::subset_size();
 			if (validators.len() as u64) < subset_size {
 				Self::deposit_event(Event::FewerValidatorsThenSubset);
@@ -148,8 +151,9 @@ pub mod pallet {
 			);
 			let mut selected_subset = Vec::<T::ValidatorId>::new();
 			for v in &validators {
-				let mut bucket_value_pair = DoubleBucketMap::<T>::get(v)
-					.unwrap_or_else(|| (Self::generate_random(), Self::generate_random()));
+				let mut bucket_value_pair = DoubleBucketMap::<T>::get(v).unwrap_or_else(|| {
+					(Self::generate_random(is_genesis), Self::generate_random(is_genesis))
+				});
 				bucket_value_pair.0 = bucket_value_pair.0 + mean;
 				bucket_value_pair.1 = bucket_value_pair.1 + mean;
 				log::info!(
@@ -158,7 +162,7 @@ pub mod pallet {
 					(to_float(bucket_value_pair.0), to_float(bucket_value_pair.1))
 				);
 				let (is_selected, new_bucket_value_pair) =
-					Self::select_if_bucket_full(bucket_value_pair);
+					Self::select_if_bucket_full(bucket_value_pair, is_genesis);
 				if is_selected {
 					selected_subset.push(v.clone());
 					log::info!("Validator {} selected.", v.to_ss58check());
@@ -178,7 +182,7 @@ pub mod pallet {
 				Self::deposit_event(Event::EmptySubset);
 				//If the subset is empty we redo the process
 				//With enough validators the probability of this is negligible
-				Self::select_subset(validators)
+				Self::select_subset(validators, is_genesis)
 			} else {
 				selected_subset
 			}
@@ -188,6 +192,7 @@ pub mod pallet {
 		///Determine if a validator is selected and return new bucket values
 		fn select_if_bucket_full(
 			mut bucket_value_pair: (FixedI64, FixedI64),
+			is_genesis: bool,
 		) -> (bool, (FixedI64, FixedI64)) {
 			let mut is_selected = false;
 			if bucket_value_pair.0 > 1.into() {
@@ -198,7 +203,7 @@ pub mod pallet {
 				bucket_value_pair.1 = bucket_value_pair.1 - DECREASE_RATIO;
 			}
 			if is_selected {
-				let random_number = Self::generate_random();
+				let random_number = Self::generate_random(is_genesis);
 				let first_decrease = random_number * DISPERSE_RATIO;
 				let second_decrease = FixedI64::from_u32(1).sub(random_number) * DISPERSE_RATIO;
 				log::info!("first and second decrease {} {}", first_decrease, second_decrease);
@@ -216,9 +221,12 @@ pub mod pallet {
 		}
 
 		///Generate a random FixedI64 number between 0 and 1
-		fn generate_random() -> FixedI64 {
+		fn generate_random(is_genesis: bool) -> FixedI64 {
 			let nonce = Self::get_and_increment_nonce();
-			let random_number = T::RandomGenerator::random(&nonce);
+			let random_number = match is_genesis {
+				true => T::InitialRandomGenerator::random(&nonce),
+				false => T::RandomGenerator::random(&nonce),
+			};
 			FixedI64::from_rational(random_number, u128::MAX)
 		}
 
@@ -228,8 +236,19 @@ pub mod pallet {
 		}
 
 		fn session_length(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
-			//TODO: update this function
 			subset_size
+		}
+
+		fn session_length2(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
+			if subset_size >= 150_u32.into() {
+				subset_size
+			} else if subset_size > 125_u32.into() {
+				<u32 as Into<BlockNumberFor<T>>>::into(2) * subset_size
+			} else {
+				let quotient: BlockNumberFor<T> =
+					<u32 as Into<BlockNumberFor<T>>>::into(250) / subset_size;
+				subset_size * quotient
+			}
 		}
 	}
 
@@ -250,10 +269,33 @@ pub mod pallet {
 		fn new_session_genesis(
 			session_index: sp_staking::SessionIndex,
 		) -> Option<Vec<T::ValidatorId>> {
-			log::info!("New session genesis {}", session_index);
-			log::info!("Subset size: {}", SubsetSize::<T>::get());
+			log::info!("new session {}, genesis {:?}", session_index, true);
 			T::SessionHook::session_genesis(session_index).expect("session hook ran successfully");
-			None
+			let selected_subset = Self::select_subset(
+				<T::ValidatorSuperset as ValidatorSuperset<_>>::get_superset(),
+				true,
+			);
+			let current_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
+
+			let new_session_start: BlockNumberFor<T>;
+			let new_session_end: BlockNumberFor<T>;
+			if session_index == 0 {
+				new_session_start = 0_u32.into();
+				new_session_end = Self::session_length(current_subset_size);
+				SessionEnd::<T>::put(new_session_end);
+			} else {
+				assert!(session_index == 1);
+				new_session_start = SessionEnd::<T>::get();
+				new_session_end = new_session_start + Self::session_length(current_subset_size);
+				NextSessionEnd::<T>::put(new_session_end);
+			}
+			Self::deposit_event(Event::SubsetSelected {
+				validator_subset: selected_subset.clone(),
+				session_start: new_session_start,
+				session_end: new_session_end,
+				session_index,
+			});
+			Some(selected_subset)
 		}
 
 		fn end_session(session_index: sp_staking::SessionIndex) {
@@ -266,21 +308,23 @@ pub mod pallet {
 		}
 
 		fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<T::ValidatorId>> {
-			log::info!("new session {}", session_index);
+			log::info!("new session {}, genesis {:?}", session_index, false);
 			T::SessionHook::session_planned(session_index).expect("session hook ran successfully");
-			let selected_subset =
-				Self::select_subset(<T::ValidatorSuperset as ValidatorSuperset<_>>::get_superset());
-			let current_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
-			let session_end: BlockNumberFor<T> = SessionEnd::<T>::get();
-			let next_session_end: BlockNumberFor<T> =
-				session_end + Self::session_length(current_subset_size);
-			NextSessionEnd::<T>::put(next_session_end);
+			let selected_subset = Self::select_subset(
+				<T::ValidatorSuperset as ValidatorSuperset<_>>::get_superset(),
+				false,
+			);
+			let new_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
+			let current_session_end: BlockNumberFor<T> = SessionEnd::<T>::get();
+			let new_session_end: BlockNumberFor<T> =
+				current_session_end + Self::session_length(new_subset_size);
+			NextSessionEnd::<T>::put(new_session_end);
 			Self::deposit_event(Event::SubsetSelected {
 				validator_subset: selected_subset.clone(),
 				//The subset is selected for the next session, which starts
-				//at blocknumber = this session end plus one
-				session_start: session_end + 1_u32.into(),
-				session_end: next_session_end,
+				//at the blocknumber equal to the current session end plus one
+				session_start: current_session_end + 1_u32.into(),
+				session_end: new_session_end,
 				session_index,
 			});
 			Some(selected_subset)

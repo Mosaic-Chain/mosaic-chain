@@ -11,7 +11,7 @@ use frame_support::{traits::AsEnsureOriginWithArg, PalletId};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, ConstBool, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, ConstBool, Hasher, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -336,9 +336,9 @@ impl pallet_staking::Config for Runtime {
 	type MinimumStakingDuration = ConstU32<256>;
 }
 
-pub struct MyRandomGenerator;
+pub struct RandomGenerator;
 
-impl Random128 for MyRandomGenerator {
+impl Random128 for RandomGenerator {
 	fn random(subject: &[u8]) -> u128 {
 		let (random_hash, _block_number) = InsecureRandomnessCollectiveFlip::random(subject);
 		u128::from_le_bytes(
@@ -349,10 +349,27 @@ impl Random128 for MyRandomGenerator {
 	}
 }
 
+pub struct InitialRandomGenerator;
+
+impl Random128 for InitialRandomGenerator {
+	fn random(subject: &[u8]) -> u128 {
+		let initial_source_begin: &[u8] = "Mosaic".as_bytes();
+		let initial_source_end: &[u8] = "Chain".as_bytes();
+		let s: &[u8] = &[initial_source_begin, subject, initial_source_end].concat();
+		let hash = BlakeTwo256::hash(s);
+		u128::from_le_bytes(
+			hash.as_ref()[0..16]
+				.try_into()
+				.expect("Can't convert first part of random hash to u128!"),
+		)
+	}
+}
+
 impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type RandomGenerator = MyRandomGenerator;
+	type RandomGenerator = RandomGenerator;
+	type InitialRandomGenerator = InitialRandomGenerator;
 	type ValidatorSuperset = Self;
 	type SessionHook = (NftDelegation,); // TODO: Add staking here
 }
@@ -413,9 +430,9 @@ construct_runtime!(
 		NftDelegation: pallet_nft_delegation,
 		NftPermission: pallet_nft_permission,
 		Staking: pallet_staking,
-		Session: pallet_session,
 		ValidatorSubsetSelection: pallet_validator_subset_selection,
 		InsecureRandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
+		Session: pallet_session,
 	}
 );
 

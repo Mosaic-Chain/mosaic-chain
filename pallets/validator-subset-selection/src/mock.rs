@@ -80,6 +80,7 @@ impl pallet_validator_subset_selection::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type RandomGenerator = MockRandomGenerator;
+	type InitialRandomGenerator = MockRandomGenerator;
 	type ValidatorSuperset = Self;
 }
 
