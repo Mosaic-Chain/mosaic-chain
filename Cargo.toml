@@ -1,5 +1,12 @@
 [workspace]
-members = ["node", "pallets/nft-permission", "pallets/staking", "pallets/nft-delegation", "runtime"]
+members = [
+    "node",
+    "pallets/nft-permission",
+    "pallets/staking",
+    "pallets/nft-delegation",
+    "pallets/validator-subset-selection",
+    "runtime",
+]
 resolver = "2"
 [profile.release]
 panic = "unwind"

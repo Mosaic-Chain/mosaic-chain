@@ -19,7 +19,6 @@ pub use weights::*;
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use core::cmp::Ordering;
 	use frame_support::dispatch::Codec;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::Currency;
@@ -161,7 +160,7 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ TypeInfo
 			+ FixedPointOperand
-			+ From<u128>
+			+ Into<u128>
 			+ sp_runtime::traits::Saturating;
 
 		type Currency: frame_support::traits::LockableCurrency<
@@ -224,6 +223,7 @@ pub mod pallet {
 		TargetNotDPoS,
 		InvalidTarget,
 		NotBound,
+		ExpiresEarly,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -238,17 +238,17 @@ pub mod pallet {
 
 			TotalStake::<T>::mutate(|x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_add(value)
+					*balance = (*balance).saturating_add(value);
 				}
 			});
 			AccountExposure::<T>::mutate(node_id, |x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_add(value)
+					*balance = (*balance).saturating_add(value);
 				}
 			});
 			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_add(value)
+					*balance = (*balance).saturating_add(value);
 				}
 			});
 			Ok(())
@@ -262,28 +262,25 @@ pub mod pallet {
 			let currency_exposure =
 				CurrencyExposure::<T>::get(node_id, node_id).unwrap_or_default();
 
-			let zero = <T as Config>::Balance::from(0u128); // FIXME: there's gotta be a better way
-			match zero.cmp(&(currency_exposure - value)) {
-				Ordering::Less => return Err(Error::<T>::BadState.into()),
-				Ordering::Equal => Self::remove_lock(staker_id),
-				_ => {},
+			if 0u128 < (currency_exposure - value).into() {
+				return Err(Error::<T>::BadState.into());
 			}
 
 			Self::update_lock(staker_id, currency_exposure - value);
 
 			TotalStake::<T>::mutate(|x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_sub(value)
+					*balance = (*balance).saturating_sub(value);
 				}
 			});
 			AccountExposure::<T>::mutate(node_id, |x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_sub(value)
+					*balance = (*balance).saturating_sub(value);
 				}
 			});
 			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_sub(value)
+					*balance = (*balance).saturating_sub(value);
 				}
 			});
 
@@ -297,17 +294,17 @@ pub mod pallet {
 		) -> DispatchResult {
 			TotalStake::<T>::mutate(|x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_add(value)
+					*balance = (*balance).saturating_add(value);
 				}
 			});
 			AccountExposure::<T>::mutate(node_id, |x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_add(value)
+					*balance = (*balance).saturating_add(value);
 				}
 			});
 			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_add(value)
+					*balance = (*balance).saturating_add(value);
 				}
 			});
 
@@ -321,17 +318,17 @@ pub mod pallet {
 		) -> DispatchResult {
 			TotalStake::<T>::mutate(|x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_sub(value)
+					*balance = (*balance).saturating_sub(value);
 				}
 			});
 			AccountExposure::<T>::mutate(node_id, |x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_sub(value)
+					*balance = (*balance).saturating_sub(value);
 				}
 			});
 			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
 				if let Some(balance) = x {
-					*balance = balance.saturating_sub(value)
+					*balance = (*balance).saturating_sub(value);
 				}
 			});
 			Ok(())
@@ -344,9 +341,6 @@ pub mod pallet {
 				amount,
 				WithdrawReasons::all(),
 			);
-		}
-		fn remove_lock(staker_id: &T::AccountId) {
-			<T as pallet::Config>::Currency::remove_lock([0; 8], staker_id);
 		}
 	}
 
@@ -364,9 +358,14 @@ pub mod pallet {
 			ensure!(target_variant.is_some(), Error::<T>::InvalidTarget);
 			ensure!(target_variant == Some(PermissionType::DPoS), Error::<T>::TargetNotDPoS);
 
-			let (_expiry_in_session, nominal_value) =
+			let (expiry_in_session, nominal_value) =
 				T::NftDelegationHandler::bind(&who, &target, &item_id)?;
-			// TODO: check whether expiry date falls outside of lock duration, if so return error
+
+			ensure!(
+				expiry_in_session >= T::MinimumStakingDuration::get(),
+				Error::<T>::ExpiresEarly
+			);
+
 			Self::do_stake_nft(&who, &target, nominal_value)?;
 			Ok(())
 		}
@@ -396,7 +395,6 @@ pub mod pallet {
 
 			let (variant, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
 			Self::do_stake_nft(&who, &who, nominal_value)?;
-
 			AccountVariant::<T>::insert(&who, variant);
 
 			Ok(())
