@@ -438,5 +438,36 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::call_index(6)]
+		pub fn delegate_currency(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: T::Balance,
+			target: ValidatorId<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let target_variant = AccountVariant::<T>::get(&target);
+			ensure!(target_variant.is_some(), Error::<T>::InvalidTarget);
+			ensure!(target_variant == Some(PermissionType::DPoS), Error::<T>::TargetNotDPoS);
+
+			let stash_balance = <T as pallet::Config>::Currency::free_balance(&who);
+			let value = value.min(stash_balance);
+			Self::do_stake_currency(&who, &target, value)?;
+
+			Ok(())
+		}
+
+		#[pallet::call_index(7)]
+		pub fn undelegate_currency(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: T::Balance,
+			target: ValidatorId<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_unstake_currency(&who, &target, value)?;
+
+			Ok(())
+		}
 	}
 }
