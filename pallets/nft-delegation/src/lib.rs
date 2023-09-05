@@ -48,8 +48,7 @@ pub mod pallet {
 	};
 
 	use sp_runtime::{
-		traits::AccountIdConversion, BoundedVec, DispatchError, FixedPointOperand, PerThing,
-		Perbill,
+		traits::AccountIdConversion, BoundedVec, DispatchError, FixedPointOperand, Perbill,
 	};
 
 	use frame_system::pallet_prelude::OriginFor;
@@ -483,9 +482,9 @@ pub mod pallet {
 		}
 
 		fn slash(
-			validator_id: &T::AccountId,
+			_validator_id: &T::AccountId,
 			_delegator_id: &T::AccountId,
-			slash_proportion: Perbill,
+			_slash_proportion: Perbill,
 		) -> Result<T::Balance, DispatchError> {
 			// let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 			// let items = Self::bound_tokens(validator_id).ok_or(Error::<T>::NotBound)?;

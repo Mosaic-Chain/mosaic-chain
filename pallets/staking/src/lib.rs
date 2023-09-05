@@ -338,7 +338,7 @@ pub mod pallet {
 
 		fn do_unbind_permission(
 			who: &T::AccountId,
-			validator_variant: ValidatorVariant,
+			_validator_variant: ValidatorVariant,
 		) -> Result<T::Balance, DispatchError> {
 			T::NftStakingHandler::unbind(&who)
 		}
@@ -404,7 +404,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		pub fn unbind_nft(origin: OriginFor<T>, validator_id: T::AccountId) -> DispatchResult {
+		pub fn unbind_nft(origin: OriginFor<T>, _validator_id: T::AccountId) -> DispatchResult {
 			// TODO: clean up stake and delegation logic (for dpos)
 			let who = ensure_signed(origin)?;
 
