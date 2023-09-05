@@ -32,6 +32,7 @@ pub mod pallet {
 	use sp_runtime::FixedPointOperand;
 	use sp_runtime::Perbill;
 	use sp_runtime::Saturating;
+	use sp_std::vec::Vec as SpVec;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -71,6 +72,11 @@ pub mod pallet {
 			delegator_id: &AccountId,
 			validator_id: &AccountId,
 			slash_proportion: Perbill,
+		) -> Result<Balance, DispatchError>;
+
+		fn kick(
+			validator_id: &AccountId,
+			delegator_id: &AccountId,
 		) -> Result<Balance, DispatchError>;
 	}
 
@@ -126,6 +132,13 @@ pub mod pallet {
 		) -> Result<Balance, DispatchError> {
 			unimplemented!()
 		}
+
+		fn kick(
+			_validator_id: &AccountId,
+			_delegator_id: &AccountId,
+		) -> Result<Balance, DispatchError> {
+			unimplemented!()
+		}
 	}
 
 	#[derive(
@@ -164,6 +177,7 @@ pub mod pallet {
 			+ TypeInfo
 			+ FixedPointOperand
 			+ Into<u128>
+			+ From<u128>
 			+ sp_runtime::traits::Saturating;
 
 		type Currency: frame_support::traits::LockableCurrency<
@@ -227,6 +241,7 @@ pub mod pallet {
 		InvalidTarget,
 		NotBound,
 		ExpiresEarly,
+		AlreadyInQueue,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -333,6 +348,41 @@ pub mod pallet {
 			Ok(())
 		}
 
+		fn do_kick_nft(node_id: &ValidatorId<T>, delegator_id: &DelegatorId<T>) -> DispatchResult {
+			let nominal_value = T::NftDelegationHandler::kick(node_id, delegator_id)?;
+			Self::do_unstake_nft(node_id, delegator_id, nominal_value)?;
+			Ok(())
+		}
+
+		fn do_kick_currency(
+			node_id: &ValidatorId<T>,
+			delegator_id: &DelegatorId<T>,
+			value: T::Balance,
+		) -> DispatchResult {
+			Self::do_unstake_currency(node_id, delegator_id, value)?;
+			Ok(())
+		}
+
+		fn do_kick(node_id: &ValidatorId<T>, delegator_id: &DelegatorId<T>) -> DispatchResult {
+			if NftExposure::<T>::contains_key(node_id, delegator_id) {
+				Self::do_kick_nft(node_id, delegator_id)?;
+			}
+			// u128 max will unstake everything automatically because of `saturating_sub`
+			Self::do_unstake_currency(node_id, delegator_id, u128::MAX.into())?;
+
+			Ok(())
+		}
+
+		fn do_kick_all(node_id: &ValidatorId<T>) -> DispatchResult {
+			NftExposure::<T>::iter_key_prefix(node_id)
+				.try_for_each(|delegator| Self::do_kick_nft(node_id, &delegator))?;
+
+			CurrencyExposure::<T>::iter_prefix(node_id).try_for_each(|(delegator, value)| {
+				Self::do_kick_currency(node_id, &delegator, value)
+			})?;
+			Ok(())
+		}
+
 		fn update_lock(staker_id: &T::AccountId, amount: T::Balance) {
 			<T as pallet::Config>::Currency::set_lock(
 				[0; 8],
@@ -402,10 +452,29 @@ pub mod pallet {
 
 		#[pallet::call_index(3)]
 		pub fn unbind_nft(origin: OriginFor<T>, _validator_id: ValidatorId<T>) -> DispatchResult {
-			// TODO: clean up stake and delegation logic (for dpos)
 			let who = ensure_signed(origin)?;
 
-			let _variant = AccountVariant::<T>::get(&who).ok_or(Error::<T>::NotBound)?;
+			let active_validators = SessionPallet::<T>::validators();
+			let queued_validators = SessionPallet::<T>::queued_keys()
+				.into_iter()
+				.map(|(v, _)| v)
+				.collect::<SpVec<T::ValidatorId>>();
+
+			let validator_set = active_validators
+				.into_iter()
+				.chain(queued_validators.into_iter())
+				.collect::<SpVec<T::ValidatorId>>();
+
+			// HACK/FIXME: this is bad
+			let validator_id = T::ValidatorIdOf::convert(who.clone()).unwrap();
+			ensure!(!validator_set.contains(&validator_id), Error::<T>::AlreadyInQueue);
+
+			let permission_type = AccountVariant::<T>::get(&who).ok_or(Error::<T>::NotBound)?;
+
+			if permission_type == PermissionType::DPoS {
+				Self::do_kick_all(&who)?;
+			}
+
 			let nominal_value = T::NftStakingHandler::unbind(&who)?;
 			Self::do_unstake_nft(&who, &who, nominal_value)?;
 			AccountVariant::<T>::remove(&who);
@@ -466,6 +535,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_unstake_currency(&who, &target, value)?;
+
+			Ok(())
+		}
+
+		#[pallet::call_index(8)]
+		pub fn kick(origin: OriginFor<T>, target: ValidatorId<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_kick(&who, &target)?;
 
 			Ok(())
 		}
