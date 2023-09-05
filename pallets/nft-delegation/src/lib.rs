@@ -504,6 +504,13 @@ pub mod pallet {
 			// Ok(())
 			todo!()
 		}
+
+		fn kick(
+			_validator_id: &T::AccountId,
+			_delegator_id: &T::AccountId,
+		) -> Result<T::Balance, DispatchError> {
+			todo!()
+		}
 	}
 
 	pub struct SessionManager<T, I>(sp_std::marker::PhantomData<T>, sp_std::marker::PhantomData<I>);
