@@ -26,6 +26,9 @@ pub mod pallet {
 	use frame_support::traits::WithdrawReasons;
 	use frame_system::pallet_prelude::*;
 	use pallet_nfts::Config as NftsConfig;
+	use pallet_session::Config as SessionConfig;
+	use pallet_session::Pallet as SessionPallet;
+	use sp_runtime::traits::Convert;
 	use sp_runtime::FixedPointOperand;
 	use sp_runtime::Perbill;
 	use sp_runtime::Saturating;
@@ -145,7 +148,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + NftsConfig {
+	pub trait Config: frame_system::Config + NftsConfig + SessionConfig {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -262,11 +265,7 @@ pub mod pallet {
 			let currency_exposure =
 				CurrencyExposure::<T>::get(node_id, node_id).unwrap_or_default();
 
-			if 0u128 < (currency_exposure - value).into() {
-				return Err(Error::<T>::BadState.into());
-			}
-
-			Self::update_lock(staker_id, currency_exposure - value);
+			Self::update_lock(staker_id, currency_exposure.saturating_sub(value));
 
 			TotalStake::<T>::mutate(|x| {
 				if let Some(balance) = x {
@@ -302,7 +301,7 @@ pub mod pallet {
 					*balance = (*balance).saturating_add(value);
 				}
 			});
-			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
+			NftExposure::<T>::mutate(node_id, staker_id, |x| {
 				if let Some(balance) = x {
 					*balance = (*balance).saturating_add(value);
 				}
@@ -326,7 +325,7 @@ pub mod pallet {
 					*balance = (*balance).saturating_sub(value);
 				}
 			});
-			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
+			NftExposure::<T>::mutate(node_id, staker_id, |x| {
 				if let Some(balance) = x {
 					*balance = (*balance).saturating_sub(value);
 				}
@@ -362,7 +361,8 @@ pub mod pallet {
 				T::NftDelegationHandler::bind(&who, &target, &item_id)?;
 
 			ensure!(
-				expiry_in_session >= T::MinimumStakingDuration::get(),
+				expiry_in_session
+					>= SessionPallet::<T>::current_index() + T::MinimumStakingDuration::get(),
 				Error::<T>::ExpiresEarly
 			);
 
