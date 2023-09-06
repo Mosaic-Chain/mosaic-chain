@@ -20,6 +20,7 @@ pub use weights::*;
 pub mod pallet {
 	use super::*;
 	use frame_support::dispatch::Codec;
+	use frame_support::pallet_prelude::ValueQuery;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_support::traits::LockableCurrency;
@@ -205,21 +206,36 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn total_stake)]
-	pub type TotalStake<T: Config> = StorageValue<_, T::Balance>;
+	pub type TotalStake<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn account_exposure)]
-	pub type AccountExposure<T: Config> = StorageMap<_, Twox64Concat, ValidatorId<T>, T::Balance>;
+	pub type AccountExposure<T: Config> =
+		StorageMap<_, Twox64Concat, ValidatorId<T>, T::Balance, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn individual_exposure)]
-	pub type NftExposure<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, ValidatorId<T>, Twox64Concat, DelegatorId<T>, T::Balance>;
+	pub type NftExposure<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		ValidatorId<T>,
+		Twox64Concat,
+		DelegatorId<T>,
+		T::Balance,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn currency_exposure)]
-	pub type CurrencyExposure<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, ValidatorId<T>, Twox64Concat, DelegatorId<T>, T::Balance>;
+	pub type CurrencyExposure<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		ValidatorId<T>,
+		Twox64Concat,
+		DelegatorId<T>,
+		T::Balance,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn account_variant)]
@@ -250,25 +266,27 @@ pub mod pallet {
 			staker_id: &T::AccountId,
 			value: T::Balance,
 		) -> DispatchResult {
-			let currency_exposure =
-				CurrencyExposure::<T>::get(node_id, node_id).unwrap_or_default();
-			Self::update_lock(staker_id, currency_exposure + value);
-
-			TotalStake::<T>::mutate(|x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_add(value);
-				}
+			TotalStake::<T>::mutate(|balance| {
+				*balance = (*balance).saturating_add(value);
 			});
 			AccountExposure::<T>::mutate(node_id, |x| {
 				if let Some(balance) = x {
 					*balance = (*balance).saturating_add(value);
+				} else {
+					*x = Some(value);
 				}
 			});
 			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
-				if let Some(balance) = x {
+				let balance = if let Some(balance) = x {
 					*balance = (*balance).saturating_add(value);
-				}
+					*balance
+				} else {
+					*x = Some(value);
+					value
+				};
+				Self::update_lock(staker_id, balance);
 			});
+
 			Ok(())
 		}
 
@@ -277,25 +295,26 @@ pub mod pallet {
 			staker_id: &T::AccountId,
 			value: T::Balance,
 		) -> DispatchResult {
-			let currency_exposure =
-				CurrencyExposure::<T>::get(node_id, node_id).unwrap_or_default();
-
-			Self::update_lock(staker_id, currency_exposure.saturating_sub(value));
-
-			TotalStake::<T>::mutate(|x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_sub(value);
+			TotalStake::<T>::mutate(|balance| {
+				*balance = (*balance).saturating_sub(value);
+			});
+			AccountExposure::<T>::mutate_exists(node_id, |x| {
+				let balance = x.unwrap_or_default();
+				if value >= balance {
+					*x = None
+				} else {
+					*x = Some(balance.saturating_sub(value))
 				}
 			});
-			AccountExposure::<T>::mutate(node_id, |x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_sub(value);
+
+			CurrencyExposure::<T>::mutate_exists(node_id, staker_id, |x| {
+				let balance = x.unwrap_or_default();
+				if value >= balance {
+					*x = None
+				} else {
+					*x = Some(balance.saturating_sub(value))
 				}
-			});
-			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_sub(value);
-				}
+				Self::update_lock(staker_id, balance);
 			});
 
 			Ok(())
@@ -306,19 +325,21 @@ pub mod pallet {
 			staker_id: &T::AccountId,
 			value: T::Balance,
 		) -> DispatchResult {
-			TotalStake::<T>::mutate(|x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_add(value);
-				}
+			TotalStake::<T>::mutate(|balance| {
+				*balance = (*balance).saturating_add(value);
 			});
 			AccountExposure::<T>::mutate(node_id, |x| {
 				if let Some(balance) = x {
 					*balance = (*balance).saturating_add(value);
+				} else {
+					*x = Some(value);
 				}
 			});
 			NftExposure::<T>::mutate(node_id, staker_id, |x| {
 				if let Some(balance) = x {
 					*balance = (*balance).saturating_add(value);
+				} else {
+					*x = Some(value);
 				}
 			});
 
@@ -330,19 +351,23 @@ pub mod pallet {
 			staker_id: &T::AccountId,
 			value: T::Balance,
 		) -> DispatchResult {
-			TotalStake::<T>::mutate(|x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_sub(value);
+			TotalStake::<T>::mutate(|balance| {
+				*balance = (*balance).saturating_sub(value);
+			});
+			AccountExposure::<T>::mutate_exists(node_id, |x| {
+				let balance = x.unwrap_or_default();
+				if value >= balance {
+					*x = None
+				} else {
+					*x = Some(balance.saturating_sub(value))
 				}
 			});
-			AccountExposure::<T>::mutate(node_id, |x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_sub(value);
-				}
-			});
-			NftExposure::<T>::mutate(node_id, staker_id, |x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_sub(value);
+			NftExposure::<T>::mutate_exists(node_id, staker_id, |x| {
+				let balance = x.unwrap_or_default();
+				if value >= balance {
+					*x = None
+				} else {
+					*x = Some(balance.saturating_sub(value))
 				}
 			});
 			Ok(())
@@ -385,7 +410,7 @@ pub mod pallet {
 
 		fn update_lock(staker_id: &T::AccountId, amount: T::Balance) {
 			<T as pallet::Config>::Currency::set_lock(
-				[0; 8],
+				[0; 8], // TODO: fix id
 				staker_id,
 				amount,
 				WithdrawReasons::all(),
