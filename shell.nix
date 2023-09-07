@@ -1,35 +1,43 @@
 let
-  mozillaOverlay =
+  # TODO: use toolchain.toml instead
+  # This version comes from our current buildbox setups
+  rustVersion = "1.70.0";
+
+  rust_overlay =
     import (builtins.fetchGit {
-      url = "https://github.com/mozilla/nixpkgs-mozilla.git";
-      rev = "57c8084c7ef41366993909c20491e359bbb90f54";
+      url = "https://github.com/oxalica/rust-overlay";
+      rev = "a795148ffbcc77f2b592d50ceebe36147e623a77";
     });
+
   pinned = builtins.fetchGit {
-    # Descriptive name to make the store path easier to identify
     url = "https://github.com/nixos/nixpkgs/";
-    # Commit hash for nixos-unstable as of 2020-04-26
-    # `git ls-remote https://github.com/nixos/nixpkgs nixos-unstable`
-    ref = "refs/heads/nixos-unstable";
-    rev = "1fe6ed37fd9beb92afe90671c0c2a662a03463dd";
+    ref = "refs/tags/23.05";
   };
-  nixpkgs = import pinned { overlays = [ mozillaOverlay ]; };
-  toolchain = with nixpkgs; (rustChannelOf { date = "2021-09-14"; channel = "nightly"; });
-  rust-wasm = toolchain.rust.override {
-    targets = [ "wasm32-unknown-unknown" ];
+
+  pkgs = import pinned { overlays = [ rust_overlay ]; };
+
+  rust = pkgs.rust-bin.stable.${rustVersion}.default.override {
+    extensions = [
+      "rust-src" # for rust-analyzer
+      "clippy"   # for better lints and our bacon config
+      "rustfmt"
+    ];
+
+    targets = [ "x86_64-unknown-linux-gnu" "wasm32-unknown-unknown" ];
   };
+
+
 in
-with nixpkgs; pkgs.mkShell {
-  buildInputs = [
+pkgs.mkShell {
+buildInputs = [
+    rust
+  ] ++ (with pkgs; [
     clang
     pkg-config
-    rust-wasm
-  ] ++ stdenv.lib.optionals stdenv.isDarwin [
-    darwin.apple_sdk.frameworks.Security
-  ];
+    bacon
+  ]);
 
-  LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
-  PROTOC = "${protobuf}/bin/protoc";
-  RUST_SRC_PATH = "${toolchain.rust-src}/lib/rustlib/src/rust/library/";
-  ROCKSDB_LIB_DIR = "${rocksdb}/lib";
-
+  LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+  PROTOC = "${pkgs.protobuf}/bin/protoc";
+  ROCKSDB_LIB_DIR = "${pkgs.rocksdb}/lib";
 }
