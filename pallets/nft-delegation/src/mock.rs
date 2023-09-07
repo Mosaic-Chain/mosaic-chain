@@ -164,7 +164,7 @@ pub struct ExpirationHandler;
 impl<AccountId, Balance> OnNftExpire<AccountId, u32, Balance> for ExpirationHandler {
 	fn on_expire(
 		_owner: &AccountId,
-		_validator: &AccountId,
+		_validator: Option<&AccountId>,
 		item_id: &u32,
 		_nominal_value: &Balance,
 	) {

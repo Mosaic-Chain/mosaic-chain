@@ -135,16 +135,16 @@ fn slash_should_work() {
 fn expiration_should_work() {
 	new_test_ext().execute_with(|| {
 		let owner = account(1);
-		let validator = account(2);
 		let nominal_value = 100;
 		for i in 1..11u32 {
-			let id = NftDelegation::do_mint_delegator_token(&owner, i, &nominal_value)
+			NftDelegation::do_mint_delegator_token(&owner, i, &nominal_value)
 				.expect("could create token");
-			NftDelegation::bind(&owner, &validator, &id).expect("could bind token");
 		}
 
 		// Each block is a session in this case.
-		run_to_block(11);
+		run_to_block(11, |n| {
+			System::assert_has_event(Event::TokensExpired { items: [n - 1].to_vec() }.into());
+		});
 
 		for i in 0..10u32 {
 			let expired = ExpirationHandler::expired_on(i + 1);
@@ -153,7 +153,7 @@ fn expiration_should_work() {
 	});
 }
 
-fn run_to_block(n: u64) {
+fn run_to_block(n: u64, on_new: impl Fn(u32)) {
 	while System::block_number() < n {
 		if System::block_number() > 0 {
 			Session::on_finalize(System::block_number());
@@ -164,5 +164,6 @@ fn run_to_block(n: u64) {
 		System::set_block_number(System::block_number() + 1);
 		System::on_initialize(System::block_number());
 		Session::on_initialize(System::block_number());
+		on_new(Session::current_index());
 	}
 }
