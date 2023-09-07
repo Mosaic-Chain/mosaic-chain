@@ -28,7 +28,6 @@
 /// Users can mint delegation NFTs, bind them to validators, unbind them when necessary,
 /// and slash them if needed. The module automatically checks for NFT expiration during
 /// each session change.
-
 pub use pallet::*;
 
 #[cfg(test)]
@@ -78,8 +77,7 @@ pub mod pallet {
 	};
 
 	use sp_runtime::{
-		traits::AccountIdConversion, DispatchError, FixedPointOperand, PerThing,
-		Perbill,
+		traits::AccountIdConversion, DispatchError, FixedPointOperand, PerThing, Perbill,
 	};
 
 	use pallet_staking::NftDelegation;
