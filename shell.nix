@@ -1,12 +1,11 @@
 let
-  
   toolchainTomlPath = ./toolchain.toml;
   toolchainToml = (builtins.fromTOML (builtins.readFile toolchainTomlPath)).toolchain;
 
   rust_overlay =
     import (builtins.fetchGit {
       url = "https://github.com/oxalica/rust-overlay";
-      rev = "a795148ffbcc77f2b592d50ceebe36147e623a77";
+      ref = "refs/heads/master"; # to make sure rust version is available from toolchain.toml
     });
 
   pinned = builtins.fetchGit {
