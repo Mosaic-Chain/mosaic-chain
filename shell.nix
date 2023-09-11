@@ -1,7 +1,7 @@
 let
-  # TODO: use toolchain.toml instead
-  # This version comes from our current buildbox setups
-  rustVersion = "1.70.0";
+  
+  toolchainTomlPath = ./toolchain.toml;
+  toolchainToml = (builtins.fromTOML (builtins.readFile toolchainTomlPath)).toolchain;
 
   rust_overlay =
     import (builtins.fetchGit {
@@ -16,16 +16,10 @@ let
 
   pkgs = import pinned { overlays = [ rust_overlay ]; };
 
-  rust = pkgs.rust-bin.stable.${rustVersion}.default.override {
-    extensions = [
-      "rust-src" # for rust-analyzer
-      "clippy"   # for better lints and our bacon config
-      "rustfmt"
-    ];
-
-    targets = [ "x86_64-unknown-linux-gnu" "wasm32-unknown-unknown" ];
+  rust = pkgs.rust-bin.stable.${toolchainToml.channel}.default.override {
+    extensions = toolchainToml.components;
+    targets = toolchainToml.targets;
   };
-
 
 in
 pkgs.mkShell {
