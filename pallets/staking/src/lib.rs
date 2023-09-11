@@ -20,19 +20,13 @@ pub use weights::*;
 pub mod pallet {
 	use super::*;
 	use frame_support::dispatch::Codec;
-	use frame_support::pallet_prelude::ValueQuery;
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::Currency;
-	use frame_support::traits::LockableCurrency;
-	use frame_support::traits::WithdrawReasons;
+	use frame_support::traits::{Currency, LockableCurrency, WithdrawReasons};
 	use frame_system::pallet_prelude::*;
 	use pallet_nfts::Config as NftsConfig;
-	use pallet_session::Config as SessionConfig;
-	use pallet_session::Pallet as SessionPallet;
+	use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
 	use sp_runtime::traits::Convert;
-	use sp_runtime::FixedPointOperand;
-	use sp_runtime::Perbill;
-	use sp_runtime::Saturating;
+	use sp_runtime::{FixedPointOperand, Perbill, Saturating};
 	use sp_std::vec::Vec as SpVec;
 
 	#[pallet::pallet]
@@ -214,7 +208,7 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, ValidatorId<T>, T::Balance, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn individual_exposure)]
+	#[pallet::getter(fn nft_exposure)]
 	pub type NftExposure<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -570,6 +564,38 @@ pub mod pallet {
 			Self::do_kick(&who, &target)?;
 
 			Ok(())
+		}
+	}
+
+	trait DummySessionHook {
+		fn on_before_session_end();
+	}
+
+	impl<T: Config> DummySessionHook for Pallet<T>
+	where
+		// TODO: there's gotta be a better way for doing this
+		<T as frame_system::Config>::AccountId: From<<T as pallet_session::Config>::ValidatorId>,
+	{
+		fn on_before_session_end() {
+			let active_validators = SessionPallet::<T>::validators();
+			let eligible_for_payout = active_validators.iter().flat_map(|validator_id| {
+				let nft = NftExposure::<T>::iter_prefix(T::AccountId::from(validator_id.clone()));
+				let currency =
+					CurrencyExposure::<T>::iter_prefix(T::AccountId::from(validator_id.clone()));
+				nft.chain(currency)
+			});
+			let total_supply = <T as Config>::Currency::total_issuance();
+			let total_stake = TotalStake::<T>::get();
+
+			// TODO: CHANGE THIS
+			let inflation = Perbill::from_rational(5u32, 10000u32);
+			let session_reward = inflation * total_supply;
+
+			for (dest_account, exposure) in eligible_for_payout {
+				let reward_proportion = Perbill::from_rational(exposure, total_stake);
+				let amount = reward_proportion * session_reward;
+				<T as Config>::Currency::deposit_creating(&dest_account, amount);
+			}
 		}
 	}
 }
