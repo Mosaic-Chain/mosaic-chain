@@ -153,6 +153,8 @@ fn expiration_should_work() {
 	});
 }
 
+// Testing block production, for reference see:
+// https://web.archive.org/web/20230129131011/https://docs.substrate.io/test/unit-testing/#block-production
 fn run_to_block(n: u64, on_new: impl Fn(u32)) {
 	while System::block_number() < n {
 		if System::block_number() > 0 {
