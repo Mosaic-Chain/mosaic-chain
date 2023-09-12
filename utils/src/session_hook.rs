@@ -1,4 +1,6 @@
 pub use sp_staking::SessionIndex;
+
+#[allow(unused)]
 pub trait SessionHook {
 	/// Called on genesis session
 	fn session_genesis(idx: SessionIndex) {}
