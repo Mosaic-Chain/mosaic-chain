@@ -333,6 +333,7 @@ impl pallet_staking::Config for Runtime {
 	type NftDelegationHandler = NftDelegation;
 	type NftStakingHandler = ();
 	type Balance = Balance;
+	type Reward = (); // Mint rewards from the abyss
 	type MinimumStakingDuration = ConstU32<256>;
 }
 
