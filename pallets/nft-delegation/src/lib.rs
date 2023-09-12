@@ -143,8 +143,10 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn bound_tokens)]
-	pub type BoundTokens<T: Config> = StorageMap<
+	pub type BoundTokens<T: Config> = StorageDoubleMap<
 		_,
+		Twox64Concat,
+		T::AccountId, // DelegatorId
 		Twox64Concat,
 		T::AccountId, // ValidatorId
 		//TODO(vismate): use a bonded structure instead (with a fairly low number of max items) to make weight calculation easier.
@@ -475,7 +477,7 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyBound.into());
 			}
 
-			BoundTokens::<T>::mutate(validator_id, |itms| match itms {
+			BoundTokens::<T>::mutate(delegator_id, validator_id, |itms| match itms {
 				Some(v) => v.push(*item_id),
 				None => {
 					*itms = Some([*item_id].to_vec());
@@ -506,10 +508,11 @@ pub mod pallet {
 				Error::<T>::WrongOwner
 			);
 
-			let mut items = Self::bound_tokens(validator_id).ok_or(Error::<T>::NotBound)?;
+			let mut items =
+				Self::bound_tokens(delegator_id, validator_id).ok_or(Error::<T>::NotBound)?;
 			if let Some(idx) = items.iter().position(|id| id == item_id) {
 				items.swap_remove(idx);
-				BoundTokens::<T>::set(validator_id, Some(items));
+				BoundTokens::<T>::set(delegator_id, validator_id, Some(items));
 
 				Self::bind_uncache(item_id);
 
@@ -526,34 +529,45 @@ pub mod pallet {
 		}
 
 		fn slash(
-			_validator_id: &T::AccountId,
-			_delegator_id: &T::AccountId,
-			_slash_proportion: Perbill,
+			validator_id: &T::AccountId,
+			delegator_id: &T::AccountId,
+			slash_proportion: Perbill,
 		) -> Result<T::Balance, DispatchError> {
-			// let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
-			// let items = Self::bound_tokens(validator_id).ok_or(Error::<T>::NotBound)?;
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let items =
+				Self::bound_tokens(delegator_id, validator_id).ok_or(Error::<T>::NotBound)?;
+			let factor = slash_proportion.left_from_one();
 
-			// let factor = slash_proportion.left_from_one();
-			// for item in items {
-			// 	let old_nominal_value = Self::decode_nominal_value(&collection_id, &item)?;
-			// 	let new_nominal_value = factor * old_nominal_value;
-			// 	Self::encode_nominal_value(&collection_id, &item, &new_nominal_value)?;
+			let mut nominal_value_sum = T::Balance::from(0u32);
+			for item in items {
+				let old_nominal_value = Self::decode_nominal_value(&collection_id, &item)?;
+				let new_nominal_value = factor * old_nominal_value;
+				Self::encode_nominal_value(&collection_id, &item, &new_nominal_value)?;
 
-			// 	// TODO: do we really want to do this?
-			// 	Self::deposit_event(Event::<T>::TokenSlashed {
-			// 		item_id: item,
-			// 		nominal_value: new_nominal_value,
-			// 	});
-			// }
-			// Ok(())
-			todo!()
+				// TODO: do we really want to send all these events?
+				Self::deposit_event(Event::<T>::TokenSlashed {
+					item_id: item,
+					nominal_value: new_nominal_value,
+				});
+
+				nominal_value_sum += new_nominal_value;
+			}
+
+			Ok(nominal_value_sum)
 		}
 
 		fn kick(
-			_validator_id: &T::AccountId,
-			_delegator_id: &T::AccountId,
+			validator_id: &T::AccountId,
+			delegator_id: &T::AccountId,
 		) -> Result<T::Balance, DispatchError> {
-			todo!()
+			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let items =
+				BoundTokens::<T>::take(delegator_id, validator_id).ok_or(Error::<T>::NotBound)?;
+
+			items.into_iter().try_fold(0u32.into(), |acc, item| {
+				let value = Self::decode_nominal_value(&collection_id, &item)?;
+				Ok(acc + value)
+			})
 		}
 	}
 
