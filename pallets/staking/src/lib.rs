@@ -21,7 +21,9 @@ pub mod pallet {
 	use super::*;
 	use frame_support::dispatch::Codec;
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::{Currency, LockableCurrency, WithdrawReasons};
+	use frame_support::traits::{
+		Currency, Imbalance, LockableCurrency, OnUnbalanced, WithdrawReasons,
+	};
 	use frame_system::pallet_prelude::*;
 	use pallet_nfts::Config as NftsConfig;
 	use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
@@ -192,11 +194,16 @@ pub mod pallet {
 
 		type MinimumStakingDuration: Get<u32>;
 
+		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
+
 		type WeightInfo: WeightInfo;
 	}
 
 	type ValidatorId<T> = <T as frame_system::Config>::AccountId;
 	type DelegatorId<T> = <T as frame_system::Config>::AccountId;
+	type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+		<T as frame_system::Config>::AccountId,
+	>>::PositiveImbalance;
 
 	#[pallet::storage]
 	#[pallet::getter(fn total_stake)]
@@ -237,9 +244,9 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, ValidatorId<T>, PermissionType>;
 
 	#[pallet::event]
-	// #[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		SomethingStored { who: T::AccountId },
+		Rewarded { stash: T::AccountId, amount: T::Balance },
 	}
 
 	// Errors inform users that something went wrong.
@@ -577,25 +584,65 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<<T as pallet_session::Config>::ValidatorId>,
 	{
 		fn on_before_session_end() {
+			// TODO: these should be set in pallet/runtime configuration
+			let per_session_inflation = Perbill::from_rational(5u32, 10000u32);
+			let validator_fee_proportion = Perbill::from_rational(5u32, 10000u32);
+
 			let active_validators = SessionPallet::<T>::validators();
-			let eligible_for_payout = active_validators.iter().flat_map(|validator_id| {
+			// HACK: naive implementation, ideally we would want to add the currency and nft exposures together,
+			// to avoid having to call the payout function twice for each category;
+			// although this shouldn't be much of a problem in the short term, since the number of payout calls per account *at most* is 2,
+			// it could add up in the long term at worse O(2n) instead of O(n)
+			let payout_candidates = active_validators.iter().map(|validator_id| {
 				let nft = NftExposure::<T>::iter_prefix(T::AccountId::from(validator_id.clone()));
 				let currency =
 					CurrencyExposure::<T>::iter_prefix(T::AccountId::from(validator_id.clone()));
-				nft.chain(currency)
+				(validator_id, nft.chain(currency))
 			});
-			let total_supply = <T as Config>::Currency::total_issuance();
-			let total_stake = TotalStake::<T>::get();
 
-			// TODO: CHANGE THIS
-			let inflation = Perbill::from_rational(5u32, 10000u32);
-			let session_reward = inflation * total_supply;
+			// TODO: should this be just the active issuance, or the total issuance?
+			let total_currency_issuance = <T as Config>::Currency::total_issuance();
+			let total_stake_amount = TotalStake::<T>::get();
+			// total reward for the session
+			let session_reward = per_session_inflation * total_currency_issuance;
 
-			for (dest_account, exposure) in eligible_for_payout {
-				let reward_proportion = Perbill::from_rational(exposure, total_stake);
-				let amount = reward_proportion * session_reward;
-				<T as Config>::Currency::deposit_creating(&dest_account, amount);
+			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
+
+			// this is O(n) because we iterate over `candidates` in sequence
+			for (validator_id, candidates) in payout_candidates {
+				// calculate account exposure for fee calculation
+				let account_exposure_amount =
+					AccountExposure::<T>::get(T::AccountId::from(validator_id.clone())).unwrap();
+				let account_exposure_proportion =
+					Perbill::from_rational(account_exposure_amount, total_stake_amount);
+
+				// validator gets its cut first
+				let total_validator_reward_amount = account_exposure_proportion * session_reward;
+				let validator_fee_amount = validator_fee_proportion * total_validator_reward_amount;
+
+				let imbalance = <T as Config>::Currency::deposit_creating(
+					&(*validator_id).clone().into(),
+					validator_fee_amount,
+				);
+				total_imbalance.subsume(imbalance);
+
+				// calculate the rest of the payouts from the account's remaining rewards
+				let remaining_account_reward = total_validator_reward_amount - validator_fee_amount;
+
+				for (dest_account, individual_exposure_amount) in candidates {
+					let reward_proportion =
+						Perbill::from_rational(individual_exposure_amount, account_exposure_amount);
+					let reward_amount = reward_proportion * remaining_account_reward;
+					let imbalance =
+						<T as Config>::Currency::deposit_creating(&dest_account, reward_amount);
+					Self::deposit_event(Event::<T>::Rewarded {
+						stash: dest_account,
+						amount: imbalance.peek(),
+					});
+					total_imbalance.subsume(imbalance);
+				}
 			}
+			T::Reward::on_unbalanced(total_imbalance);
 		}
 	}
 }
