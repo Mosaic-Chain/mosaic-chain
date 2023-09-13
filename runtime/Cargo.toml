@@ -13,12 +13,8 @@ repository = "https://github.com/substrate-developer-hub/substrate-node-template
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = [
-	"derive",
-] }
-scale-info = { version = "2.5.0", default-features = false, features = [
-	"derive",
-] }
+codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
 pallet-aura = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 pallet-nfts = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
@@ -45,7 +41,7 @@ sp-std = { version = "8.0.0", default-features = false, git = "https://github.co
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-version = { version = "22.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-staking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-pallet-insecure-randomness-collective-flip = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0"}
+pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
@@ -59,7 +55,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 pallet-nft-permission = { version = "0.1.0", default-features = false, path = "../pallets/nft-permission" }
 pallet-nft-delegation = { version = "0.1.0", default-features = false, path = "../pallets/nft-delegation" }
 pallet-staking = { version = "0.1.0", default-features = false, path = "../pallets/staking" }
-pallet-validator-subset-selection = {version = "0.1.0",  default-features = false, path = "../pallets/validator-subset-selection"}
+pallet-validator-subset-selection = { version = "0.1.0", default-features = false, path = "../pallets/validator-subset-selection" }
 
 utils = { version = "0.1.0", path = "../utils" }
 
@@ -114,6 +110,7 @@ runtime-benchmarks = [
 	"pallet-nft-permission/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-validator-subset-selection/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",

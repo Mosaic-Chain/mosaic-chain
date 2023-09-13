@@ -4,6 +4,7 @@
 //! The purpose is to maximize uniformity of weekly timeframe
 //! returns(selection) in the population, while maximizing
 //! unpredictability.
+//! The module also manages the sessions.
 //!
 //! The Validator subset selection pallet provides the following features:
 //!
@@ -23,6 +24,9 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 
 use core::marker::PhantomData;
 
@@ -94,17 +98,17 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn subset_size)]
-	pub type SubsetSize<T: Config> = StorageValue<_, u64, ValueQuery>;
+	type SubsetSize<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
-	pub type DoubleBucketMap<T: Config> =
+	type DoubleBucketMap<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::ValidatorId, (FixedI64, FixedI64)>;
 
 	#[pallet::storage]
-	pub type SessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	type SessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
-	pub type NextSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	type NextSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -122,12 +126,6 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			SubsetSize::<T>::put(self.initial_subset_size);
-
-			//TODO: solve 0. and 1. sessions problem without this lines
-			let one: BlockNumberFor<T> = 6_u32.into();
-			SessionEnd::<T>::put(one);
-			let two: BlockNumberFor<T> = 12_u32.into();
-			NextSessionEnd::<T>::put(two);
 		}
 	}
 
@@ -143,12 +141,6 @@ pub mod pallet {
 				return validators;
 			}
 			let mean = FixedI64::from_rational(subset_size as u128, 2 * validators.len() as u128);
-			log::info!(
-				"Subset size: {}, validators len: {}, mean: {}",
-				subset_size,
-				validators.len(),
-				mean
-			);
 			let mut selected_subset = Vec::<T::ValidatorId>::new();
 			for v in &validators {
 				let mut bucket_value_pair = DoubleBucketMap::<T>::get(v).unwrap_or_else(|| {
@@ -156,21 +148,10 @@ pub mod pallet {
 				});
 				bucket_value_pair.0 = bucket_value_pair.0 + mean;
 				bucket_value_pair.1 = bucket_value_pair.1 + mean;
-				log::info!(
-					"Bucket value {}: {:?}",
-					v.to_ss58check(),
-					(to_float(bucket_value_pair.0), to_float(bucket_value_pair.1))
-				);
 				let (is_selected, new_bucket_value_pair) =
 					Self::select_if_bucket_full(bucket_value_pair, is_genesis);
 				if is_selected {
 					selected_subset.push(v.clone());
-					log::info!("Validator {} selected.", v.to_ss58check());
-					log::info!(
-						"Updated bucket value {}: {:?}",
-						v.to_ss58check(),
-						(to_float(new_bucket_value_pair.0), to_float(new_bucket_value_pair.1))
-					);
 				}
 				DoubleBucketMap::<T>::insert(v, new_bucket_value_pair);
 			}
@@ -206,7 +187,6 @@ pub mod pallet {
 				let random_number = Self::generate_random(is_genesis);
 				let first_decrease = random_number * DISPERSE_RATIO;
 				let second_decrease = FixedI64::from_u32(1).sub(random_number) * DISPERSE_RATIO;
-				log::info!("first and second decrease {} {}", first_decrease, second_decrease);
 				bucket_value_pair.0 = bucket_value_pair.0.sub(first_decrease);
 				bucket_value_pair.1 = bucket_value_pair.1.sub(second_decrease);
 			}
@@ -271,10 +251,9 @@ pub mod pallet {
 		) -> Option<Vec<T::ValidatorId>> {
 			log::info!("new session {}, genesis {:?}", session_index, true);
 			T::SessionHook::session_genesis(session_index).expect("session hook ran successfully");
-			let selected_subset = Self::select_subset(
-				<T::ValidatorSuperset as ValidatorSuperset<_>>::get_superset(),
-				true,
-			);
+			let superset = <T::ValidatorSuperset as ValidatorSuperset<_>>::get_superset();
+			log::info!("superset size: {}", superset.len());
+			let selected_subset = Self::select_subset(superset, true);
 			let current_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
 
 			let new_session_start: BlockNumberFor<T>;

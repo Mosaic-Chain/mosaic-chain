@@ -2,15 +2,18 @@ use core::marker::PhantomData;
 
 use crate as pallet_validator_subset_selection;
 use crate::Random128;
+use frame_support::pallet_prelude::*;
 
 use frame_support::traits::{ConstU16, ConstU64};
 use sp_core::{Hasher, H256};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	generic, impl_opaque_keys,
+	traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
+pub type BlockNumber = u32;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -22,7 +25,6 @@ frame_support::construct_runtime!(
 pub type Signature = MultiSignature;
 pub type AccountPublic = <Signature as Verify>::Signer;
 pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
-pub type ValidatorId = AccountId;
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -70,9 +72,21 @@ fn account(id: u64) -> AccountId {
 	ret.into()
 }
 
+struct SupersetSizeStorageInstance;
+
+impl frame_support::traits::StorageInstance for SupersetSizeStorageInstance {
+	fn pallet_prefix() -> &'static str {
+		"NoPallet"
+	}
+	const STORAGE_PREFIX: &'static str = "SupersetSize";
+}
+
+type SupersetSize = StorageValue<SupersetSizeStorageInstance, u64, ValueQuery>;
+
 impl pallet_validator_subset_selection::ValidatorSuperset<AccountId> for Test {
 	fn get_superset() -> Vec<AccountId> {
-		(0..1000).map(|n| account(n)).collect()
+		let superset_size = SupersetSize::get();
+		(0..superset_size).map(|n| account(n)).collect()
 	}
 }
 
@@ -84,9 +98,8 @@ impl pallet_validator_subset_selection::Config for Test {
 	type ValidatorSuperset = Self;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext(superset_size: Option<u64>) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-
 	pallet_validator_subset_selection::GenesisConfig::<Test> {
 		initial_subset_size: 250,
 		_phantom: PhantomData,
@@ -95,6 +108,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		SupersetSize::set(superset_size.unwrap_or_else(|| 1000));
+	});
 	ext
 }

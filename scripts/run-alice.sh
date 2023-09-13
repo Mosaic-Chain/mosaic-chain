@@ -16,9 +16,4 @@
 --validator \
 --rpc-methods=Unsafe \
 --rpc-cors=all \
---state-pruning archive-canonical \
-&
-
-trap "trap - SIGTERM && kill -9 -- -$$" SIGINT SIGTERM EXIT
-
-while true; do read; done
+--state-pruning archive-canonical

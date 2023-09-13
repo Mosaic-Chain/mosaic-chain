@@ -396,7 +396,7 @@ impl pallet_session::Config for Runtime {
 	type ValidatorId = ValidatorId;
 	type ValidatorIdOf = ConvertInto;
 	type ShouldEndSession = ValidatorSubsetSelection;
-	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = ();
 	type SessionManager = ValidatorSubsetSelection;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
@@ -479,8 +479,9 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_sudo, Sudo]
-		[pallet_template, TemplateModule]
+		//[pallet_sudo, Sudo]
+		//[pallet_template, TemplateModule]
+		[pallet_validator_subset_selection, ValidatorSubsetSelection]
 	);
 }
 
