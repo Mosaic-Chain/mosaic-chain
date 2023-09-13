@@ -580,15 +580,11 @@ pub mod pallet {
 		}
 	}
 
-	trait DummySessionHook {
-		fn on_before_session_end();
-	}
-
-	impl<T: Config> DummySessionHook for Pallet<T>
+	impl<T: Config> utils::traits::SessionHook for Pallet<T>
 	where
 		<T as frame_system::Config>::AccountId: From<<T as pallet_session::Config>::ValidatorId>,
 	{
-		fn on_before_session_end() {
+		fn session_ended(_: u32) -> DispatchResult {
 			let active_validators = SessionPallet::<T>::validators();
 			// HACK: naive implementation, ideally we would want to add the currency and nft exposures together,
 			// to avoid having to call the payout function twice for each category;
@@ -663,6 +659,7 @@ pub mod pallet {
 				}
 			}
 			T::Reward::on_unbalanced(total_imbalance);
+			Ok(())
 		}
 	}
 }

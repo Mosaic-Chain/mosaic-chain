@@ -4916,6 +4916,7 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "utils",
 ]
 
 [[package]]

@@ -372,7 +372,7 @@ impl pallet_validator_subset_selection::Config for Runtime {
 	type RandomGenerator = RandomGenerator;
 	type InitialRandomGenerator = InitialRandomGenerator;
 	type ValidatorSuperset = Self;
-	type SessionHook = (NftDelegation,); // TODO: Add staking here
+	type SessionHook = (NftDelegation, Staking);
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
