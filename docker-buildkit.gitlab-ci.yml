@@ -15,9 +15,6 @@
     PUSH_IMAGES_MAIN: "name=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA,$CI_REGISTRY_IMAGE:latest"
     DOCKER_CACHE_IMAGE: "$CI_REGISTRY_IMAGE/buildcache"
     DOCKER_HUB_AUTH_URL: "https://index.docker.io/v1/" # that's the result of docker login locally
-    BUILDKIT_CACHE_ARGS: >
-      --export-cache type=registry,mode=max,ref=$DOCKER_CACHE_IMAGE
-      --import-cache type=registry,ref=$DOCKER_CACHE_IMAGE
   rules:
     # Always tag with SHA, on default branch: tag with latest
     - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
@@ -58,7 +55,6 @@
     - >
       buildctl-daemonless.sh build --progress=plain
       --frontend=dockerfile.v0 --local context=$DOCKER_CONTEXT --local dockerfile=$DOCKERFILE_DIR
-      $BUILDKIT_CACHE_ARGS
       $BUILDKIT_ARGS
 
 .docker_buildkit_dependencyproxy:
