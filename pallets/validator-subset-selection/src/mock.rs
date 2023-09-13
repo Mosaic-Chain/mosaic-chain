@@ -7,13 +7,11 @@ use frame_support::pallet_prelude::*;
 use frame_support::traits::{ConstU16, ConstU64};
 use sp_core::{Hasher, H256};
 use sp_runtime::{
-	generic, impl_opaque_keys,
-	traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
-pub type BlockNumber = u32;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -96,6 +94,7 @@ impl pallet_validator_subset_selection::Config for Test {
 	type RandomGenerator = MockRandomGenerator;
 	type InitialRandomGenerator = MockRandomGenerator;
 	type ValidatorSuperset = Self;
+	type SessionHook = ();
 }
 
 pub fn new_test_ext(superset_size: Option<u64>) -> sp_io::TestExternalities {

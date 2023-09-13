@@ -41,6 +41,7 @@ pub trait Random128 {
 }
 
 ///Convert a FixedI64 to a float for logging
+#[allow(dead_code)]
 fn to_float(input: FixedI64) -> f64 {
 	input.into_inner() as f64 / <FixedI64 as FixedPointNumber>::DIV as f64
 }
@@ -219,6 +220,7 @@ pub mod pallet {
 			subset_size
 		}
 
+		#[allow(dead_code)]
 		fn session_length2(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
 			if subset_size >= 150_u32.into() {
 				subset_size
