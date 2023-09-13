@@ -4,7 +4,7 @@ use frame_support::{
 	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64},
 	PalletId,
 };
-use frame_system::Account;
+
 use pallet_session::{SessionHandler, SessionManager, ShouldEndSession};
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
