@@ -22,6 +22,8 @@ sp-application-crypto = { version = "23.0.0", default_features = false, git = "h
 pallet-session = { version = "4.0.0-dev", default_features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 sp-staking = { version = "4.0.0-dev", default_features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 
+utils = { version = "0.1.0", path = "../../utils" }
+
 [features]
 default = ["std"]
 std = [

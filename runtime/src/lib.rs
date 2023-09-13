@@ -354,6 +354,7 @@ impl pallet_validator_subset_selection::Config for Runtime {
 	type ValidatorId = AccountId;
 	type RandomGenerator = MyRandomGenerator;
 	type ValidatorSuperset = Self;
+	type SessionHook = (NftDelegation,); // TODO: Add staking here
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -379,7 +380,7 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = ConvertInto;
 	type ShouldEndSession = ValidatorSubsetSelection;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager = pallet_nft_delegation::SessionManager<Self, ValidatorSubsetSelection>;
+	type SessionManager = ValidatorSubsetSelection;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;

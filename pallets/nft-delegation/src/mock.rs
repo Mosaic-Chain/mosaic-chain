@@ -4,7 +4,8 @@ use frame_support::{
 	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64},
 	PalletId,
 };
-use pallet_session::{SessionHandler, ShouldEndSession};
+use frame_system::Account;
+use pallet_session::{SessionHandler, SessionManager, ShouldEndSession};
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
 	impl_opaque_keys,
@@ -14,6 +15,8 @@ use sp_runtime::{
 };
 
 use sp_std::collections::btree_map::BTreeMap;
+
+use utils::traits::SessionHook;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -134,6 +137,27 @@ impl_opaque_keys! {
 	}
 }
 
+pub struct DummySessionManager<AccountId, Hook> {
+	_phantom: sp_std::marker::PhantomData<(AccountId, Hook)>,
+}
+
+impl<AccountId, Hook: SessionHook> SessionManager<AccountId>
+	for DummySessionManager<AccountId, Hook>
+{
+	fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
+		Hook::session_planned(new_index).unwrap();
+		None
+	}
+
+	fn end_session(end_index: sp_staking::SessionIndex) {
+		Hook::session_ended(end_index).unwrap();
+	}
+
+	fn start_session(start_index: sp_staking::SessionIndex) {
+		Hook::session_started(start_index).unwrap();
+	}
+}
+
 impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 
@@ -145,7 +169,7 @@ impl pallet_session::Config for Test {
 
 	type NextSessionRotation = ();
 
-	type SessionManager = nft_delegation::SessionManager<Self, ()>;
+	type SessionManager = DummySessionManager<AccountId, NftDelegation>;
 
 	type SessionHandler = OtherSessionHandler;
 

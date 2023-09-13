@@ -571,50 +571,19 @@ pub mod pallet {
 		}
 	}
 
-	//TODO: We need to answer the following questions:
-	//		- What do we do on errors? Can we fail gracefully? Are the errors fatal?
-	//		- Only bound tokens are checked for performance reasons, so `TokenExpired` events are only fired
-	//			for items bound on expiry. Can / should we solve this?
-	//		- Currently its the staking pallet's responsibility to check for expiration before binding.
-	//			I think this should chnage but this requires a modified API.
-	//		- How and where do we calculate the weight for this operation? Session pallet?
-	//			- As this is an essesntial operation it WILL fit into a block, even if otherwise it wouldn't
-	//			- Is this acceptable behaviour once we become a parachain?
+	impl<T: Config> utils::traits::SessionHook for Pallet<T> {
+		fn session_started(index: utils::session_hook::SessionIndex) -> DispatchResult {
+			let collection_id = Pallet::<T>::collection_id().ok_or(Error::<T>::NotInitialized)?;
 
-	/// A wrapper around an other `SessionManager` that also checks for
-	/// bound delegator NFTs that have expired.
-	/// If the expiration of an NFT is - lets say - 5, then the `OnNftExpire` implementation will be called
-	/// in the beginning of the 5th session.  
-	pub struct SessionManager<T, I>(sp_std::marker::PhantomData<T>, sp_std::marker::PhantomData<I>);
-
-	impl<T: Config, ValidatorId, I: pallet_session::SessionManager<ValidatorId>>
-		pallet_session::SessionManager<ValidatorId> for SessionManager<T, I>
-	{
-		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
-			I::new_session(new_index)
-		}
-
-		fn new_session_genesis(new_index: sp_staking::SessionIndex) -> Option<Vec<ValidatorId>> {
-			I::new_session_genesis(new_index)
-		}
-
-		fn end_session(end_index: sp_staking::SessionIndex) {
-			I::end_session(end_index);
-		}
-		//FIXME: Handle error more gracefully
-		fn start_session(start_index: sp_staking::SessionIndex) {
-			let collection_id = Pallet::<T>::collection_id().expect("could get collection_id");
-
-			if let Some(tokens_expiring) = ExpiryCache::<T>::take(start_index) {
+			if let Some(tokens_expiring) = ExpiryCache::<T>::take(index) {
 				for item in &tokens_expiring {
-					let owner =
-						NftsPallet::<T>::owner(collection_id, *item).expect("item has owner");
+					let owner = NftsPallet::<T>::owner(collection_id, *item)
+						.ok_or(Error::<T>::NotInitialized)?;
 					let validator = BindCache::<T>::take(item);
-					let nominal_value = Pallet::<T>::decode_nominal_value(&collection_id, item)
-						.expect("could decode nominal value");
+					let nominal_value = Pallet::<T>::decode_nominal_value(&collection_id, item)?;
 
 					if let Some(validator_id) = validator.as_ref() {
-						Pallet::<T>::unbind(&owner, validator_id, item).expect("could unbind");
+						Pallet::<T>::unbind(&owner, validator_id, item)?;
 					}
 
 					T::NftExpirationHandler::on_expire(
@@ -627,8 +596,7 @@ pub mod pallet {
 
 				Pallet::<T>::deposit_event(Event::<T>::TokensExpired { items: tokens_expiring });
 			}
-
-			I::start_session(start_index);
+			Ok(())
 		}
 	}
 }

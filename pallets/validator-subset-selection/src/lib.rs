@@ -49,6 +49,7 @@ pub mod pallet {
 		pallet_prelude::{BlockNumberFor, OriginFor},
 	};
 	use pallet_session::ShouldEndSession;
+	use utils::traits::SessionHook;
 
 	//If a validator's bucket is full, then the bucket value is decreased with decrease_ratio
 	//and the other disperse_ratio=(1-decrease_ratio) is divided among all buckets
@@ -64,6 +65,7 @@ pub mod pallet {
 		type ValidatorId: Member + Parameter + Ss58Codec;
 		type RandomGenerator: Random128;
 		type ValidatorSuperset: ValidatorSuperset<Self::ValidatorId>;
+		type SessionHook: SessionHook;
 	}
 
 	#[pallet::event]
@@ -237,23 +239,29 @@ pub mod pallet {
 		}
 	}
 
+	//TODO(vismate): Handle errors more gracefully
 	impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 		fn new_session_genesis(
 			session_index: sp_staking::SessionIndex,
 		) -> Option<Vec<T::ValidatorId>> {
 			log::info!("New session genesis {}", session_index);
 			log::info!("Subset size: {}", SubsetSize::<T>::get());
+			T::SessionHook::session_genesis(session_index).expect("session hook ran successfully");
 			None
 		}
 
-		fn end_session(_: sp_staking::SessionIndex) {
+		fn end_session(session_index: sp_staking::SessionIndex) {
+			T::SessionHook::session_ended(session_index).expect("session hook ran successfully");
 			SessionEnd::<T>::put(NextSessionEnd::<T>::get());
 		}
 
-		fn start_session(_: sp_staking::SessionIndex) {}
+		fn start_session(session_index: sp_staking::SessionIndex) {
+			T::SessionHook::session_started(session_index).expect("session hook ran successfully");
+		}
 
 		fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<T::ValidatorId>> {
 			log::info!("new session {}", session_index);
+			T::SessionHook::session_planned(session_index).expect("session hook ran successfully");
 			let selected_subset =
 				Self::select_subset(<T::ValidatorSuperset as ValidatorSuperset<_>>::get_superset());
 			let current_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
