@@ -1,6 +1,6 @@
 include:
   - template: "Workflows/MergeRequest-Pipelines.gitlab-ci.yml" # https://docs.gitlab.com/ee/ci/yaml/workflow.html#workflowrules-templates
-  - project: dlabs1/mozaik-chain/substrate-kitchensink-template
+  - project: dlabs1/mozaik-chain/mosaic-chain
     file: docker-buildkit.gitlab-ci.yml
 
 
