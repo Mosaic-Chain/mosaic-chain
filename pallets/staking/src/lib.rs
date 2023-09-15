@@ -273,12 +273,12 @@ pub mod pallet {
 				*balance = (*balance).saturating_add(value);
 			});
 			AccountExposure::<T>::mutate(node_id, |x| {
-				if let Some(balance) = x {
-					*balance = (*balance).saturating_add(value);
-				} else {
-					*x = Some(value);
-				}
-			});
+				let Some(balance) = x else {
+					return Err(Error::<T>::InvalidTarget);
+				};
+				*balance = (*balance).saturating_add(value);
+				Ok(())
+			})?;
 			CurrencyExposure::<T>::mutate(node_id, staker_id, |x| {
 				let balance = if let Some(balance) = x {
 					*balance = (*balance).saturating_add(value);
