@@ -1,6 +1,8 @@
 #!/bin/bash
 
-./target/release/node-template \
+SCRIPT_DIR=$(dirname $(readlink -f $0))
+
+$SCRIPT_DIR/../../target/release/node-template \
     benchmark pallet \
     --chain=dev \
     --wasm-execution=compiled \
@@ -8,4 +10,4 @@
     --extrinsic=* \
     --steps=50 \
     --repeat=20 \
-    --output=pallets/validator-subset-selection/src/test_weights.rs
+    --output=$SCRIPT_DIR/src/test_weights.rs

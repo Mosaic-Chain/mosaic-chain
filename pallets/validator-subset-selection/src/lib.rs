@@ -54,10 +54,7 @@ pub trait ValidatorSuperset<ValidatorId: Member + Parameter + Ss58Codec> {
 pub mod pallet {
 	use super::*;
 	use frame_support::traits::BuildGenesisConfig;
-	use frame_system::{
-		ensure_root,
-		pallet_prelude::{BlockNumberFor, OriginFor},
-	};
+	use frame_system::pallet_prelude::*;
 	use pallet_session::ShouldEndSession;
 	use utils::traits::SessionHook;
 
