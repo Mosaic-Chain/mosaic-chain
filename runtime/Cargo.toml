@@ -65,6 +65,7 @@ substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/pari
 [features]
 default = ["std"]
 std = [
+	"pallet-nft-delegation/std",
 	"frame-try-runtime?/std",
 	"frame-system-benchmarking?/std",
 	"frame-benchmarking?/std",

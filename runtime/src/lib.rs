@@ -326,6 +326,10 @@ impl pallet_nft_permission::Config for Runtime {
 	type Balance = Balance;
 }
 
+parameter_types! {
+	pub const MinimumCommissionPpb: u128 = u128::pow(10, 9) / 100; // `(10**9 / 10) / 10**9 = 0.01` or 1%
+}
+
 impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
@@ -334,6 +338,7 @@ impl pallet_staking::Config for Runtime {
 	type NftStakingHandler = ();
 	type Balance = Balance;
 	type Reward = (); // Mint rewards from the abyss
+	type MinimumCommissionAllowed = MinimumCommissionPpb;
 	type MinimumStakingDuration = ConstU32<256>;
 }
 

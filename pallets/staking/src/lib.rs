@@ -198,6 +198,8 @@ pub mod pallet {
 
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
+		type MinimumCommissionAllowed: Get<u128>;
+
 		type WeightInfo: WeightInfo;
 	}
 
@@ -244,6 +246,10 @@ pub mod pallet {
 	#[pallet::getter(fn account_variant)]
 	pub type AccountVariant<T: Config> =
 		StorageMap<_, Twox64Concat, ValidatorId<T>, PermissionType>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn validator_commission)]
+	pub type ValidatorCommmission<T: Config> = StorageMap<_, Twox64Concat, ValidatorId<T>, u128>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -578,6 +584,17 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::call_index(9)]
+		pub fn set_commission(
+			origin: OriginFor<T>,
+			commission_in_part_per_billion: u128,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ValidatorCommmission::<T>::set(who, Some(commission_in_part_per_billion));
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config> utils::traits::SessionHook for Pallet<T>
@@ -599,7 +616,7 @@ pub mod pallet {
 
 			let total_stake_amount: u128 = TotalStake::<T>::get().into();
 			// FIXME: replace active validator len with total number of blocks created in session
-			let session_reward = u128::pow(10, 9) * active_validators.len() as u128;
+			let session_reward = u128::pow(10, 18) * active_validators.len() as u128;
 
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 
@@ -620,10 +637,14 @@ pub mod pallet {
 				)
 				.unwrap();
 
+				let commission_part_per_billion =
+					ValidatorCommmission::<T>::get(T::AccountId::from(validator_id.clone()))
+						.unwrap();
+
 				let validator_commission_amount = multiply_by_rational_with_rounding(
 					total_validator_reward_amount,
-					50,
-					1000,
+					commission_part_per_billion,
+					u128::pow(10, 9),
 					Rounding::NearestPrefDown,
 				)
 				.unwrap();
