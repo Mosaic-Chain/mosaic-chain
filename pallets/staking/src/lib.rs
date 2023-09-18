@@ -303,37 +303,31 @@ pub mod pallet {
 			node_id: &ValidatorId<T>,
 			staker_id: &T::AccountId,
 			value: T::Balance,
-		) -> DispatchResult {
+		) {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_sub(value);
 			});
 			AccountExposure::<T>::mutate_exists(node_id, |x| {
 				let balance = x.unwrap_or_default();
 				if value >= balance {
-					*x = None
+					*x = None;
 				} else {
-					*x = Some(balance.saturating_sub(value))
+					*x = Some(balance.saturating_sub(value));
 				}
 			});
 
 			CurrencyExposure::<T>::mutate_exists(node_id, staker_id, |x| {
 				let balance = x.unwrap_or_default();
 				if value >= balance {
-					*x = None
+					*x = None;
 				} else {
-					*x = Some(balance.saturating_sub(value))
+					*x = Some(balance.saturating_sub(value));
 				}
 				Self::update_lock(staker_id, balance);
 			});
-
-			Ok(())
 		}
 
-		fn do_stake_nft(
-			node_id: &ValidatorId<T>,
-			staker_id: &T::AccountId,
-			value: T::Balance,
-		) -> DispatchResult {
+		fn do_stake_nft(node_id: &ValidatorId<T>, staker_id: &T::AccountId, value: T::Balance) {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_add(value);
 			});
@@ -351,40 +345,33 @@ pub mod pallet {
 					*x = Some(value);
 				}
 			});
-
-			Ok(())
 		}
 
-		fn do_unstake_nft(
-			node_id: &ValidatorId<T>,
-			staker_id: &T::AccountId,
-			value: T::Balance,
-		) -> DispatchResult {
+		fn do_unstake_nft(node_id: &ValidatorId<T>, staker_id: &T::AccountId, value: T::Balance) {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_sub(value);
 			});
 			AccountExposure::<T>::mutate_exists(node_id, |x| {
 				let balance = x.unwrap_or_default();
 				if value >= balance {
-					*x = None
+					*x = None;
 				} else {
-					*x = Some(balance.saturating_sub(value))
+					*x = Some(balance.saturating_sub(value));
 				}
 			});
 			NftExposure::<T>::mutate_exists(node_id, staker_id, |x| {
 				let balance = x.unwrap_or_default();
 				if value >= balance {
-					*x = None
+					*x = None;
 				} else {
-					*x = Some(balance.saturating_sub(value))
+					*x = Some(balance.saturating_sub(value));
 				}
 			});
-			Ok(())
 		}
 
 		fn do_kick_nft(node_id: &ValidatorId<T>, delegator_id: &DelegatorId<T>) -> DispatchResult {
 			let nominal_value = T::NftDelegationHandler::kick(node_id, delegator_id)?;
-			Self::do_unstake_nft(node_id, delegator_id, nominal_value)?;
+			Self::do_unstake_nft(node_id, delegator_id, nominal_value);
 			Ok(())
 		}
 
@@ -392,9 +379,8 @@ pub mod pallet {
 			node_id: &ValidatorId<T>,
 			delegator_id: &DelegatorId<T>,
 			value: T::Balance,
-		) -> DispatchResult {
-			Self::do_unstake_currency(node_id, delegator_id, value)?;
-			Ok(())
+		) {
+			Self::do_unstake_currency(node_id, delegator_id, value);
 		}
 
 		fn do_kick(node_id: &ValidatorId<T>, delegator_id: &DelegatorId<T>) -> DispatchResult {
@@ -402,8 +388,7 @@ pub mod pallet {
 				Self::do_kick_nft(node_id, delegator_id)?;
 			}
 			// u128 max will unstake everything automatically because of `saturating_sub`
-			Self::do_unstake_currency(node_id, delegator_id, u128::MAX.into())?;
-
+			Self::do_unstake_currency(node_id, delegator_id, u128::MAX.into());
 			Ok(())
 		}
 
@@ -411,9 +396,8 @@ pub mod pallet {
 			NftExposure::<T>::iter_key_prefix(node_id)
 				.try_for_each(|delegator| Self::do_kick_nft(node_id, &delegator))?;
 
-			CurrencyExposure::<T>::iter_prefix(node_id).try_for_each(|(delegator, value)| {
-				Self::do_kick_currency(node_id, &delegator, value)
-			})?;
+			CurrencyExposure::<T>::iter_prefix(node_id)
+				.for_each(|(delegator, value)| Self::do_kick_currency(node_id, &delegator, value));
 			Ok(())
 		}
 
@@ -450,7 +434,7 @@ pub mod pallet {
 				Error::<T>::ExpiresEarly
 			);
 
-			Self::do_stake_nft(&who, &target, nominal_value)?;
+			Self::do_stake_nft(&who, &target, nominal_value);
 			Ok(())
 		}
 
@@ -463,7 +447,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let nominal_value = T::NftDelegationHandler::unbind(&who, &target, &item_id)?;
-			Self::do_unstake_nft(&who, &target, nominal_value)?;
+			Self::do_unstake_nft(&who, &target, nominal_value);
 			Ok(())
 		}
 
@@ -478,14 +462,15 @@ pub mod pallet {
 			ensure!(AccountVariant::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 
 			let (variant, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
-			Self::do_stake_nft(&who, &who, nominal_value)?;
+			Self::do_stake_nft(&who, &who, nominal_value);
 			AccountVariant::<T>::insert(&who, variant);
+			ValidatorCommmission::<T>::insert(who, T::MinimumCommissionAllowed::get());
 
 			Ok(())
 		}
 
 		#[pallet::call_index(3)]
-		pub fn unbind_nft(origin: OriginFor<T>, _validator_id: ValidatorId<T>) -> DispatchResult {
+		pub fn unbind_nft(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			let active_validators = SessionPallet::<T>::validators();
@@ -510,7 +495,7 @@ pub mod pallet {
 			}
 
 			let nominal_value = T::NftStakingHandler::unbind(&who)?;
-			Self::do_unstake_nft(&who, &who, nominal_value)?;
+			Self::do_unstake_nft(&who, &who, nominal_value);
 			AccountVariant::<T>::remove(&who);
 			Ok(())
 		}
@@ -539,7 +524,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// TODO: check for MinimumStakingDuration
-			Self::do_unstake_currency(&who, &who, value)?;
+			Self::do_unstake_currency(&who, &who, value);
 
 			Ok(())
 		}
@@ -572,7 +557,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// TODO: check for MinimumStakingDuration
-			Self::do_unstake_currency(&who, &target, value)?;
+			Self::do_unstake_currency(&who, &target, value);
 
 			Ok(())
 		}
