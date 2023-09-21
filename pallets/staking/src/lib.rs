@@ -309,7 +309,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn do_stake_currency(
+		pub fn do_stake_currency(
 			node_id: &ValidatorId<T>,
 			staker_id: &T::AccountId,
 			value: T::Balance,
@@ -439,7 +439,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn do_unstake_nft(
+		pub fn do_unstake_nft(
 			node_id: &ValidatorId<T>,
 			staker_id: &T::AccountId,
 			value: T::Balance,
