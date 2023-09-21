@@ -11,6 +11,8 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
+use pallet_staking::PermissionType;
+
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -65,12 +67,42 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					authority_keys_from_seed("Ferdie"),
 				],
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Eve"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), (), true, 10),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Alice"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Bob"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Charlie"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Dave"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Eve"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+						PermissionType::DPoS,
+						false,
+						10,
+					),
 				],
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -123,12 +155,42 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					authority_keys_from_seed("Ferdie"),
 				],
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Bob"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Charlie"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Dave"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Eve"), (), true, 100),
-					(get_account_id_from_seed::<sr25519::Public>("Ferdie"), (), true, 100),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Alice"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Bob"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Charlie"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Dave"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Eve"),
+						PermissionType::DPoS,
+						true,
+						100,
+					),
+					(
+						get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+						PermissionType::DPoS,
+						false,
+						100,
+					),
 				],
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -169,7 +231,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId, AccountId)>,
-	initial_permission_holders: Vec<(AccountId, (), bool, Balance)>,
+	initial_permission_holders: Vec<(AccountId, PermissionType, bool, Balance)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	initial_subset_size: u64,

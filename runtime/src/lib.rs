@@ -322,7 +322,7 @@ impl pallet_nft_permission::Config for Runtime {
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type ItemIdSuccession = NftIdSuccession;
-	type Permission = ();
+	type Permission = pallet_staking::PermissionType;
 	type Balance = Balance;
 }
 
@@ -335,7 +335,7 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
 	type NftDelegationHandler = NftDelegation;
-	type NftStakingHandler = ();
+	type NftStakingHandler = NftPermission;
 	type Balance = Balance;
 	type Reward = (); // Mint rewards from the abyss
 	type MinimumCommissionAllowed = MinimumCommissionPpb;

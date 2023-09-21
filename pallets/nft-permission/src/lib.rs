@@ -485,7 +485,13 @@ pub mod pallet {
 			if let Entry::Vacant(c) = bound_tokens.entry(account_id.clone()) {
 				c.insert((*item_id, ChillState::Unchilled));
 
-				<NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, item_id)?;
+				// If its already locked, we don't want this to fail
+				match <NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, item_id) {
+					Err(e) if e != pallet_nfts::Error::<T>::ItemLocked.into() => {
+						return Err(e);
+					},
+					_ => {},
+				}
 
 				let permission = Self::decode_permission(&collection_id, item_id)?;
 				let nominal_value = Self::decode_nominal_value(&collection_id, item_id)?;
@@ -516,6 +522,7 @@ pub mod pallet {
 
 				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 
+				// TODO: do we want this behaviour? What if its weren't us who locked the transfer of the item?
 				<NftsPallet<T> as Transfer<_>>::enable_transfer(&collection_id, &item_id)?;
 
 				BoundTokens::<T>::put(bound_tokens);
