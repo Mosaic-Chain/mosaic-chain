@@ -327,7 +327,7 @@ impl pallet_nft_permission::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MinimumCommissionPpb: u128 = u128::pow(10, 9) / 100; // `(10**9 / 10) / 10**9 = 0.01` or 1%
+	pub const MinimumCommissionPpb: u128 = u128::pow(10, 9) / 100; // `(10**9 / 100) / 10**9 = 0.01` or 1%
 }
 
 impl pallet_staking::Config for Runtime {
