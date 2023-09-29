@@ -232,6 +232,8 @@ pub mod pallet {
 			Self { currency: Default::default(), nft: Default::default() }
 		}
 	}
+	// TODO: I think we should rename this, as it's no longer just exposure.
+	// Suggestion: NodeDetails, ValidatorDetails. These names follow substrate conventions.
 	#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 	pub struct Exposure<AccountId, Balance: HasCompact> {
 		pub own: IndividualExposure<Balance>,
@@ -291,6 +293,7 @@ pub mod pallet {
 	#[pallet::getter(fn validator_commission)]
 	pub type ValidatorCommmission<T: Config> = StorageMap<_, Twox64Concat, ValidatorId<T>, u128>;
 
+	// TODO: add slashed event
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -427,6 +430,17 @@ pub mod pallet {
 				}
 				Ok(())
 			})?;
+			Ok(())
+		}
+
+		pub fn do_bind_nft(
+			node_id: ValidatorId<T>,
+			node_variant: PermissionType,
+			nominal_value: T::Balance,
+		) -> DispatchResult {
+			Self::do_stake_nft(&node_id, &node_id, nominal_value)?;
+			AccountVariant::<T>::insert(node_id.clone(), node_variant);
+			ValidatorCommmission::<T>::insert(node_id, T::MinimumCommissionAllowed::get());
 			Ok(())
 		}
 
@@ -567,10 +581,7 @@ pub mod pallet {
 			ensure!(AccountVariant::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 
 			let (variant, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
-			Self::do_stake_nft(&who, &who, nominal_value)?;
-			AccountVariant::<T>::insert(&who, variant);
-			ValidatorCommmission::<T>::insert(who, T::MinimumCommissionAllowed::get());
-
+			Self::do_bind_nft(who, variant, nominal_value)?;
 			Ok(())
 		}
 

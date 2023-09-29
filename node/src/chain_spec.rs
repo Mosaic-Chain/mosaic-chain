@@ -5,6 +5,8 @@ use node_template_runtime::{
 	RuntimeGenesisConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
 	ValidatorSubsetSelectionConfig, WASM_BINARY,
 };
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -37,10 +39,11 @@ where
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId, AccountId) {
+pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId, ImOnlineId, AccountId) {
 	(
 		get_from_seed::<AuraId>(s),
 		get_from_seed::<GrandpaId>(s),
+		get_from_seed::<ImOnlineId>(s),
 		get_account_id_from_seed::<sr25519::Public>(s),
 	)
 }
@@ -230,7 +233,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 /// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
 	wasm_binary: &[u8],
-	initial_authorities: Vec<(AuraId, GrandpaId, AccountId)>,
+	initial_authorities: Vec<(AuraId, GrandpaId, ImOnlineId, AccountId)>,
 	initial_permission_holders: Vec<(AccountId, PermissionType, bool, Balance)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
@@ -250,6 +253,7 @@ fn testnet_genesis(
 		},
 		aura: Default::default(),
 		grandpa: Default::default(),
+		im_online: Default::default(),
 		sudo: SudoConfig {
 			// Assign network admin rights.
 			key: Some(root_key),
@@ -261,9 +265,13 @@ fn testnet_genesis(
 				.iter()
 				.map(|x| {
 					(
-						x.2.clone(),
-						x.2.clone(),
-						SessionKeys { aura: x.0.clone(), grandpa: x.1.clone() },
+						x.3.clone(),
+						x.3.clone(),
+						SessionKeys {
+							aura: x.0.clone(),
+							grandpa: x.1.clone(),
+							im_online: x.2.clone(),
+						},
 					)
 				})
 				.collect::<Vec<_>>(),

@@ -7,20 +7,31 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use frame_support::{traits::AsEnsureOriginWithArg, PalletId};
+use codec::Encode;
+use frame_support::{
+	traits::{
+		AsEnsureOriginWithArg, EstimateNextSessionRotation, ValidatorSet,
+		ValidatorSetWithIdentification,
+	},
+	PalletId,
+};
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, ConstBool, Hasher, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	create_runtime_str,
+	generic::{self, Era},
+	impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, NumberFor,
-		One, OpaqueKeys, Verify,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentifyAccount,
+		NumberFor, One, OpaqueKeys, Verify,
 	},
-	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult, MultiSignature, SaturatedConversion,
 };
+use sp_staking::offence::OnOffenceHandler;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -52,6 +63,8 @@ pub use pallet_insecure_randomness_collective_flip;
 pub use pallet_nft_permission;
 pub use pallet_validator_subset_selection;
 use pallet_validator_subset_selection::Random128;
+
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -94,6 +107,7 @@ pub mod opaque {
 		pub struct SessionKeys {
 			pub aura: Aura,
 			pub grandpa: Grandpa,
+			pub im_online: ImOnline,
 		}
 	}
 }
@@ -322,8 +336,6 @@ impl pallet_nft_permission::Config for Runtime {
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type ItemIdSuccession = NftIdSuccession;
-	type Permission = pallet_staking::PermissionType;
-	type Balance = Balance;
 }
 
 parameter_types! {
@@ -409,6 +421,151 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
+pub struct LogOffence;
+
+impl
+	OnOffenceHandler<
+		<Runtime as frame_system::Config>::AccountId,
+		<Runtime as pallet_offences::Config>::IdentificationTuple,
+		frame_support::weights::Weight,
+	> for LogOffence
+{
+	fn on_offence(
+		offenders: &[sp_staking::offence::OffenceDetails<
+			<Runtime as frame_system::Config>::AccountId,
+			<Runtime as pallet_offences::Config>::IdentificationTuple,
+		>],
+		slash_fraction: &[Perbill],
+		session: sp_staking::SessionIndex,
+		_disable_strategy: sp_staking::offence::DisableStrategy,
+	) -> frame_support::weights::Weight {
+		log::warn!(
+			"OFFENCES: {:?}",
+			(
+				offenders.len(),
+				offenders
+					.iter()
+					.map(|o| sp_core::crypto::Ss58Codec::to_ss58check(&o.offender.0))
+					.collect::<Vec<_>>()
+			)
+		);
+		Default::default()
+	}
+}
+
+impl pallet_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type IdentificationTuple = pallet_im_online::IdentificationTuple<Self>;
+	type OnOffenceHandler = LogOffence;
+}
+
+parameter_types! {
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const MaxAuthorities: u32 = 100;
+	pub const MaxKeys: u32 = 10_000;
+	pub const MaxPeerInHeartbeats: u32 = 10_000;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		public: <Signature as Verify>::Signer,
+		account: AccountId,
+		nonce: Nonce,
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		let period =
+			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+		let current_block = System::block_number().saturated_into::<u64>().saturating_sub(1);
+		let era = Era::mortal(period, current_block);
+		let extra = (
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(era),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+		);
+		let raw_payload = SignedPayload::new(call, extra)
+			.map_err(|e| {
+				log::warn!("Unable to create signed payload: {:?}", e);
+			})
+			.ok()?;
+		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+		let address = account;
+		let (call, extra, _) = raw_payload.deconstruct();
+		Some((call, (sp_runtime::MultiAddress::Id(address), signature, extra)))
+	}
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+// TODO: Can we not do silly things like this?
+pub struct ValidatorOf;
+
+impl Convert<ValidatorId, Option<ValidatorId>> for ValidatorOf {
+	fn convert(account: ValidatorId) -> Option<ValidatorId> {
+		Some(account)
+	}
+}
+
+impl ValidatorSet<ValidatorId> for Runtime {
+	type ValidatorId = ValidatorId;
+	type ValidatorIdOf = ValidatorOf;
+
+	fn session_index() -> sp_staking::SessionIndex {
+		Session::current_index()
+	}
+
+	fn validators() -> Vec<ValidatorId> {
+		NftPermission::accounts_with_bound_permission()
+			.expect("pallet is initialized properly")
+			.into_iter()
+			.collect()
+	}
+}
+
+impl ValidatorSetWithIdentification<ValidatorId> for Runtime {
+	type Identification = ValidatorId;
+	type IdentificationOf = ValidatorOf;
+}
+
+impl pallet_im_online::Config for Runtime {
+	type AuthorityId = ImOnlineId;
+	type RuntimeEvent = RuntimeEvent;
+	type NextSessionRotation = ValidatorSubsetSelection;
+	type ValidatorSet = Self;
+	type ReportUnresponsiveness = Offences;
+	type UnsignedPriority = ImOnlineUnsignedPriority;
+	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
+	type MaxKeys = MaxKeys;
+	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
+}
+
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
+	type EventHandler = ImOnline;
+}
+
 parameter_types! {
 	pub const NftDelegationPalletId: PalletId = PalletId(*b"nft_perm");
 }
@@ -439,6 +596,9 @@ construct_runtime!(
 		ValidatorSubsetSelection: pallet_validator_subset_selection,
 		InsecureRandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 		Session: pallet_session,
+		Offences: pallet_offences,
+		ImOnline: pallet_im_online,
+		Authorship: pallet_authorship,
 	}
 );
 

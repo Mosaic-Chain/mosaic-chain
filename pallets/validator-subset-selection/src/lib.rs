@@ -108,6 +108,9 @@ pub mod pallet {
 	#[pallet::storage]
 	type NextSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
+	#[pallet::storage]
+	type AvgSessionLenght<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
 		pub initial_subset_size: u64,
@@ -293,10 +296,15 @@ pub mod pallet {
 				false,
 			);
 			let new_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
+			let new_session_length = Self::session_length(new_subset_size);
 			let current_session_end: BlockNumberFor<T> = SessionEnd::<T>::get();
-			let new_session_end: BlockNumberFor<T> =
-				current_session_end + Self::session_length(new_subset_size);
+			let new_session_end: BlockNumberFor<T> = current_session_end + new_session_length;
 			NextSessionEnd::<T>::put(new_session_end);
+			// TODO(vismate): This way of abusing types is ugly (conflicting block numbers with session indices)
+			AvgSessionLenght::<T>::mutate(|v| {
+				*v = (BlockNumberFor::<T>::from(session_index) * *v + new_session_length)
+					/ (BlockNumberFor::<T>::from(session_index) + 1u32.into())
+			});
 			Self::deposit_event(Event::SubsetSelected {
 				validator_subset: selected_subset.clone(),
 				//The subset is selected for the next session, which starts
@@ -313,6 +321,29 @@ pub mod pallet {
 		fn should_end_session(now: BlockNumberFor<T>) -> bool {
 			let session_end = SessionEnd::<T>::get();
 			session_end == now
+		}
+	}
+
+	// TODO: define weights
+	impl<T: Config> frame_support::traits::EstimateNextSessionRotation<BlockNumberFor<T>>
+		for Pallet<T>
+	{
+		fn average_session_length() -> BlockNumberFor<T> {
+			AvgSessionLenght::<T>::get()
+		}
+
+		fn estimate_current_session_progress(
+			now: BlockNumberFor<T>,
+		) -> (Option<sp_runtime::Permill>, frame_support::dispatch::Weight) {
+			let end = SessionEnd::<T>::get();
+			let progress = sp_runtime::Permill::from_rational(end - now, end);
+			(Some(progress), sp_runtime::traits::Zero::zero())
+		}
+
+		fn estimate_next_session_rotation(
+			_now: BlockNumberFor<T>,
+		) -> (Option<BlockNumberFor<T>>, frame_support::dispatch::Weight) {
+			(Some(SessionEnd::<T>::get()), sp_runtime::traits::Zero::zero())
 		}
 	}
 }

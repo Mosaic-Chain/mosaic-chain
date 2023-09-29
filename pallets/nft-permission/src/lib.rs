@@ -79,10 +79,9 @@ pub mod pallet {
 		MintSettings, MintType, Pallet as NftsPallet,
 	};
 
-	use sp_runtime::{
-		traits::AccountIdConversion, BoundedVec, DispatchError, FixedPointOperand, PerThing,
-		Perbill,
-	};
+	use pallet_staking::{Config as StakingConfig, Pallet as StakingPallet};
+
+	use sp_runtime::{traits::AccountIdConversion, BoundedVec, DispatchError, PerThing, Perbill};
 
 	use frame_system::pallet_prelude::OriginFor;
 
@@ -102,7 +101,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + NftsConfig {
+	pub trait Config: frame_system::Config + NftsConfig + StakingConfig {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -112,21 +111,6 @@ pub mod pallet {
 
 		/// The origin that is authorized to mint new tokens and modify existing ones.
 		type PrivilegedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// Used for the nominal value of permission tokens
-		type Balance: Parameter
-			+ Member
-			+ sp_runtime::traits::AtLeast32BitUnsigned
-			+ Codec
-			+ Default
-			+ Copy
-			+ MaybeSerializeDeserialize
-			+ MaxEncodedLen
-			+ TypeInfo
-			+ FixedPointOperand;
-
-		/// The permission type that is stored amongst the token's attributes.
-		type Permission: Parameter + Member + Codec + MaybeSerializeDeserialize;
 
 		/// A way the next item's id is generated.
 		type ItemIdSuccession: Successor<Self::ItemId>;
@@ -183,7 +167,8 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub initial_permission_holders: Vec<(T::AccountId, T::Permission, bool, T::Balance)>,
+		pub initial_permission_holders:
+			Vec<(T::AccountId, pallet_staking::PermissionType, bool, T::Balance)>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -249,6 +234,12 @@ pub mod pallet {
 					<NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, &item_id)
 						.expect("could disable transfer");
 					bound_tokens.insert(account_id.clone(), (item_id, ChillState::Unchilled));
+					StakingPallet::<T>::do_bind_nft(
+						account_id.clone(),
+						*permission,
+						*nominal_value,
+					)
+					.expect("could bind nft");
 				}
 			}
 
@@ -282,7 +273,7 @@ pub mod pallet {
 		/// - Error during minting process.
 		pub fn do_mint_permission_token(
 			account_id: &T::AccountId,
-			permission: &T::Permission,
+			permission: &pallet_staking::PermissionType,
 			nominal_value: &T::Balance,
 		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
 			nominal_value.using_encoded(|nominal_value| {
@@ -313,7 +304,7 @@ pub mod pallet {
 		///  - Failed to decode data
 		pub fn permission_of(
 			item_id: &<T as NftsConfig>::ItemId,
-		) -> Result<T::Permission, DispatchError> {
+		) -> Result<pallet_staking::PermissionType, DispatchError> {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 			Self::decode_permission(&collection_id, item_id)
 		}
@@ -336,7 +327,7 @@ pub mod pallet {
 		fn encode_permission(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
-			permission: &T::Permission,
+			permission: &pallet_staking::PermissionType,
 		) -> DispatchResult {
 			permission.using_encoded(|permission| {
 				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
@@ -363,8 +354,8 @@ pub mod pallet {
 		fn decode_permission(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
-		) -> Result<T::Permission, DispatchError> {
-			T::Permission::decode(
+		) -> Result<pallet_staking::PermissionType, DispatchError> {
+			pallet_staking::PermissionType::decode(
 				&mut NftsPallet::<T>::system_attribute(collection_id, item_id, PERMISSION_KEY)
 					.ok_or(Error::<T>::NotInitialized)?
 					.as_slice(),
@@ -456,7 +447,7 @@ pub mod pallet {
 		pallet_staking::NftStaking<
 			T::AccountId,
 			T::Balance,
-			T::Permission,
+			pallet_staking::PermissionType,
 			<T as NftsConfig>::ItemId,
 		> for Pallet<T>
 	{
@@ -471,7 +462,7 @@ pub mod pallet {
 		fn bind(
 			account_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
-		) -> Result<(T::Permission, T::Balance), DispatchError> {
+		) -> Result<(pallet_staking::PermissionType, T::Balance), DispatchError> {
 			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 
 			ensure!(
