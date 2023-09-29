@@ -20,7 +20,7 @@ pub use weights::*;
 pub mod pallet {
 	use super::*;
 	use codec::HasCompact;
-	use frame_support::pallet_prelude::*;
+	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_support::{
 		dispatch::Codec,
 		traits::{Currency, Imbalance, LockableCurrency, OnUnbalanced, WithdrawReasons},
@@ -291,7 +291,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn validator_commission)]
-	pub type ValidatorCommmission<T: Config> = StorageMap<_, Twox64Concat, ValidatorId<T>, u128>;
+	pub type ValidatorCommission<T: Config> =
+		StorageMap<_, Twox64Concat, ValidatorId<T>, u128, ValueQuery, T::MinimumCommissionAllowed>;
 
 	// TODO: add slashed event
 	#[pallet::event]
@@ -433,17 +434,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn do_bind_nft(
-			node_id: ValidatorId<T>,
-			node_variant: PermissionType,
-			nominal_value: T::Balance,
-		) -> DispatchResult {
-			Self::do_stake_nft(&node_id, &node_id, nominal_value)?;
-			AccountVariant::<T>::insert(node_id.clone(), node_variant);
-			ValidatorCommmission::<T>::insert(node_id, T::MinimumCommissionAllowed::get());
-			Ok(())
-		}
-
 		pub fn do_unstake_nft(
 			node_id: &ValidatorId<T>,
 			staker_id: &T::AccountId,
@@ -509,13 +499,15 @@ pub mod pallet {
 		}
 
 		fn do_kick_all(node_id: &ValidatorId<T>) -> DispatchResult {
-			NodeExposure::<T>::get(node_id).expect("TODO").delegators.iter().try_for_each(
-				|(delegator, individual_exposure)| {
+			NodeExposure::<T>::get(node_id)
+				.ok_or(Error::<T>::BadState)?
+				.delegators
+				.iter()
+				.try_for_each(|(delegator, individual_exposure)| {
 					Self::do_kick_currency(node_id, delegator, individual_exposure.currency)?;
 					Self::do_kick_nft(node_id, delegator)?;
 					Ok::<(), DispatchError>(())
-				},
-			)?;
+				})?;
 			Ok(())
 		}
 
@@ -581,7 +573,11 @@ pub mod pallet {
 			ensure!(AccountVariant::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 
 			let (variant, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
-			Self::do_bind_nft(who, variant, nominal_value)?;
+
+			AccountVariant::<T>::insert(&who, variant);
+			ValidatorCommission::<T>::insert(who, T::MinimumCommissionAllowed::get());
+			Self::do_stake_nft(&who, &who, nominal_value)?;
+
 			Ok(())
 		}
 
@@ -690,7 +686,7 @@ pub mod pallet {
 			commission_in_part_per_billion: u128,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ValidatorCommmission::<T>::set(who, Some(commission_in_part_per_billion));
+			ValidatorCommission::<T>::set(who, commission_in_part_per_billion);
 
 			Ok(())
 		}
@@ -701,15 +697,20 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<<T as pallet_session::Config>::ValidatorId>,
 	{
 		fn session_ended(_: u32) -> DispatchResult {
+			let total_stake_amount: u128 = TotalStake::<T>::get().into();
+
+			if total_stake_amount == 0 {
+				return Ok(());
+			}
+
 			let active_validators = SessionPallet::<T>::validators();
 
 			let payout_candidates = active_validators.iter().map(|validator_id| {
-				let exposure =
-					NodeExposure::<T>::get(T::AccountId::from(validator_id.clone())).expect("TODO");
+				let exposure = NodeExposure::<T>::get(T::AccountId::from(validator_id.clone()))
+					.unwrap_or_default();
 				(validator_id, exposure)
 			});
 
-			let total_stake_amount: u128 = TotalStake::<T>::get().into();
 			// FIXME: replace active validator len with total number of blocks created in session
 			let session_reward = u128::pow(10, 18) * active_validators.len() as u128;
 
@@ -730,8 +731,7 @@ pub mod pallet {
 				.unwrap();
 
 				let commission_part_per_billion =
-					ValidatorCommmission::<T>::get(T::AccountId::from(validator_id.clone()))
-						.unwrap();
+					ValidatorCommission::<T>::get(T::AccountId::from(validator_id.clone()));
 
 				let validator_commission_amount = multiply_by_rational_with_rounding(
 					total_validator_reward_amount,
