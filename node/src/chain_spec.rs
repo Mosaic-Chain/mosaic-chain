@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use node_template_runtime::{
 	opaque::SessionKeys, AccountId, Balance, BalancesConfig, NftPermissionConfig,
-	RuntimeGenesisConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
+	RuntimeGenesisConfig, SessionConfig, Signature, StakingConfig, SudoConfig, SystemConfig,
 	ValidatorSubsetSelectionConfig, WASM_BINARY,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -259,7 +259,19 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		nft_permission: NftPermissionConfig { initial_permission_holders },
+		nft_permission: NftPermissionConfig {
+			unstaked_permission_holders: initial_permission_holders
+				.iter()
+				.cloned()
+				.filter_map(|(acc, perm, bound, nominal)| (!bound).then_some((acc, perm, nominal)))
+				.collect(),
+		},
+		staking: StakingConfig {
+			initial_staking_validators: initial_permission_holders
+				.into_iter()
+				.filter_map(|(acc, perm, bound, nominal)| bound.then_some((acc, perm, nominal)))
+				.collect(),
+		},
 		session: SessionConfig {
 			keys: initial_authorities
 				.iter()

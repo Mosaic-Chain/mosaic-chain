@@ -137,8 +137,11 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn bound_tokens)]
-	pub type BoundTokens<T: Config> =
-		StorageValue<_, BTreeMap<T::AccountId, (<T as NftsConfig>::ItemId, ChillState)>>;
+	pub type BoundTokens<T: Config> = StorageValue<
+		_,
+		BTreeMap<T::AccountId, (<T as NftsConfig>::ItemId, ChillState)>,
+		ValueQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -169,13 +172,12 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub initial_permission_holders:
-			Vec<(T::AccountId, pallet_staking::PermissionType, bool, T::Balance)>,
+		pub unstaked_permission_holders: Vec<(T::AccountId, T::Permission, T::Balance)>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { initial_permission_holders: Vec::new() }
+			Self { unstaked_permission_holders: Vec::new() }
 		}
 	}
 
@@ -203,50 +205,12 @@ pub mod pallet {
 			.expect("could create collection");
 
 			CollectionId::<T>::put(collection_id);
-			let mut bound_tokens =
-				BTreeMap::<T::AccountId, (<T as NftsConfig>::ItemId, ChillState)>::new();
 
-			let mut item_id = T::ItemIdSuccession::initial();
-			for (account_id, permission, bound, nominal_value) in &self.initial_permission_holders {
-				NftsPallet::<T>::mint_into(
-					&collection_id,
-					&item_id,
-					account_id,
-					&ItemConfig::default(),
-					true,
-				)
-				.expect("could mint new permission nft");
-
-				nominal_value
-					.using_encoded(|nominal_value| {
-						permission.using_encoded(|permission| {
-							Pallet::<T>::init_attributes(
-								&collection_id,
-								&item_id,
-								permission,
-								nominal_value,
-							)
-						})
-					})
-					.expect("could initialize attributes");
-
-				item_id = T::ItemIdSuccession::successor(&item_id);
-
-				if *bound {
-					<NftsPallet<T> as Transfer<_>>::disable_transfer(&collection_id, &item_id)
-						.expect("could disable transfer");
-					bound_tokens.insert(account_id.clone(), (item_id, ChillState::Unchilled));
-					StakingPallet::<T>::do_bind_nft(
-						account_id.clone(),
-						*permission,
-						*nominal_value,
-					)
-					.expect("could bind nft");
-				}
+			NextItemId::<T>::put(T::ItemIdSuccession::initial());
+			for (account_id, permission, nominal_value) in &self.unstaked_permission_holders {
+				Pallet::<T>::do_mint_permission_token(account_id, permission, nominal_value)
+					.expect("could mint new permission token");
 			}
-
-			NextItemId::<T>::put(item_id);
-			BoundTokens::<T>::put(bound_tokens);
 		}
 	}
 
@@ -255,7 +219,7 @@ pub mod pallet {
 		/// where a permission NFT is bound but not chilled
 		pub fn accounts_with_bound_permission(
 		) -> Result<impl Iterator<Item = T::AccountId>, DispatchError> {
-			let bound_tokens = Self::bound_tokens().ok_or(Error::<T>::NotInitialized)?;
+			let bound_tokens = Self::bound_tokens();
 			Ok(bound_tokens.into_iter().filter_map(|(account_id, (_, chilled))| {
 				(chilled == ChillState::Unchilled).then_some(account_id)
 			}))
@@ -456,6 +420,13 @@ pub mod pallet {
 			<T as NftsConfig>::ItemId,
 		> for Pallet<T>
 	{
+		fn mint(
+			account_id: &T::AccountId,
+			permission: &T::Permission,
+			nominal_value: &T::Balance,
+		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
+			Self::do_mint_permission_token(account_id, permission, nominal_value)
+		}
 		// Bind a permission NFT to an account, locking its use.
 		/// Returns the associated permission an nominal value decoded from token.
 		///
@@ -476,7 +447,7 @@ pub mod pallet {
 				Error::<T>::WrongOwner
 			);
 
-			let mut bound_tokens = Self::bound_tokens().ok_or(Error::<T>::NotInitialized)?;
+			let mut bound_tokens = Self::bound_tokens();
 
 			if let Entry::Vacant(c) = bound_tokens.entry(account_id.clone()) {
 				c.insert((*item_id, ChillState::Unchilled));
@@ -508,7 +479,7 @@ pub mod pallet {
 		/// - Pallet is not initialized.
 		/// - NFT is not chilled.
 		fn unbind(account_id: &T::AccountId) -> Result<T::Balance, DispatchError> {
-			let mut bound_tokens = Self::bound_tokens().ok_or(Error::<T>::NotInitialized)?;
+			let mut bound_tokens = Self::bound_tokens();
 
 			if let Entry::Occupied(entry) = bound_tokens.entry(account_id.clone()) {
 				if entry.get().1 == ChillState::Unchilled {
@@ -540,7 +511,7 @@ pub mod pallet {
 			account_id: &T::AccountId,
 			slash_proportion: Perbill,
 		) -> Result<T::Balance, DispatchError> {
-			let mut bound_tokens = Self::bound_tokens().ok_or(Error::<T>::NotInitialized)?;
+			let mut bound_tokens = Self::bound_tokens();
 
 			if let Entry::Occupied(c) = bound_tokens.entry(account_id.clone()) {
 				let (item_id, _) = c.get();
@@ -573,7 +544,7 @@ pub mod pallet {
 		/// - NFT is not bound.
 		/// - NFT is already chilled.
 		fn chill(account_id: &T::AccountId) -> DispatchResult {
-			let mut bound_tokens = Self::bound_tokens().ok_or(Error::<T>::NotInitialized)?;
+			let mut bound_tokens = Self::bound_tokens();
 
 			if let Entry::Occupied(mut c) = bound_tokens.entry(account_id.clone()) {
 				if c.get().1 == ChillState::Chilled {
@@ -600,7 +571,7 @@ pub mod pallet {
 		/// - NFT is not bound.
 		/// - NFT is not chilled.
 		fn unchill(account_id: &T::AccountId) -> DispatchResult {
-			let mut bound_tokens = Self::bound_tokens().ok_or(Error::<T>::NotInitialized)?;
+			let mut bound_tokens = Self::bound_tokens();
 
 			if let Entry::Occupied(mut c) = bound_tokens.entry(account_id.clone()) {
 				if c.get().1 == ChillState::Unchilled {

@@ -28,6 +28,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use pallet_nfts::Config as NftsConfig;
 	use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
+	use sp_runtime::DispatchError;
 	use sp_runtime::{
 		helpers_128bit::multiply_by_rational_with_rounding, traits::Convert, FixedPointOperand,
 		Perbill, Rounding, Saturating,
@@ -38,6 +39,12 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	pub trait NftStaking<AccountId, Balance, Variant, ItemId> {
+		fn mint(
+			account_id: &AccountId,
+			permission: &Variant,
+			nominal_value: &Balance,
+		) -> Result<ItemId, DispatchError>;
+
 		fn bind(
 			account_id: &AccountId,
 			item_id: &ItemId,
@@ -81,6 +88,14 @@ pub mod pallet {
 	}
 
 	impl<AccountId, Balance, Variant, ItemId> NftStaking<AccountId, Balance, Variant, ItemId> for () {
+		fn mint(
+			_account_id: &AccountId,
+			_permission: &Variant,
+			_nominal_value: &Balance,
+		) -> Result<ItemId, DispatchError> {
+			unimplemented!()
+		}
+
 		fn bind(
 			_account_id: &AccountId,
 			_item_id: &ItemId,
@@ -311,6 +326,40 @@ pub mod pallet {
 		NotBound,
 		ExpiresEarly,
 		AlreadyInQueue,
+	}
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub initial_staking_validators: SpVec<(ValidatorId<T>, PermissionType, T::Balance)>,
+	}
+
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { initial_staking_validators: SpVec::new() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			for (validator_id, permission, nominal_value) in &self.initial_staking_validators {
+				let item_id = T::NftStakingHandler::mint(validator_id, permission, nominal_value)
+					.expect("could mint new permission nft");
+
+				assert!(NodeExposure::<T>::get(validator_id).is_none());
+				assert!(AccountVariant::<T>::get(validator_id).is_none());
+
+				T::NftStakingHandler::bind(validator_id, &item_id)
+					.expect("could bind newly made permission nft");
+				AccountVariant::<T>::insert(validator_id, permission);
+				ValidatorCommission::<T>::insert(
+					validator_id.clone(),
+					T::MinimumCommissionAllowed::get(),
+				);
+				Pallet::<T>::do_stake_nft(validator_id, validator_id, *nominal_value)
+					.expect("could stake nft");
+			}
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
