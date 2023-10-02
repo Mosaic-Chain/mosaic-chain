@@ -558,7 +558,7 @@ pub mod pallet {
 
 			// TODO: check for MinimumStakingDuration
 			let nominal_value = T::NftDelegationHandler::unbind(&who, &target, &item_id)?;
-			Self::do_unstake_nft(&who, &target, nominal_value)?;
+			Self::do_unstake_nft(&target, &who, nominal_value)?;
 			Ok(())
 		}
 
@@ -573,9 +573,8 @@ pub mod pallet {
 			ensure!(AccountVariant::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 
 			let (variant, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
-
 			AccountVariant::<T>::insert(&who, variant);
-			ValidatorCommission::<T>::insert(who, T::MinimumCommissionAllowed::get());
+			ValidatorCommission::<T>::insert(who.clone(), T::MinimumCommissionAllowed::get());
 			Self::do_stake_nft(&who, &who, nominal_value)?;
 
 			Ok(())
@@ -653,7 +652,7 @@ pub mod pallet {
 
 			let stash_balance = <T as pallet::Config>::Currency::free_balance(&who);
 			let value = value.min(stash_balance);
-			Self::do_stake_currency(&who, &target, value)?;
+			Self::do_stake_currency(&target, &who, value)?;
 
 			Ok(())
 		}
@@ -667,7 +666,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// TODO: check for MinimumStakingDuration
-			Self::do_unstake_currency(&who, &target, value)?;
+			Self::do_unstake_currency(&target, &who, value)?;
 
 			Ok(())
 		}

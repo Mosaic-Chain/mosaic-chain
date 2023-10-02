@@ -79,9 +79,11 @@ pub mod pallet {
 		MintSettings, MintType, Pallet as NftsPallet,
 	};
 
-	use pallet_staking::{Config as StakingConfig, Pallet as StakingPallet};
+	use pallet_staking::Config as StakingConfig;
 
-	use sp_runtime::{traits::AccountIdConversion, BoundedVec, DispatchError, PerThing, Perbill};
+	use sp_runtime::{
+		traits::AccountIdConversion, DispatchError, FixedPointOperand, PerThing, Perbill,
+	};
 
 	use frame_system::pallet_prelude::OriginFor;
 
@@ -434,12 +436,15 @@ pub mod pallet {
 		pub fn mint_permission_token(
 			origin: OriginFor<T>,
 			account_id: T::AccountId,
-			permission: BoundedVec<u8, <T as NftsConfig>::ValueLimit>,
-			nominal_value: BoundedVec<u8, <T as NftsConfig>::ValueLimit>,
+			permission: T::Permission,
+			nominal_value: T::Balance,
 		) -> DispatchResult {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
-			Self::create_token(&account_id, permission.as_slice(), nominal_value.as_slice())
-				.map(|_| ())
+			permission.using_encoded(|permission| {
+				nominal_value.using_encoded(|nominal_value| {
+					Self::create_token(&account_id, permission, nominal_value).map(|_| ())
+				})
+			})
 		}
 	}
 
