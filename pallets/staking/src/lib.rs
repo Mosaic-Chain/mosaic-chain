@@ -227,14 +227,14 @@ pub mod pallet {
 	>>::PositiveImbalance;
 
 	#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-	pub struct IndividualExposure<Balance: HasCompact> {
+	pub struct Exposure<Balance: HasCompact> {
 		#[codec(compact)]
 		pub currency: Balance,
 		#[codec(compact)]
 		pub nft: Balance,
 	}
 
-	impl<Balance> IndividualExposure<Balance>
+	impl<Balance> Exposure<Balance>
 	where
 		Balance: HasCompact + Add<Output = Balance> + Copy,
 	{
@@ -242,20 +242,21 @@ pub mod pallet {
 			self.currency + self.nft
 		}
 	}
-	impl<Balance: Default + HasCompact> Default for IndividualExposure<Balance> {
+	impl<Balance: Default + HasCompact> Default for Exposure<Balance> {
 		fn default() -> Self {
 			Self { currency: Default::default(), nft: Default::default() }
 		}
 	}
-	// TODO: I think we should rename this, as it's no longer just exposure.
-	// Suggestion: NodeDetails, ValidatorDetails. These names follow substrate conventions.
+
 	#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-	pub struct Exposure<AccountId, Balance: HasCompact> {
-		pub own: IndividualExposure<Balance>,
-		pub delegators: SpVec<(AccountId, IndividualExposure<Balance>)>,
+	pub struct NodeDetails<AccountId, Balance: HasCompact> {
+		pub own: Exposure<Balance>,
+		pub delegators: SpVec<(AccountId, Exposure<Balance>)>,
+		// unapplied slash in the current session
+		pub slash: Option<Perbill>,
 	}
 
-	impl<AccountId: Ord, Balance> Exposure<AccountId, Balance>
+	impl<AccountId: Ord, Balance> NodeDetails<AccountId, Balance>
 	where
 		Balance: HasCompact + Add<Output = Balance> + Sum + Copy,
 	{
@@ -263,10 +264,7 @@ pub mod pallet {
 			self.own.exposure()
 		}
 
-		fn get_delegator(
-			&mut self,
-			delegator_id: &AccountId,
-		) -> Option<&mut IndividualExposure<Balance>> {
+		fn get_delegator(&mut self, delegator_id: &AccountId) -> Option<&mut Exposure<Balance>> {
 			self.delegators
 				.iter_mut()
 				.find(|(account_id, _)| account_id == delegator_id)
@@ -279,9 +277,9 @@ pub mod pallet {
 		}
 	}
 
-	impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
+	impl<AccountId, Balance: Default + HasCompact> Default for NodeDetails<AccountId, Balance> {
 		fn default() -> Self {
-			Self { own: IndividualExposure::default(), delegators: SpVec::new() }
+			Self { own: Exposure::default(), delegators: SpVec::new(), slash: None }
 		}
 	}
 
@@ -290,12 +288,11 @@ pub mod pallet {
 	pub type TotalStake<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn individual_exposure)]
-	pub type NodeExposure<T: Config> = StorageMap<
+	pub type Nodes<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ValidatorId<T>,
-		Exposure<T::AccountId, T::Balance>,
+		NodeDetails<T::AccountId, T::Balance>,
 		OptionQuery,
 	>;
 
@@ -346,7 +343,7 @@ pub mod pallet {
 				let item_id = T::NftStakingHandler::mint(validator_id, permission, nominal_value)
 					.expect("could mint new permission nft");
 
-				assert!(NodeExposure::<T>::get(validator_id).is_none());
+				assert!(Nodes::<T>::get(validator_id).is_none());
 				assert!(AccountVariant::<T>::get(validator_id).is_none());
 
 				T::NftStakingHandler::bind(validator_id, &item_id)
@@ -371,7 +368,7 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_add(value);
 			});
-			NodeExposure::<T>::mutate(node_id, |x| {
+			Nodes::<T>::mutate(node_id, |x| {
 				if node_id == staker_id {
 					let Some(exposure) = x else {
 						return Err(Error::<T>::InvalidTarget);
@@ -389,11 +386,10 @@ pub mod pallet {
 							delegator_exposure.currency.saturating_add(value);
 						delegator_exposure.clone()
 					} else {
-						let delegator_exposure =
-							IndividualExposure::<<T as pallet::Config>::Balance> {
-								currency: value,
-								..Default::default()
-							};
+						let delegator_exposure = Exposure::<<T as pallet::Config>::Balance> {
+							currency: value,
+							..Default::default()
+						};
 						exposure.delegators.push((staker_id.clone(), delegator_exposure.clone()));
 						delegator_exposure
 					};
@@ -412,7 +408,7 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_sub(value);
 			});
-			NodeExposure::<T>::mutate_exists(node_id, |x| {
+			Nodes::<T>::mutate_exists(node_id, |x| {
 				if node_id == staker_id {
 					let mut exposure = x.clone().unwrap_or_default();
 					if value >= exposure.own_exposure() {
@@ -449,12 +445,12 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_add(value);
 			});
-			NodeExposure::<T>::mutate(node_id, |x| {
+			Nodes::<T>::mutate(node_id, |x| {
 				if node_id == staker_id {
 					if let Some(exposure) = x {
 						exposure.own.nft = exposure.own.nft.saturating_add(value);
 					} else {
-						let mut exposure = Exposure::<T::AccountId, T::Balance>::default();
+						let mut exposure = NodeDetails::<T::AccountId, T::Balance>::default();
 						exposure.own.nft = exposure.own.nft.saturating_add(value);
 						*x = Some(exposure);
 					}
@@ -468,11 +464,10 @@ pub mod pallet {
 						delegator_exposure.nft = delegator_exposure.nft.saturating_add(value);
 						delegator_exposure.clone()
 					} else {
-						let delegator_exposure =
-							IndividualExposure::<<T as pallet::Config>::Balance> {
-								nft: value,
-								..Default::default()
-							};
+						let delegator_exposure = Exposure::<<T as pallet::Config>::Balance> {
+							nft: value,
+							..Default::default()
+						};
 						exposure.delegators.push((staker_id.clone(), delegator_exposure.clone()));
 						delegator_exposure
 					};
@@ -480,6 +475,17 @@ pub mod pallet {
 				}
 				Ok(())
 			})?;
+			Ok(())
+		}
+
+		pub fn do_bind_nft(
+			node_id: ValidatorId<T>,
+			node_variant: PermissionType,
+			nominal_value: T::Balance,
+		) -> DispatchResult {
+			Self::do_stake_nft(&node_id, &node_id, nominal_value)?;
+			AccountVariant::<T>::insert(node_id.clone(), node_variant);
+			ValidatorCommission::<T>::insert(node_id, T::MinimumCommissionAllowed::get());
 			Ok(())
 		}
 
@@ -491,7 +497,7 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_sub(value);
 			});
-			NodeExposure::<T>::mutate_exists(node_id, |x| {
+			Nodes::<T>::mutate_exists(node_id, |x| {
 				if node_id == staker_id {
 					let mut exposure = x.clone().unwrap_or_default();
 					if value >= exposure.own_exposure() {
@@ -534,7 +540,7 @@ pub mod pallet {
 		}
 
 		fn do_kick(node_id: &ValidatorId<T>, delegator_id: &DelegatorId<T>) -> DispatchResult {
-			match NodeExposure::<T>::get(node_id) {
+			match Nodes::<T>::get(node_id) {
 				Some(mut exposure) => {
 					if exposure.get_delegator(delegator_id).is_some() {
 						Self::do_kick_nft(node_id, delegator_id)?;
@@ -548,15 +554,13 @@ pub mod pallet {
 		}
 
 		fn do_kick_all(node_id: &ValidatorId<T>) -> DispatchResult {
-			NodeExposure::<T>::get(node_id)
-				.ok_or(Error::<T>::BadState)?
-				.delegators
-				.iter()
-				.try_for_each(|(delegator, individual_exposure)| {
+			Nodes::<T>::get(node_id).expect("TODO").delegators.iter().try_for_each(
+				|(delegator, individual_exposure)| {
 					Self::do_kick_currency(node_id, delegator, individual_exposure.currency)?;
 					Self::do_kick_nft(node_id, delegator)?;
 					Ok::<(), DispatchError>(())
-				})?;
+				},
+			)?;
 			Ok(())
 		}
 
@@ -618,10 +622,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(NodeExposure::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
+			ensure!(Nodes::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 			ensure!(AccountVariant::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
 
 			let (variant, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
+
 			AccountVariant::<T>::insert(&who, variant);
 			ValidatorCommission::<T>::insert(who.clone(), T::MinimumCommissionAllowed::get());
 			Self::do_stake_nft(&who, &who, nominal_value)?;
@@ -753,10 +758,11 @@ pub mod pallet {
 
 			let active_validators = SessionPallet::<T>::validators();
 
-			let payout_candidates = active_validators.iter().map(|validator_id| {
-				let exposure = NodeExposure::<T>::get(T::AccountId::from(validator_id.clone()))
-					.unwrap_or_default();
-				(validator_id, exposure)
+			let payout_candidates = active_validators.iter().filter_map(|validator_id| {
+				let details =
+					Nodes::<T>::get(T::AccountId::from(validator_id.clone())).expect("TODO");
+
+				details.slash.is_none().then_some((validator_id, details))
 			});
 
 			// FIXME: replace active validator len with total number of blocks created in session

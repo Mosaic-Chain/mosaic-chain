@@ -335,6 +335,7 @@ impl pallet_nft_permission::Config for Runtime {
 	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Runtime>;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
+	type Permission = pallet_staking::PermissionType;
 	type ItemIdSuccession = NftIdSuccession;
 }
 
@@ -435,8 +436,8 @@ impl
 			<Runtime as frame_system::Config>::AccountId,
 			<Runtime as pallet_offences::Config>::IdentificationTuple,
 		>],
-		slash_fraction: &[Perbill],
-		session: sp_staking::SessionIndex,
+		_slash_fraction: &[Perbill],
+		_session: sp_staking::SessionIndex,
 		_disable_strategy: sp_staking::offence::DisableStrategy,
 	) -> frame_support::weights::Weight {
 		log::warn!(
