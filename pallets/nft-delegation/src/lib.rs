@@ -172,7 +172,7 @@ pub mod pallet {
 		TokenBound { item_id: <T as NftsConfig>::ItemId },
 		/// A token has been successfully unbound
 		TokenUnbound { item_id: <T as NftsConfig>::ItemId },
-		/// A token has been successfully unchilled
+		/// A token has been slashed
 		TokenSlashed { item_id: <T as NftsConfig>::ItemId, nominal_value: T::Balance },
 		/// A set of token has been expired
 		TokensExpired { items: Vec<<T as NftsConfig>::ItemId> },

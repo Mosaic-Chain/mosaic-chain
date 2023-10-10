@@ -157,7 +157,7 @@ pub mod pallet {
 		TokenChilled { item_id: <T as NftsConfig>::ItemId },
 		/// A token has been successfully unchilled
 		TokenUnchilled { item_id: <T as NftsConfig>::ItemId },
-		/// A token has been successfully unchilled
+		/// A token has been slashed
 		TokenSlashed { item_id: <T as NftsConfig>::ItemId, nominal_value: T::Balance },
 	}
 
