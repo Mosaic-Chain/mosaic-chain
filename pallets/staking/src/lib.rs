@@ -23,15 +23,17 @@ pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_support::{
 		dispatch::Codec,
-		traits::{Currency, Imbalance, LockableCurrency, OnUnbalanced, WithdrawReasons},
+		traits::{
+			Currency, Imbalance, LockableCurrency, OnUnbalanced, ValidatorSet, WithdrawReasons,
+		},
 	};
 	use frame_system::pallet_prelude::*;
 	use pallet_nfts::Config as NftsConfig;
 	use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
-	use sp_runtime::DispatchError;
 	use sp_runtime::{
-		helpers_128bit::multiply_by_rational_with_rounding, traits::Convert, FixedPointOperand,
-		Perbill, Rounding, Saturating,
+		helpers_128bit::multiply_by_rational_with_rounding,
+		traits::{Convert, Zero},
+		DispatchError, FixedPointOperand, PerThing, Perbill, Rounding, Saturating,
 	};
 	use sp_std::{iter::Sum, ops::Add, vec::Vec as SpVec};
 
@@ -176,7 +178,14 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + NftsConfig + SessionConfig {
+	// TODO: remove im-online dependency
+	pub trait Config:
+		frame_system::Config
+		+ NftsConfig
+		+ SessionConfig
+		+ pallet_offences::Config
+		+ pallet_im_online::Config
+	{
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -252,8 +261,8 @@ pub mod pallet {
 	pub struct NodeDetails<AccountId, Balance: HasCompact> {
 		pub own: Exposure<Balance>,
 		pub delegators: SpVec<(AccountId, Exposure<Balance>)>,
-		// unapplied slash in the current session
-		pub slash: Option<Perbill>,
+		// inverse of the unapplied slash in the current session
+		pub inverse_slash: Option<Perbill>,
 	}
 
 	impl<AccountId: Ord, Balance> NodeDetails<AccountId, Balance>
@@ -279,7 +288,7 @@ pub mod pallet {
 
 	impl<AccountId, Balance: Default + HasCompact> Default for NodeDetails<AccountId, Balance> {
 		fn default() -> Self {
-			Self { own: Exposure::default(), delegators: SpVec::new(), slash: None }
+			Self { own: Exposure::default(), delegators: SpVec::new(), inverse_slash: None }
 		}
 	}
 
@@ -564,13 +573,155 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// FIXME: locking-mechanism needs an entire overhaul.
+		// We need to keep track of everyone's total locked amount.
+		// We might bring back a ledger system
 		fn update_lock(staker_id: &T::AccountId, amount: T::Balance) {
 			<T as pallet::Config>::Currency::set_lock(
-				[0; 8], // TODO: fix id
+				*b"lstaking", // TODO: fix id
 				staker_id,
 				amount,
 				WithdrawReasons::all(),
 			);
+		}
+
+		/// Rewards a node and it's delegators.
+		/// Returns the amount of new currency created.
+		fn reward_node(
+			validator_account_id: T::AccountId,
+			node_details: &NodeDetails<T::AccountId, T::Balance>,
+			total_stake: u128,
+			session_reward: u128,
+		) -> PositiveImbalanceOf<T> {
+			let node_exposure: u128 = node_details.total_exposure().into();
+			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
+
+			// validator gets its cut first
+			let total_validator_reward_amount = multiply_by_rational_with_rounding(
+				session_reward,
+				node_exposure,
+				total_stake,
+				Rounding::NearestPrefDown,
+			)
+			.expect("no arithmetic error");
+
+			let commission_part_per_billion =
+				ValidatorCommission::<T>::get(validator_account_id.clone());
+
+			let validator_commission_amount = multiply_by_rational_with_rounding(
+				total_validator_reward_amount,
+				commission_part_per_billion,
+				u128::pow(10, 9),
+				Rounding::NearestPrefDown,
+			)
+			.expect("no arithmetic error");
+
+			let imbalance = <T as Config>::Currency::deposit_creating(
+				&validator_account_id,
+				validator_commission_amount.into(),
+			);
+			total_imbalance.subsume(imbalance);
+
+			// calculate the rest of the payouts from the account's remaining rewards
+			let remaining_account_reward =
+				total_validator_reward_amount - validator_commission_amount;
+
+			for (delegator_id, delegator_exposure) in &node_details.delegators {
+				let reward_amount = multiply_by_rational_with_rounding(
+					delegator_exposure.exposure().into(),
+					remaining_account_reward,
+					node_exposure,
+					Rounding::NearestPrefDown,
+				)
+				.unwrap();
+
+				let imbalance =
+					<T as Config>::Currency::deposit_creating(delegator_id, reward_amount.into());
+				Self::deposit_event(Event::<T>::Rewarded {
+					stash: delegator_id.clone(),
+					amount: imbalance.peek(),
+				});
+				total_imbalance.subsume(imbalance);
+			}
+
+			total_imbalance
+		}
+
+		/// Slash a node and it's delegators.
+		/// Mutates node details and returns the amount of currency to be removed from total_stake
+		fn slash_node(
+			validator_account_id: T::AccountId,
+			node_details: &mut NodeDetails<T::AccountId, T::Balance>,
+			slash_proportion: Perbill,
+		) -> T::Balance {
+			let mut total_stake_slash = T::Balance::zero();
+
+			// Slash own permission and delegator nfts
+			if !node_details.own.nft.is_zero() {
+				let new_perission_stake =
+					T::NftStakingHandler::slash(&validator_account_id, slash_proportion)
+						.expect("TODO");
+				let new_delegator_nft_stake = T::NftDelegationHandler::slash(
+					&validator_account_id,
+					&validator_account_id,
+					slash_proportion,
+				)
+				.unwrap_or(Zero::zero());
+
+				let new_nft_stake = new_perission_stake.saturating_add(new_delegator_nft_stake);
+
+				total_stake_slash = total_stake_slash
+					.saturating_add(node_details.own.nft.saturating_sub(new_nft_stake));
+				node_details.own.nft = new_nft_stake;
+			}
+
+			// Slash own currency
+			if !node_details.own.currency.is_zero() {
+				let slash_amount = slash_proportion * node_details.own.currency;
+
+				if <T as pallet::Config>::Currency::can_slash(&validator_account_id, slash_amount) {
+					let (actual_slash, _) =
+						<T as pallet::Config>::Currency::slash(&validator_account_id, slash_amount);
+					node_details.own.currency =
+						node_details.own.currency.saturating_sub(actual_slash.peek());
+
+					total_stake_slash = total_stake_slash.saturating_add(actual_slash.peek());
+
+					// FIXME: update lock
+				}
+			}
+
+			// Slash delegators
+			for (delegator_id, exposure) in &mut node_details.delegators {
+				// Slash delegator nfts
+				if !exposure.nft.is_zero() {
+					let new_nft_stake = T::NftDelegationHandler::slash(
+						delegator_id,
+						&validator_account_id,
+						slash_proportion,
+					)
+					.expect("TODO");
+
+					total_stake_slash = total_stake_slash
+						.saturating_add(exposure.nft.saturating_sub(new_nft_stake));
+					exposure.nft = new_nft_stake;
+				}
+
+				// Slash delegator currency
+				if !exposure.currency.is_zero() {
+					let slash_amount = slash_proportion * exposure.currency;
+					if <T as pallet::Config>::Currency::can_slash(delegator_id, slash_amount) {
+						let (actual_slash, _) =
+							<T as pallet::Config>::Currency::slash(delegator_id, slash_amount);
+						exposure.currency = exposure.currency.saturating_sub(actual_slash.peek());
+						total_stake_slash = total_stake_slash.saturating_add(actual_slash.peek());
+
+						// FIXME: update lock
+					}
+				}
+			}
+
+			total_stake_slash
 		}
 	}
 
@@ -750,83 +901,83 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<<T as pallet_session::Config>::ValidatorId>,
 	{
 		fn session_ended(_: u32) -> DispatchResult {
-			let total_stake_amount: u128 = TotalStake::<T>::get().into();
+			let total_stake: u128 = TotalStake::<T>::get().into();
 
-			if total_stake_amount == 0 {
+			if total_stake == 0 {
 				return Ok(());
 			}
 
 			let active_validators = SessionPallet::<T>::validators();
 
-			let payout_candidates = active_validators.iter().filter_map(|validator_id| {
-				let details =
-					Nodes::<T>::get(T::AccountId::from(validator_id.clone())).expect("TODO");
-
-				details.slash.is_none().then_some((validator_id, details))
-			});
-
 			// FIXME: replace active validator len with total number of blocks created in session
 			let session_reward = u128::pow(10, 18) * active_validators.len() as u128;
 
+			let mut total_stake_slash: T::Balance = Zero::zero();
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 
-			// this is O(n) because we iterate over `exposure.delegators` in sequence
-			for (validator_id, exposure) in payout_candidates {
-				// calculate account exposure for commission calculation
-				let node_exposure_amount: u128 = exposure.total_exposure().into();
+			for validator_id in active_validators {
+				let validator_account_id = T::AccountId::from(validator_id.clone());
 
-				// validator gets its cut first
-				let total_validator_reward_amount = multiply_by_rational_with_rounding(
-					session_reward,
-					node_exposure_amount,
-					total_stake_amount,
-					Rounding::NearestPrefDown,
-				)
-				.unwrap();
+				Nodes::<T>::mutate_extant(validator_account_id.clone(), |details| {
+					if let Some(inverse_slash) = details.inverse_slash.take() {
+						// Apply slash, skip rewarding this node
+						let slash_proportion = inverse_slash.left_from_one();
 
-				let commission_part_per_billion =
-					ValidatorCommission::<T>::get(T::AccountId::from(validator_id.clone()));
-
-				let validator_commission_amount = multiply_by_rational_with_rounding(
-					total_validator_reward_amount,
-					commission_part_per_billion,
-					u128::pow(10, 9),
-					Rounding::NearestPrefDown,
-				)
-				.unwrap();
-
-				let imbalance = <T as Config>::Currency::deposit_creating(
-					&(*validator_id).clone().into(),
-					validator_commission_amount.into(),
-				);
-				total_imbalance.subsume(imbalance);
-
-				// calculate the rest of the payouts from the account's remaining rewards
-				let remaining_account_reward =
-					total_validator_reward_amount - validator_commission_amount;
-
-				for (delegator_id, delegator_exposure) in exposure.delegators {
-					let reward_amount = multiply_by_rational_with_rounding(
-						delegator_exposure.exposure().into(),
-						remaining_account_reward,
-						node_exposure_amount,
-						Rounding::NearestPrefDown,
-					)
-					.unwrap();
-
-					let imbalance = <T as Config>::Currency::deposit_creating(
-						&delegator_id,
-						reward_amount.into(),
-					);
-					Self::deposit_event(Event::<T>::Rewarded {
-						stash: delegator_id,
-						amount: imbalance.peek(),
-					});
-					total_imbalance.subsume(imbalance);
-				}
+						total_stake_slash = total_stake_slash.saturating_add(Self::slash_node(
+							validator_account_id,
+							details,
+							slash_proportion,
+						));
+					} else {
+						// No need to slash, reward node
+						total_imbalance.subsume(Self::reward_node(
+							validator_account_id,
+							details,
+							total_stake,
+							session_reward,
+						));
+					}
+				});
 			}
+
 			T::Reward::on_unbalanced(total_imbalance);
+			TotalStake::<T>::mutate(|s| *s -= total_stake_slash);
 			Ok(())
+		}
+	}
+
+	// TODO: make id tuple more generic
+	// TODO: define weights
+	impl<T: Config>
+		sp_staking::offence::OnOffenceHandler<
+			<T as frame_system::Config>::AccountId,
+			pallet_im_online::IdentificationTuple<T>,
+			frame_support::weights::Weight,
+		> for Pallet<T>
+	where
+		<<T as pallet_im_online::Config>::ValidatorSet as ValidatorSet<
+			<T as frame_system::Config>::AccountId,
+		>>::ValidatorId: codec::EncodeLike<<T as frame_system::Config>::AccountId>,
+	{
+		fn on_offence(
+			offenders: &[sp_staking::offence::OffenceDetails<
+				<T as frame_system::Config>::AccountId,
+				pallet_im_online::IdentificationTuple<T>,
+			>],
+			slash_fraction: &[Perbill],
+			_session: sp_staking::SessionIndex,
+			_disable_strategy: sp_staking::offence::DisableStrategy,
+		) -> frame_support::weights::Weight {
+			for (o, slash) in offenders.iter().zip(slash_fraction.iter()) {
+				Nodes::<T>::mutate_extant(o.offender.0.clone(), |node_details| match node_details
+					.inverse_slash
+				{
+					None => node_details.inverse_slash = Some(slash.left_from_one()),
+					Some(ref mut acc) => *acc = *acc * slash.left_from_one(),
+				});
+			}
+
+			Default::default()
 		}
 	}
 }

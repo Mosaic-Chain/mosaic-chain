@@ -454,10 +454,11 @@ impl
 	}
 }
 
+// TODO: figure out how to be more generic over the id tuple
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_im_online::IdentificationTuple<Self>;
-	type OnOffenceHandler = LogOffence;
+	type OnOffenceHandler = Staking;
 }
 
 parameter_types! {
