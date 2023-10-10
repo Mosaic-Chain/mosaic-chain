@@ -227,6 +227,9 @@ pub mod pallet {
 
 		type MinimumCommissionAllowed: Get<u128>;
 
+		#[pallet::constant]
+		type PalletId: Get<frame_support::PalletId>;
+
 		type WeightInfo: WeightInfo;
 	}
 
@@ -569,7 +572,7 @@ pub mod pallet {
 
 		fn update_lock(account_id: &T::AccountId, amount: T::Balance) {
 			<T as pallet::Config>::Currency::set_lock(
-				*b"lstaking", // TODO: fix id
+				<T as Config>::PalletId::get().0,
 				account_id,
 				amount,
 				WithdrawReasons::all(),
@@ -580,7 +583,7 @@ pub mod pallet {
 
 		fn release_lock(account_id: &T::AccountId) {
 			<T as pallet::Config>::Currency::remove_lock(
-				*b"lstaking", // TODO: fix id
+				<T as Config>::PalletId::get().0,
 				account_id,
 			);
 

@@ -343,6 +343,10 @@ parameter_types! {
 	pub const MinimumCommissionPpb: u128 = u128::pow(10, 9) / 100; // `(10**9 / 100) / 10**9 = 0.01` or 1%
 }
 
+parameter_types! {
+	pub const StakingPalletId: PalletId = PalletId(*b"mstaking");
+}
+
 impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
@@ -353,6 +357,7 @@ impl pallet_staking::Config for Runtime {
 	type Reward = (); // Mint rewards from the abyss
 	type MinimumCommissionAllowed = MinimumCommissionPpb;
 	type MinimumStakingDuration = ConstU32<256>;
+	type PalletId = StakingPalletId;
 }
 
 pub struct RandomGenerator;

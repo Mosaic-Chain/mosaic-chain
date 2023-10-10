@@ -185,7 +185,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			let admin: T::AccountId = T::PalletId::get().into_account_truncating();
+			let admin: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 			PalletAccountId::<T>::put(admin.clone());
 
 			let collection_id = NftsPallet::<T>::create_collection(
