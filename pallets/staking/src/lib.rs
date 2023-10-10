@@ -336,6 +336,7 @@ pub mod pallet {
 		NotBound,
 		ExpiresEarly,
 		AlreadyInQueue,
+		NotEnoughFunds,
 	}
 
 	#[pallet::genesis_config]
@@ -420,19 +421,20 @@ pub mod pallet {
 			Nodes::<T>::mutate_exists(node_id, |x| {
 				if node_id == staker_id {
 					let mut exposure = x.clone().unwrap_or_default();
-					// FIXME: we can't remove node if it still has NFT exposure.
-					if value >= exposure.own_exposure() {
-						*x = None;
-					} else {
-						exposure.own.currency = exposure.own.currency.saturating_sub(value);
-						*x = Some(exposure.clone());
+					if value > exposure.own.currency {
+						return Err(Error::<T>::NotEnoughFunds);
 					}
+					exposure.own.currency = exposure.own.currency.saturating_sub(value);
+					*x = Some(exposure.clone());
 				} else {
 					let Some(exposure) = x else {
 						return Err(Error::<T>::InvalidTarget);
 					};
 
 					if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
+						if value > delegator_exposure.currency {
+							return Err(Error::<T>::NotEnoughFunds);
+						}
 						delegator_exposure.currency =
 							delegator_exposure.currency.saturating_sub(value);
 					} else {
