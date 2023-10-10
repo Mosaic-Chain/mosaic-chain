@@ -21,6 +21,7 @@ pub mod pallet {
 	use super::*;
 	use codec::HasCompact;
 	use frame_support::pallet_prelude::{ValueQuery, *};
+	use frame_support::Twox64Concat;
 	use frame_support::{
 		dispatch::Codec,
 		traits::{
@@ -315,6 +316,9 @@ pub mod pallet {
 	pub type ValidatorCommission<T: Config> =
 		StorageMap<_, Twox64Concat, ValidatorId<T>, u128, ValueQuery, T::MinimumCommissionAllowed>;
 
+	#[pallet::storage]
+	pub type LockedCurrency<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::Balance>;
+
 	// TODO: add slashed event
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -383,27 +387,23 @@ pub mod pallet {
 						return Err(Error::<T>::InvalidTarget);
 					};
 					exposure.own.currency = exposure.own.currency.saturating_add(value);
-					Self::update_lock(staker_id, exposure.own.currency);
 				} else {
 					let Some(exposure) = x else {
 						return Err(Error::<T>::InvalidTarget);
 					};
-					let delegator_exposure = if let Some(delegator_exposure) =
-						exposure.get_delegator(staker_id)
-					{
+					if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
 						delegator_exposure.currency =
 							delegator_exposure.currency.saturating_add(value);
-						delegator_exposure.clone()
 					} else {
 						let delegator_exposure = Exposure::<<T as pallet::Config>::Balance> {
 							currency: value,
 							..Default::default()
 						};
-						exposure.delegators.push((staker_id.clone(), delegator_exposure.clone()));
-						delegator_exposure
+						exposure.delegators.push((staker_id.clone(), delegator_exposure));
 					};
-					Self::update_lock(staker_id, delegator_exposure.currency);
 				}
+
+				Self::lock_currency(staker_id, value);
 				Ok(())
 			})?;
 			Ok(())
@@ -420,27 +420,27 @@ pub mod pallet {
 			Nodes::<T>::mutate_exists(node_id, |x| {
 				if node_id == staker_id {
 					let mut exposure = x.clone().unwrap_or_default();
+					// FIXME: we can't remove node if it still has NFT exposure.
 					if value >= exposure.own_exposure() {
 						*x = None;
 					} else {
 						exposure.own.currency = exposure.own.currency.saturating_sub(value);
 						*x = Some(exposure.clone());
 					}
-					Self::update_lock(staker_id, exposure.own.currency);
 				} else {
 					let Some(exposure) = x else {
 						return Err(Error::<T>::InvalidTarget);
 					};
-					let delegator_exposure =
-						if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
-							delegator_exposure.currency =
-								delegator_exposure.currency.saturating_sub(value);
-							delegator_exposure
-						} else {
-							return Err(Error::<T>::InvalidTarget);
-						};
-					Self::update_lock(staker_id, delegator_exposure.currency);
+
+					if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
+						delegator_exposure.currency =
+							delegator_exposure.currency.saturating_sub(value);
+					} else {
+						return Err(Error::<T>::InvalidTarget);
+					};
 				}
+
+				Self::release_currency(staker_id, value);
 				Ok(())
 			})?;
 			Ok(())
@@ -467,20 +467,15 @@ pub mod pallet {
 					let Some(exposure) = x else {
 						return Err(Error::<T>::InvalidTarget);
 					};
-					let delegator_exposure = if let Some(delegator_exposure) =
-						exposure.get_delegator(staker_id)
-					{
+					if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
 						delegator_exposure.nft = delegator_exposure.nft.saturating_add(value);
-						delegator_exposure.clone()
 					} else {
 						let delegator_exposure = Exposure::<<T as pallet::Config>::Balance> {
 							nft: value,
 							..Default::default()
 						};
 						exposure.delegators.push((staker_id.clone(), delegator_exposure.clone()));
-						delegator_exposure
 					};
-					Self::update_lock(staker_id, delegator_exposure.nft);
 				}
 				Ok(())
 			})?;
@@ -519,15 +514,12 @@ pub mod pallet {
 					let Some(exposure) = x else {
 						return Err(Error::<T>::InvalidTarget);
 					};
-					let delegator_exposure =
-						if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
-							delegator_exposure.currency =
-								delegator_exposure.currency.saturating_sub(value);
-							delegator_exposure
-						} else {
-							return Err(Error::<T>::InvalidTarget);
-						};
-					Self::update_lock(staker_id, delegator_exposure.currency);
+
+					if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
+						delegator_exposure.nft = delegator_exposure.nft.saturating_sub(value);
+					} else {
+						return Err(Error::<T>::InvalidTarget);
+					};
 				}
 				Ok(())
 			})?;
@@ -573,16 +565,55 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// FIXME: locking-mechanism needs an entire overhaul.
-		// We need to keep track of everyone's total locked amount.
-		// We might bring back a ledger system
-		fn update_lock(staker_id: &T::AccountId, amount: T::Balance) {
+		fn update_lock(account_id: &T::AccountId, amount: T::Balance) {
 			<T as pallet::Config>::Currency::set_lock(
 				*b"lstaking", // TODO: fix id
-				staker_id,
+				account_id,
 				amount,
 				WithdrawReasons::all(),
 			);
+
+			LockedCurrency::<T>::insert(account_id, amount);
+		}
+
+		fn release_lock(account_id: &T::AccountId) {
+			<T as pallet::Config>::Currency::remove_lock(
+				*b"lstaking", // TODO: fix id
+				account_id,
+			);
+
+			LockedCurrency::<T>::remove(account_id);
+		}
+
+		/// Adds the provided amount to the account's lock.
+		/// Possible side-effects: creates an entry in LockedCurrency, locks currency
+		fn lock_currency(account_id: &T::AccountId, amount: T::Balance) {
+			if amount.is_zero() {
+				return;
+			}
+
+			let locked = LockedCurrency::<T>::get(account_id)
+				.unwrap_or(Zero::zero())
+				.saturating_add(amount);
+
+			Self::update_lock(account_id, locked);
+		}
+
+		/// Removes the provided amount from the account's lock.
+		/// Possible side-effects: removes an entry from LockedCurrency, releases lock
+		fn release_currency(account_id: &T::AccountId, amount: T::Balance) {
+			if amount.is_zero() {
+				return;
+			}
+
+			if let Some(locked) = LockedCurrency::<T>::get(account_id) {
+				let locked = locked.saturating_sub(amount);
+				if locked.is_zero() {
+					Self::release_lock(account_id);
+				} else {
+					Self::update_lock(account_id, locked);
+				}
+			}
 		}
 
 		/// Rewards a node and it's delegators.
@@ -686,8 +717,7 @@ pub mod pallet {
 						node_details.own.currency.saturating_sub(actual_slash.peek());
 
 					total_stake_slash = total_stake_slash.saturating_add(actual_slash.peek());
-
-					// FIXME: update lock
+					Self::release_currency(&validator_account_id, actual_slash.peek());
 				}
 			}
 
@@ -716,7 +746,7 @@ pub mod pallet {
 						exposure.currency = exposure.currency.saturating_sub(actual_slash.peek());
 						total_stake_slash = total_stake_slash.saturating_add(actual_slash.peek());
 
-						// FIXME: update lock
+						Self::release_currency(delegator_id, actual_slash.peek());
 					}
 				}
 			}
