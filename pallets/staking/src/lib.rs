@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+//TODO: VALIDATE CALCUATION SECURITY, FIX IF NEEDED
+
 /// Edit this file to define custom logic or remove it if it is not needed.
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/reference/frame-pallets/>
@@ -225,7 +227,7 @@ pub mod pallet {
 
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
-		type MinimumCommissionAllowed: Get<u128>;
+		type MinimumCommissionAllowed: Get<Perbill>;
 
 		#[pallet::constant]
 		type PalletId: Get<frame_support::PalletId>;
@@ -316,8 +318,14 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn validator_commission)]
-	pub type ValidatorCommission<T: Config> =
-		StorageMap<_, Twox64Concat, ValidatorId<T>, u128, ValueQuery, T::MinimumCommissionAllowed>;
+	pub type ValidatorCommission<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ValidatorId<T>,
+		Perbill,
+		ValueQuery,
+		T::MinimumCommissionAllowed,
+	>;
 
 	#[pallet::storage]
 	pub type LockedCurrency<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::Balance>;
@@ -327,6 +335,8 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		Rewarded { stash: T::AccountId, amount: T::Balance },
+		RewardCurrencyCreated { amount: T::Balance },
+		TotalSlashThisSession { amount: T::Balance },
 	}
 
 	// Errors inform users that something went wrong.
@@ -368,7 +378,11 @@ pub mod pallet {
 				AccountVariant::<T>::insert(validator_id, permission);
 				ValidatorCommission::<T>::insert(
 					validator_id.clone(),
-					T::MinimumCommissionAllowed::get(),
+					if *permission == PermissionType::PoS {
+						Perbill::from_percent(100)
+					} else {
+						T::MinimumCommissionAllowed::get()
+					},
 				);
 				Pallet::<T>::do_stake_nft(validator_id, validator_id, *nominal_value)
 					.expect("could stake nft");
@@ -625,58 +639,82 @@ pub mod pallet {
 		/// Returns the amount of new currency created.
 		fn reward_node(
 			validator_account_id: T::AccountId,
-			node_details: &NodeDetails<T::AccountId, T::Balance>,
+			node_details: &mut NodeDetails<T::AccountId, T::Balance>,
 			total_stake: u128,
 			session_reward: u128,
 		) -> PositiveImbalanceOf<T> {
-			let node_exposure: u128 = node_details.total_exposure().into();
+			let total_node_exposure: u128 = node_details.total_exposure().into();
+			let own_node_exposure: u128 = node_details.own.exposure().into();
+			let delegated_node_exposure: u128 = total_node_exposure - own_node_exposure;
+
+			let commission_part_per_billion =
+				ValidatorCommission::<T>::get(validator_account_id.clone()).deconstruct() as u128;
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 
 			// validator gets its cut first
-			let total_validator_reward_amount = multiply_by_rational_with_rounding(
+			let total_reward = multiply_by_rational_with_rounding(
 				session_reward,
-				node_exposure,
+				total_node_exposure,
 				total_stake,
 				Rounding::NearestPrefDown,
 			)
 			.expect("no arithmetic error");
 
-			let commission_part_per_billion =
-				ValidatorCommission::<T>::get(validator_account_id.clone());
+			let inherent_validator_cut = multiply_by_rational_with_rounding(
+				total_reward,
+				own_node_exposure,
+				total_node_exposure,
+				Rounding::NearestPrefDown,
+			)
+			.expect("no arithmetic error");
 
-			let validator_commission_amount = multiply_by_rational_with_rounding(
-				total_validator_reward_amount,
+			let commission_validator_cut = multiply_by_rational_with_rounding(
+				total_reward - inherent_validator_cut,
 				commission_part_per_billion,
 				u128::pow(10, 9),
 				Rounding::NearestPrefDown,
 			)
 			.expect("no arithmetic error");
 
+			let total_validator_cut = inherent_validator_cut + commission_validator_cut;
+
 			let imbalance = <T as Config>::Currency::deposit_creating(
 				&validator_account_id,
-				validator_commission_amount.into(),
+				total_validator_cut.into(),
 			);
+
+			Self::lock_currency(&validator_account_id, imbalance.peek());
+			node_details.own.currency = node_details.own.currency.saturating_add(imbalance.peek());
+
+			Self::deposit_event(Event::<T>::Rewarded {
+				stash: validator_account_id,
+				amount: imbalance.peek(),
+			});
+
 			total_imbalance.subsume(imbalance);
 
-			// calculate the rest of the payouts from the account's remaining rewards
-			let remaining_account_reward =
-				total_validator_reward_amount - validator_commission_amount;
+			let delegator_cut = total_reward - total_validator_cut;
 
-			for (delegator_id, delegator_exposure) in &node_details.delegators {
+			for (delegator_id, delegator_exposure) in &mut node_details.delegators {
 				let reward_amount = multiply_by_rational_with_rounding(
+					delegator_cut,
 					delegator_exposure.exposure().into(),
-					remaining_account_reward,
-					node_exposure,
+					delegated_node_exposure,
 					Rounding::NearestPrefDown,
 				)
 				.unwrap();
 
 				let imbalance =
 					<T as Config>::Currency::deposit_creating(delegator_id, reward_amount.into());
+
 				Self::deposit_event(Event::<T>::Rewarded {
 					stash: delegator_id.clone(),
 					amount: imbalance.peek(),
 				});
+
+				Self::lock_currency(delegator_id, imbalance.peek());
+				delegator_exposure.currency =
+					delegator_exposure.currency.saturating_add(imbalance.peek());
 				total_imbalance.subsume(imbalance);
 			}
 
@@ -813,8 +851,16 @@ pub mod pallet {
 
 			let (variant, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
 
+			ValidatorCommission::<T>::insert(
+				&who,
+				if variant == PermissionType::PoS {
+					Perbill::from_percent(100)
+				} else {
+					T::MinimumCommissionAllowed::get()
+				},
+			);
+
 			AccountVariant::<T>::insert(&who, variant);
-			ValidatorCommission::<T>::insert(who.clone(), T::MinimumCommissionAllowed::get());
 			Self::do_stake_nft(&who, &who, nominal_value)?;
 
 			Ok(())
@@ -848,6 +894,8 @@ pub mod pallet {
 			let nominal_value = T::NftStakingHandler::unbind(&who)?;
 			Self::do_unstake_nft(&who, &who, nominal_value)?;
 			AccountVariant::<T>::remove(&who);
+			Nodes::<T>::remove(&who);
+
 			Ok(())
 		}
 
@@ -920,12 +968,10 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
-		pub fn set_commission(
-			origin: OriginFor<T>,
-			commission_in_part_per_billion: u128,
-		) -> DispatchResult {
+		pub fn set_commission(origin: OriginFor<T>, commission: Perbill) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ValidatorCommission::<T>::set(who, commission_in_part_per_billion);
+			// FIXME: Check for permission type
+			ValidatorCommission::<T>::set(who, commission);
 
 			Ok(())
 		}
@@ -945,7 +991,8 @@ pub mod pallet {
 			let active_validators = SessionPallet::<T>::validators();
 
 			// FIXME: replace active validator len with total number of blocks created in session
-			let session_reward = u128::pow(10, 18) * active_validators.len() as u128;
+			// TODO: set this to a more sensible value
+			let session_reward = 100 * active_validators.len() as u128;
 
 			let mut total_stake_slash: T::Balance = Zero::zero();
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
@@ -975,8 +1022,18 @@ pub mod pallet {
 				});
 			}
 
+			Self::deposit_event(Event::<T>::RewardCurrencyCreated {
+				amount: total_imbalance.peek(),
+			});
+
+			Self::deposit_event(Event::<T>::TotalSlashThisSession { amount: total_stake_slash });
+
+			TotalStake::<T>::mutate(|s| {
+				*s = s.saturating_add(total_imbalance.peek());
+				*s -= total_stake_slash;
+			});
+
 			T::Reward::on_unbalanced(total_imbalance);
-			TotalStake::<T>::mutate(|s| *s -= total_stake_slash);
 			Ok(())
 		}
 	}

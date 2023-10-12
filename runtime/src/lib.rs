@@ -340,7 +340,7 @@ impl pallet_nft_permission::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MinimumCommissionPpb: u128 = u128::pow(10, 9) / 100; // `(10**9 / 100) / 10**9 = 0.01` or 1%
+	pub const MinimumCommissionPpb: Perbill = Perbill::from_percent(1);
 }
 
 parameter_types! {
@@ -354,7 +354,7 @@ impl pallet_staking::Config for Runtime {
 	type NftDelegationHandler = NftDelegation;
 	type NftStakingHandler = NftPermission;
 	type Balance = Balance;
-	type Reward = (); // Mint rewards from the abyss
+	type Reward = ();
 	type MinimumCommissionAllowed = MinimumCommissionPpb;
 	type MinimumStakingDuration = ConstU32<256>;
 	type PalletId = StakingPalletId;
