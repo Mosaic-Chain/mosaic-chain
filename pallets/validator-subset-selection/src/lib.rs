@@ -33,6 +33,7 @@ use core::marker::PhantomData;
 use frame_support::pallet_prelude::*;
 pub use pallet::*;
 use sp_application_crypto::Ss58Codec;
+use sp_runtime::PerThing;
 use sp_runtime::{FixedI64, FixedPointNumber};
 use sp_std::prelude::*;
 
@@ -73,6 +74,10 @@ pub mod pallet {
 		type RandomGenerator: Random128;
 		type InitialRandomGenerator: Random128;
 		type ValidatorSuperset: ValidatorSuperset<Self::ValidatorId>;
+
+		#[pallet::constant]
+		type MinSessionLength: Get<BlockNumberFor<Self>>;
+
 		type SessionHook: SessionHook;
 	}
 
@@ -107,6 +112,9 @@ pub mod pallet {
 
 	#[pallet::storage]
 	type NextSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
+	#[pallet::storage]
+	type CurrentSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	type AvgSessionLenght<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
@@ -217,19 +225,16 @@ pub mod pallet {
 		}
 
 		fn session_length(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
-			subset_size
-		}
-
-		#[allow(dead_code)]
-		fn session_length2(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
-			if subset_size >= 150_u32.into() {
+			let min_session_length = T::MinSessionLength::get();
+			if subset_size >= min_session_length {
 				subset_size
-			} else if subset_size > 125_u32.into() {
-				<u32 as Into<BlockNumberFor<T>>>::into(2) * subset_size
 			} else {
-				let quotient: BlockNumberFor<T> =
-					<u32 as Into<BlockNumberFor<T>>>::into(250) / subset_size;
-				subset_size * quotient
+				let remainder = min_session_length % subset_size;
+				if sp_runtime::traits::Zero::is_zero(&remainder) {
+					min_session_length
+				} else {
+					min_session_length + (subset_size - remainder)
+				}
 			}
 		}
 	}
@@ -264,6 +269,7 @@ pub mod pallet {
 				new_session_start = 0_u32.into();
 				new_session_end = Self::session_length(current_subset_size);
 				SessionEnd::<T>::put(new_session_end);
+				CurrentSessionLength::<T>::put(new_session_end);
 			} else {
 				assert!(session_index == 1);
 				new_session_start = SessionEnd::<T>::get();
@@ -281,7 +287,11 @@ pub mod pallet {
 
 		fn end_session(session_index: sp_staking::SessionIndex) {
 			T::SessionHook::session_ended(session_index).expect("session hook ran successfully");
-			SessionEnd::<T>::put(NextSessionEnd::<T>::get());
+			SessionEnd::<T>::mutate(|session_end| {
+				let next_session_end = NextSessionEnd::<T>::get();
+				CurrentSessionLength::<T>::put(next_session_end - *session_end);
+				*session_end = next_session_end;
+			});
 		}
 
 		fn start_session(session_index: sp_staking::SessionIndex) {
@@ -319,8 +329,7 @@ pub mod pallet {
 
 	impl<T: Config> ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
 		fn should_end_session(now: BlockNumberFor<T>) -> bool {
-			let session_end = SessionEnd::<T>::get();
-			session_end == now
+			SessionEnd::<T>::get() == now
 		}
 	}
 
@@ -336,7 +345,9 @@ pub mod pallet {
 			now: BlockNumberFor<T>,
 		) -> (Option<sp_runtime::Permill>, frame_support::dispatch::Weight) {
 			let end = SessionEnd::<T>::get();
-			let progress = sp_runtime::Permill::from_rational(end - now, end);
+			let progress =
+				sp_runtime::Permill::from_rational(end - now, CurrentSessionLength::<T>::get())
+					.left_from_one();
 			(Some(progress), sp_runtime::traits::Zero::zero())
 		}
 

@@ -389,12 +389,18 @@ impl Random128 for InitialRandomGenerator {
 	}
 }
 
+parameter_types! {
+	//TODO: Set this to a sensible value after testing
+	pub const MinSessionLength: BlockNumberFor<Runtime> = 240 as BlockNumberFor<Runtime>;
+}
+
 impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type RandomGenerator = RandomGenerator;
 	type InitialRandomGenerator = InitialRandomGenerator;
 	type ValidatorSuperset = Self;
+	type MinSessionLength = MinSessionLength;
 	type SessionHook = (NftDelegation, Staking);
 }
 
@@ -409,18 +415,12 @@ impl pallet_validator_subset_selection::ValidatorSuperset<AccountId> for Runtime
 	}
 }
 
-parameter_types! {
-	// TODO(vismate): set a more reasonable period after validator set tests are concluded
-	pub const Period: u32 = 3; // 2 * MINUTES;
-	pub const Offset: u32 = 0;
-}
-
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = ValidatorId;
 	type ValidatorIdOf = ConvertInto;
 	type ShouldEndSession = ValidatorSubsetSelection;
-	type NextSessionRotation = ();
+	type NextSessionRotation = ValidatorSubsetSelection;
 	type SessionManager = ValidatorSubsetSelection;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
