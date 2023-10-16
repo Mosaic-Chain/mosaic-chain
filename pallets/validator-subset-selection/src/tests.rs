@@ -75,7 +75,7 @@ fn event_fewer_validators_than_subset() {
 
 		let superset = <Test as ValidatorSuperset<AccountId>>::get_superset();
 		let subset = ValidatorSubsetSelection::select_subset(superset, false);
-		System::assert_last_event(Event::FewerValidatorsThenSubset.into());
+		System::assert_last_event(Event::FewerValidatorsThanSubset.into());
 		assert_eq!(subset.len(), 1000, "All validators should be selected.");
 		assert_eq!(System::events().len(), 2, "Two events are expected.");
 	});

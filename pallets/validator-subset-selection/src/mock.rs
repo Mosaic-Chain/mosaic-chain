@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use crate as pallet_validator_subset_selection;
-use crate::Random128;
+use crate::RandomU128;
 use frame_support::pallet_prelude::*;
 
 use frame_support::traits::{ConstU16, ConstU64};
@@ -52,7 +52,7 @@ impl frame_system::Config for Test {
 
 pub struct MockRandomGenerator;
 
-impl Random128 for MockRandomGenerator {
+impl RandomU128 for MockRandomGenerator {
 	fn random(subject: &[u8]) -> u128 {
 		let hash_of_nonce = BlakeTwo256::hash(subject);
 		u128::from_le_bytes(

@@ -30,14 +30,14 @@ pub mod benchmarking;
 
 use core::marker::PhantomData;
 
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::ValidatorSet};
 pub use pallet::*;
 use sp_application_crypto::Ss58Codec;
 use sp_runtime::PerThing;
 use sp_runtime::{FixedI64, FixedPointNumber};
 use sp_std::prelude::*;
 
-pub trait Random128 {
+pub trait RandomU128 {
 	fn random(subject: &[u8]) -> u128;
 }
 
@@ -45,10 +45,6 @@ pub trait Random128 {
 #[allow(dead_code)]
 fn to_float(input: FixedI64) -> f64 {
 	input.into_inner() as f64 / <FixedI64 as FixedPointNumber>::DIV as f64
-}
-
-pub trait ValidatorSuperset<ValidatorId: Member + Parameter + Ss58Codec> {
-	fn get_superset() -> Vec<ValidatorId>;
 }
 
 #[frame_support::pallet(dev_mode)] //TODO: remove dev mode
@@ -71,9 +67,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type ValidatorId: Member + Parameter + Ss58Codec;
-		type RandomGenerator: Random128;
-		type InitialRandomGenerator: Random128;
-		type ValidatorSuperset: ValidatorSuperset<Self::ValidatorId>;
+		type RandomGenerator: RandomU128;
+		type ValidatorSuperset: ValidatorSet<Self::ValidatorId, ValidatorId = Self::ValidatorId>;
 
 		#[pallet::constant]
 		type MinSessionLength: Get<BlockNumberFor<Self>>;
@@ -84,7 +79,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		FewerValidatorsThenSubset,
+		FewerValidatorsThanSubset,
 		EmptySubset,
 		SubsetSelected {
 			validator_subset: Vec<T::ValidatorId>,
@@ -140,88 +135,73 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Select a subset of the validators for the next session with the two buckets algorithm
-		pub fn select_subset(
-			validators: Vec<T::ValidatorId>,
-			is_genesis: bool,
-		) -> Vec<T::ValidatorId> {
+		pub fn select_subset(validators: Vec<T::ValidatorId>) -> Vec<T::ValidatorId> {
 			let subset_size = Self::subset_size();
+
 			if (validators.len() as u64) < subset_size {
-				Self::deposit_event(Event::FewerValidatorsThenSubset);
+				Self::deposit_event(Event::FewerValidatorsThanSubset);
 				return validators;
 			}
+
 			let mean = FixedI64::from_rational(subset_size as u128, 2 * validators.len() as u128);
-			let mut selected_subset = Vec::<T::ValidatorId>::new();
+
+			let mut selected_subset = Vec::<T::ValidatorId>::with_capacity(subset_size as usize);
 			for v in &validators {
-				let mut bucket_value_pair = DoubleBucketMap::<T>::get(v).unwrap_or_else(|| {
-					(Self::generate_random(is_genesis), Self::generate_random(is_genesis))
-				});
-				bucket_value_pair.0 = bucket_value_pair.0 + mean;
-				bucket_value_pair.1 = bucket_value_pair.1 + mean;
-				let (is_selected, new_bucket_value_pair) =
-					Self::select_if_bucket_full(bucket_value_pair, is_genesis);
-				if is_selected {
+				let mut buckets =
+					DoubleBucketMap::<T>::get(v).unwrap_or((Self::random(), Self::random()));
+
+				buckets.0 = buckets.0 + mean;
+				buckets.1 = buckets.1 + mean;
+
+				if let Some(new_buckets) = Self::select(buckets) {
+					buckets = new_buckets;
 					selected_subset.push(v.clone());
 				}
-				DoubleBucketMap::<T>::insert(v, new_bucket_value_pair);
+
+				DoubleBucketMap::<T>::insert(v, buckets);
 			}
-			log::info!(
-				"Subset selected: {:?}",
-				selected_subset.iter().map(|v| v.to_ss58check()).collect::<Vec<_>>()
-			);
+
 			if selected_subset.is_empty() {
 				Self::deposit_event(Event::EmptySubset);
 				//If the subset is empty we redo the process
 				//With enough validators the probability of this is negligible
-				Self::select_subset(validators, is_genesis)
+				Self::select_subset(validators)
 			} else {
 				selected_subset
 			}
 		}
 
+		fn disperse(buckets: (FixedI64, FixedI64)) -> (FixedI64, FixedI64) {
+			let random_number = Self::random();
+			let first_decrease = random_number * DISPERSE_RATIO;
+			let second_decrease = FixedI64::from_u32(1).sub(random_number) * DISPERSE_RATIO;
+
+			(buckets.0.sub(first_decrease), buckets.1.sub(second_decrease))
+		}
+
 		///Helper function for the two bucket algorithm
 		///Determine if a validator is selected and return new bucket values
-		fn select_if_bucket_full(
-			mut bucket_value_pair: (FixedI64, FixedI64),
-			is_genesis: bool,
-		) -> (bool, (FixedI64, FixedI64)) {
-			let mut is_selected = false;
-			if bucket_value_pair.0 > 1.into() {
-				bucket_value_pair.0 = bucket_value_pair.0 - DECREASE_RATIO;
-				is_selected = true;
-			} else if bucket_value_pair.1 > 1.into() {
-				is_selected = true;
-				bucket_value_pair.1 = bucket_value_pair.1 - DECREASE_RATIO;
+		fn select(buckets: (FixedI64, FixedI64)) -> Option<(FixedI64, FixedI64)> {
+			if buckets.0 > 1.into() {
+				Some(Self::disperse((buckets.0.sub(DECREASE_RATIO), buckets.1)))
+			} else if buckets.1 > 1.into() {
+				Some(Self::disperse((buckets.0, buckets.1.sub(DECREASE_RATIO))))
+			} else {
+				None
 			}
-			if is_selected {
-				let random_number = Self::generate_random(is_genesis);
-				let first_decrease = random_number * DISPERSE_RATIO;
-				let second_decrease = FixedI64::from_u32(1).sub(random_number) * DISPERSE_RATIO;
-				bucket_value_pair.0 = bucket_value_pair.0.sub(first_decrease);
-				bucket_value_pair.1 = bucket_value_pair.1.sub(second_decrease);
-			}
-			(is_selected, bucket_value_pair)
 		}
 
 		///Helper function to generate more unique random numbers in a block
-		fn get_and_increment_nonce() -> Vec<u8> {
+		fn next_nonce() -> Vec<u8> {
 			let nonce = Nonce::<T>::get().unwrap_or_default();
 			Nonce::<T>::put(nonce.wrapping_add(1));
 			nonce.encode()
 		}
 
 		///Generate a random FixedI64 number between 0 and 1
-		fn generate_random(is_genesis: bool) -> FixedI64 {
-			let nonce = Self::get_and_increment_nonce();
-			let random_number = match is_genesis {
-				true => T::InitialRandomGenerator::random(&nonce),
-				false => T::RandomGenerator::random(&nonce),
-			};
-			FixedI64::from_rational(random_number, u128::MAX)
-		}
-
-		/// Delete all bucket pairs from the storage map
-		pub fn garbage_collector() {
-			DoubleBucketMap::<T>::drain();
+		fn random() -> FixedI64 {
+			let nonce = Self::next_nonce();
+			FixedI64::from_rational(T::RandomGenerator::random(&nonce), u128::MAX)
 		}
 
 		fn session_length(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
@@ -256,33 +236,38 @@ pub mod pallet {
 		fn new_session_genesis(
 			session_index: sp_staking::SessionIndex,
 		) -> Option<Vec<T::ValidatorId>> {
-			log::info!("new session {}, genesis {:?}", session_index, true);
-			T::SessionHook::session_genesis(session_index).expect("session hook ran successfully");
-			let superset = <T::ValidatorSuperset as ValidatorSuperset<_>>::get_superset();
-			log::info!("superset size: {}", superset.len());
-			let selected_subset = Self::select_subset(superset, true);
-			let current_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
-
-			let new_session_start: BlockNumberFor<T>;
-			let new_session_end: BlockNumberFor<T>;
 			if session_index == 0 {
-				new_session_start = 0_u32.into();
-				new_session_end = Self::session_length(current_subset_size);
-				SessionEnd::<T>::put(new_session_end);
+				T::SessionHook::session_genesis(session_index)
+					.expect("session hook ran successfully");
+
+				let superset = T::ValidatorSuperset::validators();
+				let subset_size = Self::subset_size() as usize;
+
+				let selected_subset = if superset.len() > subset_size {
+					superset[0..subset_size].to_owned()
+				} else {
+					superset
+				};
+
+				let current_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
+				let new_session_start = 0_u32.into();
+				let new_session_end = Self::session_length(current_subset_size);
+
 				CurrentSessionLength::<T>::put(new_session_end);
+				SessionEnd::<T>::put(new_session_end);
+
+				Self::deposit_event(Event::SubsetSelected {
+					validator_subset: selected_subset.clone(),
+					session_start: new_session_start,
+					session_end: new_session_end,
+					session_index,
+				});
+
+				Some(selected_subset)
 			} else {
 				assert!(session_index == 1);
-				new_session_start = SessionEnd::<T>::get();
-				new_session_end = new_session_start + Self::session_length(current_subset_size);
-				NextSessionEnd::<T>::put(new_session_end);
+				Self::new_session(session_index)
 			}
-			Self::deposit_event(Event::SubsetSelected {
-				validator_subset: selected_subset.clone(),
-				session_start: new_session_start,
-				session_end: new_session_end,
-				session_index,
-			});
-			Some(selected_subset)
 		}
 
 		fn end_session(session_index: sp_staking::SessionIndex) {
@@ -299,30 +284,30 @@ pub mod pallet {
 		}
 
 		fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<T::ValidatorId>> {
-			log::info!("new session {}, genesis {:?}", session_index, false);
+			log::info!("new session {session_index}");
 			T::SessionHook::session_planned(session_index).expect("session hook ran successfully");
-			let selected_subset = Self::select_subset(
-				<T::ValidatorSuperset as ValidatorSuperset<_>>::get_superset(),
-				false,
-			);
+
+			let selected_subset = Self::select_subset(T::ValidatorSuperset::validators());
+
 			let new_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
 			let new_session_length = Self::session_length(new_subset_size);
 			let current_session_end: BlockNumberFor<T> = SessionEnd::<T>::get();
 			let new_session_end: BlockNumberFor<T> = current_session_end + new_session_length;
+
 			NextSessionEnd::<T>::put(new_session_end);
 			// TODO(vismate): This way of abusing types is ugly (conflicting block numbers with session indices)
 			AvgSessionLenght::<T>::mutate(|v| {
 				*v = (BlockNumberFor::<T>::from(session_index) * *v + new_session_length)
 					/ (BlockNumberFor::<T>::from(session_index) + 1u32.into())
 			});
+
 			Self::deposit_event(Event::SubsetSelected {
 				validator_subset: selected_subset.clone(),
-				//The subset is selected for the next session, which starts
-				//at the blocknumber equal to the current session end plus one
 				session_start: current_session_end + 1_u32.into(),
 				session_end: new_session_end,
 				session_index,
 			});
+
 			Some(selected_subset)
 		}
 	}
