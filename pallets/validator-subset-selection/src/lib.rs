@@ -33,24 +33,13 @@ use core::marker::PhantomData;
 use frame_support::{pallet_prelude::*, traits::ValidatorSet};
 pub use pallet::*;
 use sp_application_crypto::Ss58Codec;
-use sp_runtime::PerThing;
-use sp_runtime::{FixedI64, FixedPointNumber};
+use sp_runtime::{traits::Hash, FixedI64, PerThing};
 use sp_std::prelude::*;
-
-pub trait RandomU128 {
-	fn random(subject: &[u8]) -> u128;
-}
-
-///Convert a FixedI64 to a float for logging
-#[allow(dead_code)]
-fn to_float(input: FixedI64) -> f64 {
-	input.into_inner() as f64 / <FixedI64 as FixedPointNumber>::DIV as f64
-}
 
 #[frame_support::pallet(dev_mode)] //TODO: remove dev mode
 pub mod pallet {
 	use super::*;
-	use frame_support::traits::BuildGenesisConfig;
+	use frame_support::traits::{BuildGenesisConfig, Randomness};
 	use frame_system::pallet_prelude::*;
 	use pallet_session::ShouldEndSession;
 	use utils::traits::SessionHook;
@@ -67,12 +56,11 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type ValidatorId: Member + Parameter + Ss58Codec;
-		type RandomGenerator: RandomU128;
+		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 		type ValidatorSuperset: ValidatorSet<Self::ValidatorId, ValidatorId = Self::ValidatorId>;
 
 		#[pallet::constant]
 		type MinSessionLength: Get<BlockNumberFor<Self>>;
-
 		type SessionHook: SessionHook;
 	}
 
@@ -192,16 +180,34 @@ pub mod pallet {
 		}
 
 		///Helper function to generate more unique random numbers in a block
-		fn next_nonce() -> Vec<u8> {
+		fn next_nonce() -> u64 {
 			let nonce = Nonce::<T>::get().unwrap_or_default();
 			Nonce::<T>::put(nonce.wrapping_add(1));
-			nonce.encode()
+			nonce
 		}
 
 		///Generate a random FixedI64 number between 0 and 1
 		fn random() -> FixedI64 {
-			let nonce = Self::next_nonce();
-			FixedI64::from_rational(T::RandomGenerator::random(&nonce), u128::MAX)
+			let nonce = Self::next_nonce().to_le_bytes();
+			let hash = if T::ValidatorSuperset::session_index() == 0 {
+				Self::bootstrap_randomness(&nonce)
+			} else {
+				T::Randomness::random(&nonce).0
+			};
+
+			let p = u128::from_le_bytes(
+				hash.as_ref()[0..16]
+					.try_into()
+					.expect("Can't convert first part of random hash to u128!"),
+			);
+
+			FixedI64::from_rational(p, u128::MAX)
+		}
+
+		/// Initial "randomness" expected to be used in the 0th session
+		fn bootstrap_randomness(nonce: &[u8]) -> T::Hash {
+			let s = [b"Mosaic", nonce, b"Chain"].concat();
+			T::Hashing::hash(&s)
 		}
 
 		fn session_length(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
@@ -231,7 +237,6 @@ pub mod pallet {
 		}
 	}
 
-	//TODO(vismate): Handle errors more gracefully
 	impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 		fn new_session_genesis(
 			session_index: sp_staking::SessionIndex,

@@ -62,7 +62,6 @@ pub use sp_runtime::{Perbill, Permill};
 pub use pallet_insecure_randomness_collective_flip;
 pub use pallet_nft_permission;
 pub use pallet_validator_subset_selection;
-use pallet_validator_subset_selection::RandomU128;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
@@ -360,28 +359,6 @@ impl pallet_staking::Config for Runtime {
 	type PalletId = StakingPalletId;
 }
 
-pub struct RandomGenerator;
-
-//TODO: Find a better way to deal with initial randomness
-impl RandomU128 for RandomGenerator {
-	fn random(subject: &[u8]) -> u128 {
-		let (mut random_hash, determinable_from) =
-			InsecureRandomnessCollectiveFlip::random(subject);
-		if determinable_from <= 81u32.into() {
-			let initial_source_begin: &[u8] = "Mosaic".as_bytes();
-			let initial_source_end: &[u8] = "Chain".as_bytes();
-			let s: &[u8] = &[initial_source_begin, subject, initial_source_end].concat();
-			random_hash = BlakeTwo256::hash(s);
-		}
-
-		u128::from_le_bytes(
-			random_hash.as_ref()[0..16]
-				.try_into()
-				.expect("Can't convert first part of random hash to u128!"),
-		)
-	}
-}
-
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
 // TODO: Can we not do silly things like this?
@@ -404,7 +381,6 @@ impl ValidatorSet<ValidatorId> for Runtime {
 	fn validators() -> Vec<ValidatorId> {
 		NftPermission::accounts_with_bound_permission()
 			.expect("pallet is initialized properly")
-			.into_iter()
 			.collect()
 	}
 }
@@ -417,7 +393,7 @@ parameter_types! {
 impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type RandomGenerator = RandomGenerator;
+	type Randomness = InsecureRandomnessCollectiveFlip;
 	type ValidatorSuperset = Self;
 	type MinSessionLength = MinSessionLength;
 	type SessionHook = (NftDelegation, Staking);
