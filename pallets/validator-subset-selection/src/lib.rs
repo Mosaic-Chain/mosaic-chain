@@ -13,9 +13,11 @@
 //! - **Change subset size**
 //!
 //! - **SessionManager implementation**
+//!    - Allowing for session hooks
 //!
 //! - **ShouldEndSession implementation**
 //!
+//! - **EstimateNextSessionRotation implementation**
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
