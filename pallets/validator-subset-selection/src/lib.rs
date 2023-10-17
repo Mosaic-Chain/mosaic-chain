@@ -112,7 +112,7 @@ pub mod pallet {
 
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { initial_subset_size: 3, _phantom: PhantomData }
+			Self { initial_subset_size: 250, _phantom: PhantomData }
 		}
 	}
 
