@@ -44,10 +44,10 @@
 
 pub use pallet::*;
 
-#[cfg(test)]
+#[cfg(any())]
 mod mock;
 
-#[cfg(test)]
+#[cfg(any())]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]

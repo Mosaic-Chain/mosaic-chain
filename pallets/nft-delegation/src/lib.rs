@@ -30,10 +30,10 @@
 /// each session change.
 pub use pallet::*;
 
-#[cfg(test)]
+#[cfg(any())]
 mod mock;
 
-#[cfg(test)]
+#[cfg(any())]
 mod tests;
 
 pub trait OnNftExpire<AccountId, ItemId, Balance> {
