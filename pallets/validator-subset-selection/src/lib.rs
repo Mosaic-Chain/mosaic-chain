@@ -30,13 +30,11 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-use core::marker::PhantomData;
-
 use frame_support::{pallet_prelude::*, traits::ValidatorSet};
 pub use pallet::*;
 use sp_application_crypto::Ss58Codec;
 use sp_runtime::{traits::Hash, FixedI64, PerThing};
-use sp_std::prelude::*;
+use sp_std::{marker::PhantomData, prelude::*};
 
 #[frame_support::pallet(dev_mode)] //TODO: remove dev mode
 pub mod pallet {
@@ -46,8 +44,8 @@ pub mod pallet {
 	use pallet_session::ShouldEndSession;
 	use utils::traits::SessionHook;
 
-	//If a validator's bucket is full, then the bucket value is decreased with decrease_ratio
-	//and the other disperse_ratio=(1-decrease_ratio) is divided among all buckets
+	// If a validator's bucket is full, then the bucket value is decreased with decrease_ratio
+	// and the other disperse_ratio=(1-decrease_ratio) is divided among all buckets
 	const DECREASE_RATIO: FixedI64 = FixedI64::from_rational(1, 2);
 	const DISPERSE_RATIO: FixedI64 = FixedI64::from_u32(1).sub(DECREASE_RATIO);
 
@@ -89,19 +87,24 @@ pub mod pallet {
 	type SubsetSize<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn buckets)]
 	type DoubleBucketMap<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::ValidatorId, (FixedI64, FixedI64)>;
 
 	#[pallet::storage]
-	type SessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	#[pallet::getter(fn current_session_end)]
+	type CurrentSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn next_session_end)]
 	type NextSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn current_session_length)]
 	type CurrentSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn avg_session_length)]
 	type AvgSessionLenght<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
@@ -137,8 +140,7 @@ pub mod pallet {
 
 			let mut selected_subset = Vec::<T::ValidatorId>::with_capacity(subset_size as usize);
 			for v in &validators {
-				let mut buckets =
-					DoubleBucketMap::<T>::get(v).unwrap_or((Self::random(), Self::random()));
+				let mut buckets = Self::buckets(v).unwrap_or((Self::random(), Self::random()));
 
 				buckets.0 = buckets.0 + mean;
 				buckets.1 = buckets.1 + mean;
@@ -153,8 +155,8 @@ pub mod pallet {
 
 			if selected_subset.is_empty() {
 				Self::deposit_event(Event::EmptySubset);
-				//If the subset is empty we redo the process
-				//With enough validators the probability of this is negligible
+				// If the subset is empty we redo the process
+				// With enough validators the probability of this is negligible
 				Self::select_subset(validators)
 			} else {
 				selected_subset
@@ -261,7 +263,7 @@ pub mod pallet {
 				let new_session_end = Self::session_length(current_subset_size);
 
 				CurrentSessionLength::<T>::put(new_session_end);
-				SessionEnd::<T>::put(new_session_end);
+				CurrentSessionEnd::<T>::put(new_session_end);
 
 				Self::deposit_event(Event::SubsetSelected {
 					validator_subset: selected_subset.clone(),
@@ -279,7 +281,7 @@ pub mod pallet {
 
 		fn end_session(session_index: sp_staking::SessionIndex) {
 			T::SessionHook::session_ended(session_index).expect("session hook ran successfully");
-			SessionEnd::<T>::mutate(|session_end| {
+			CurrentSessionEnd::<T>::mutate(|session_end| {
 				let next_session_end = NextSessionEnd::<T>::get();
 				CurrentSessionLength::<T>::put(next_session_end - *session_end);
 				*session_end = next_session_end;
@@ -298,7 +300,7 @@ pub mod pallet {
 
 			let new_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
 			let new_session_length = Self::session_length(new_subset_size);
-			let current_session_end: BlockNumberFor<T> = SessionEnd::<T>::get();
+			let current_session_end: BlockNumberFor<T> = Self::current_session_end();
 			let new_session_end: BlockNumberFor<T> = current_session_end + new_session_length;
 
 			NextSessionEnd::<T>::put(new_session_end);
@@ -321,7 +323,7 @@ pub mod pallet {
 
 	impl<T: Config> ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
 		fn should_end_session(now: BlockNumberFor<T>) -> bool {
-			SessionEnd::<T>::get() == now
+			Self::current_session_end() == now
 		}
 	}
 
@@ -330,15 +332,15 @@ pub mod pallet {
 		for Pallet<T>
 	{
 		fn average_session_length() -> BlockNumberFor<T> {
-			AvgSessionLenght::<T>::get()
+			Self::avg_session_length()
 		}
 
 		fn estimate_current_session_progress(
 			now: BlockNumberFor<T>,
 		) -> (Option<sp_runtime::Permill>, frame_support::dispatch::Weight) {
-			let end = SessionEnd::<T>::get();
+			let end = Self::current_session_end();
 			let progress =
-				sp_runtime::Permill::from_rational(end - now, CurrentSessionLength::<T>::get())
+				sp_runtime::Permill::from_rational(end - now, Self::current_session_length())
 					.left_from_one();
 			(Some(progress), sp_runtime::traits::Zero::zero())
 		}
@@ -346,7 +348,7 @@ pub mod pallet {
 		fn estimate_next_session_rotation(
 			_now: BlockNumberFor<T>,
 		) -> (Option<BlockNumberFor<T>>, frame_support::dispatch::Weight) {
-			(Some(SessionEnd::<T>::get()), sp_runtime::traits::Zero::zero())
+			(Some(Self::current_session_end()), sp_runtime::traits::Zero::zero())
 		}
 	}
 }
