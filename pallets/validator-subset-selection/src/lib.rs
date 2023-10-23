@@ -140,7 +140,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Select a subset of the validators for the next session with the two buckets algorithm
-		pub fn select_subset(validators: Vec<T::ValidatorId>) -> Vec<T::ValidatorId> {
+		fn select_subset(validators: Vec<T::ValidatorId>) -> Vec<T::ValidatorId> {
 			let subset_size = Self::subset_size();
 
 			if (validators.len() as u64) < subset_size {
