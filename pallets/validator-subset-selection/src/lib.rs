@@ -341,7 +341,6 @@ pub mod pallet {
 		}
 	}
 
-	// TODO: define weights
 	impl<T: Config> frame_support::traits::EstimateNextSessionRotation<BlockNumberFor<T>>
 		for Pallet<T>
 	{
@@ -351,18 +350,19 @@ pub mod pallet {
 
 		fn estimate_current_session_progress(
 			now: BlockNumberFor<T>,
-		) -> (Option<sp_runtime::Permill>, frame_support::dispatch::Weight) {
+		) -> (Option<sp_runtime::Permill>, Weight) {
 			let end = Self::current_session_end();
 			let progress =
 				sp_runtime::Permill::from_rational(end - now, Self::current_session_length())
 					.left_from_one();
-			(Some(progress), Zero::zero())
+
+			(Some(progress), T::DbWeight::get().reads(2))
 		}
 
 		fn estimate_next_session_rotation(
 			_now: BlockNumberFor<T>,
-		) -> (Option<BlockNumberFor<T>>, frame_support::dispatch::Weight) {
-			(Some(Self::current_session_end()), Zero::zero())
+		) -> (Option<BlockNumberFor<T>>, Weight) {
+			(Some(Self::current_session_end()), T::DbWeight::get().reads(1))
 		}
 	}
 }
