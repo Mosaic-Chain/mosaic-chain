@@ -42,8 +42,6 @@
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use pallet::*;
-
 #[cfg(any())]
 mod mock;
 
@@ -53,41 +51,37 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod weights;
+
+use codec::Codec;
+use frame_support::{
+	pallet_prelude::*,
+	traits::{
+		tokens::nonfungibles_v2::{Create, Inspect, Mutate, Transfer},
+		BuildGenesisConfig, Incrementable,
+	},
+	PalletError, PalletId,
+};
+use frame_system::pallet_prelude::OriginFor;
+use pallet_nfts::{
+	CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
+	MintSettings, MintType, Pallet as NftsPallet,
+};
+use sp_runtime::{
+	traits::{AccountIdConversion, AtLeast32BitUnsigned},
+	DispatchError, FixedPointOperand, PerThing, Perbill,
+};
+use sp_std::{
+	collections::btree_map::{BTreeMap, Entry},
+	vec::Vec as SpVec,
+};
+
+pub use pallet::*;
 pub use weights::*;
 
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use sp_std::{
-		collections::btree_map::{BTreeMap, Entry},
-		vec::Vec as SpVec,
-	};
-
-	use codec::Codec;
-
-	use super::WeightInfo;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{
-			tokens::nonfungibles_v2::{Create, Inspect, Mutate, Transfer},
-			BuildGenesisConfig, Incrementable,
-		},
-		PalletId,
-	};
-	use pallet_nfts::{
-		CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
-		MintSettings, MintType, Pallet as NftsPallet,
-	};
-
-	use sp_runtime::{
-		traits::{AccountIdConversion, AtLeast32BitUnsigned},
-		DispatchError, FixedPointOperand, PerThing, Perbill,
-	};
-
-	use frame_system::pallet_prelude::OriginFor;
-
-	const PERMISSION_KEY: &[u8] = b"PERMISSION";
-	const NOMINAL_VALUE_KEY: &[u8] = b"NOMINAL_VALUE";
+	use super::*;
 
 	#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
 	pub enum ChillState {
@@ -114,6 +108,7 @@ pub mod pallet {
 		/// The permission type that is stored amongst the token's attributes.
 		type Permission: Parameter + Member + Codec + MaybeSerializeDeserialize;
 
+		/// The balance type that is stored amongst the token's attributes.
 		type Balance: Parameter
 			+ Member
 			+ Codec
@@ -164,9 +159,32 @@ pub mod pallet {
 		TokenSlashed { item_id: <T as NftsConfig>::ItemId, nominal_value: T::Balance },
 	}
 
+	#[derive(
+		Debug, PartialEq, Eq, Copy, Clone, TypeInfo, Encode, Decode, PalletError, MaxEncodedLen,
+	)]
+	#[repr(u8)]
+	pub enum AttributeKey {
+		Permission = 0,
+		NominalValue = 1,
+	}
+
+	impl From<AttributeKey> for &[u8] {
+		fn from(value: AttributeKey) -> Self {
+			match value {
+				AttributeKey::Permission => b"PERM",
+				AttributeKey::NominalValue => b"NOMV",
+			}
+		}
+	}
+
 	#[pallet::error]
 	pub enum Error<T> {
-		NotInitialized,
+		CollectionNotInitialized,
+		InvalidAttribute {
+			/// Key of NFT attribute that could not be decoded
+			attribute_key: AttributeKey,
+		},
+		ItemNotInitialized,
 		WrongOwner,
 		AlreadyBound,
 		NotBound,
@@ -268,7 +286,8 @@ pub mod pallet {
 		pub fn nominal_value_of(
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 			Self::decode_nominal_value(&collection_id, item_id)
 		}
 
@@ -281,7 +300,8 @@ pub mod pallet {
 		pub fn permission_of(
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Permission, DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 			Self::decode_permission(&collection_id, item_id)
 		}
 
@@ -294,7 +314,7 @@ pub mod pallet {
 				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 					collection_id,
 					item_id,
-					NOMINAL_VALUE_KEY,
+					AttributeKey::NominalValue.into(),
 					nominal_value,
 				)
 			})
@@ -309,7 +329,7 @@ pub mod pallet {
 				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 					collection_id,
 					item_id,
-					PERMISSION_KEY,
+					AttributeKey::Permission.into(),
 					permission,
 				)
 			})
@@ -320,11 +340,17 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
 			T::Balance::decode(
-				&mut NftsPallet::<T>::system_attribute(collection_id, item_id, NOMINAL_VALUE_KEY)
-					.ok_or(Error::<T>::NotInitialized)?
-					.as_slice(),
+				&mut NftsPallet::<T>::system_attribute(
+					collection_id,
+					item_id,
+					AttributeKey::NominalValue.into(),
+				)
+				.ok_or(Error::<T>::ItemNotInitialized)?
+				.as_slice(),
 			)
-			.map_err(|_| Error::<T>::NotInitialized.into())
+			.map_err(|_| {
+				Error::<T>::InvalidAttribute { attribute_key: AttributeKey::NominalValue }.into()
+			})
 		}
 
 		fn decode_permission(
@@ -332,11 +358,17 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Permission, DispatchError> {
 			T::Permission::decode(
-				&mut NftsPallet::<T>::system_attribute(collection_id, item_id, PERMISSION_KEY)
-					.ok_or(Error::<T>::NotInitialized)?
-					.as_slice(),
+				&mut NftsPallet::<T>::system_attribute(
+					collection_id,
+					item_id,
+					AttributeKey::Permission.into(),
+				)
+				.ok_or(Error::<T>::ItemNotInitialized)?
+				.as_slice(),
 			)
-			.map_err(|_| Error::<T>::NotInitialized.into())
+			.map_err(|_| {
+				Error::<T>::InvalidAttribute { attribute_key: AttributeKey::Permission }.into()
+			})
 		}
 
 		fn init_attributes(
@@ -348,14 +380,14 @@ pub mod pallet {
 			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 				collection_id,
 				item_id,
-				PERMISSION_KEY,
+				AttributeKey::Permission.into(),
 				permission,
 			)?;
 
 			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 				collection_id,
 				item_id,
-				NOMINAL_VALUE_KEY,
+				AttributeKey::NominalValue.into(),
 				nominal_value,
 			)
 		}
@@ -365,8 +397,9 @@ pub mod pallet {
 			permission: &[u8],
 			nominal_value: &[u8],
 		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
-			let item_id = Self::next_item_id().ok_or(Error::<T>::NotInitialized)?;
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let item_id = Self::next_item_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
 			NftsPallet::<T>::mint_into(
 				&collection_id,
@@ -454,7 +487,8 @@ pub mod pallet {
 			account_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<(T::Permission, T::Balance), DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
 			ensure!(
 				NftsPallet::<T>::owner(collection_id, *item_id)
@@ -502,10 +536,9 @@ pub mod pallet {
 				}
 				let (_account_id, (item_id, _chilled)) = entry.remove_entry();
 
-				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+				let collection_id =
+					Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
-				// TODO: do we want this behaviour? What if its weren't us who locked the transfer
-				// of the item?
 				<NftsPallet<T> as Transfer<_>>::enable_transfer(&collection_id, &item_id)?;
 
 				BoundTokens::<T>::put(bound_tokens);
@@ -532,7 +565,8 @@ pub mod pallet {
 			if let Entry::Occupied(c) = bound_tokens.entry(account_id.clone()) {
 				let (item_id, _) = c.get();
 
-				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+				let collection_id =
+					Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 				let old_nominal_value = Self::decode_nominal_value(&collection_id, item_id)?;
 
 				let new_nominal_value = slash_proportion.left_from_one() * old_nominal_value;

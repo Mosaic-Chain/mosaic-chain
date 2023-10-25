@@ -22,13 +22,13 @@ pub use weights::*;
 pub mod pallet {
 	use super::*;
 	use codec::HasCompact;
-	use frame_support::pallet_prelude::{ValueQuery, *};
-	use frame_support::Twox64Concat;
 	use frame_support::{
 		dispatch::Codec,
+		pallet_prelude::{ValueQuery, *},
 		traits::{
 			Currency, Imbalance, LockableCurrency, OnUnbalanced, ValidatorSet, WithdrawReasons,
 		},
+		Twox64Concat,
 	};
 	use frame_system::pallet_prelude::*;
 	use pallet_nfts::Config as NftsConfig;
@@ -287,8 +287,8 @@ pub mod pallet {
 		}
 
 		fn total_exposure(&self) -> Balance {
-			self.own_exposure()
-				+ self.delegators.iter().map(|(_, exposure)| exposure.exposure()).sum()
+			self.own_exposure() +
+				self.delegators.iter().map(|(_, exposure)| exposure.exposure()).sum()
 		}
 	}
 
@@ -561,11 +561,10 @@ pub mod pallet {
 
 		fn do_kick(node_id: &ValidatorId<T>, delegator_id: &DelegatorId<T>) -> DispatchResult {
 			match Nodes::<T>::get(node_id) {
-				Some(mut exposure) => {
+				Some(mut exposure) =>
 					if exposure.get_delegator(delegator_id).is_some() {
 						Self::do_kick_nft(node_id, delegator_id)?;
-					}
-				},
+					},
 				None => return Err(Error::<T>::InvalidTarget.into()),
 			};
 
@@ -816,8 +815,8 @@ pub mod pallet {
 				T::NftDelegationHandler::bind(&who, &target, &item_id)?;
 
 			ensure!(
-				expiry_in_session
-					>= SessionPallet::<T>::current_index() + T::MinimumStakingDuration::get(),
+				expiry_in_session >=
+					SessionPallet::<T>::current_index() + T::MinimumStakingDuration::get(),
 				Error::<T>::ExpiresEarly
 			);
 

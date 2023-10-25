@@ -36,6 +36,28 @@ mod mock;
 #[cfg(any())]
 mod tests;
 
+use sp_std::vec::Vec as SpVec;
+
+use codec::Codec;
+use frame_support::{
+	pallet_prelude::*,
+	storage::bounded_vec::BoundedVec,
+	traits::{
+		tokens::nonfungibles_v2::{Create, Inspect, Mutate, Transfer},
+		BuildGenesisConfig, Incrementable,
+	},
+	PalletError, PalletId,
+};
+use frame_system::pallet_prelude::OriginFor;
+use pallet_nfts::{
+	CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
+	MintSettings, MintType, Pallet as NftsPallet,
+};
+use pallet_staking::NftDelegation;
+use sp_runtime::{
+	traits::AccountIdConversion, DispatchError, FixedPointOperand, PerThing, Perbill,
+};
+
 pub trait OnNftExpire<AccountId, ItemId, Balance> {
 	fn on_expire(
 		owner: &AccountId,
@@ -58,34 +80,7 @@ impl<AccountId, ItemId, Balance> OnNftExpire<AccountId, ItemId, Balance> for () 
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use super::OnNftExpire;
-	use sp_std::vec::Vec;
-
-	use codec::Codec;
-
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{
-			tokens::nonfungibles_v2::{Create, Inspect, Mutate, Transfer},
-			BuildGenesisConfig, Incrementable,
-		},
-		PalletId,
-	};
-	use pallet_nfts::{
-		CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
-		MintSettings, MintType, Pallet as NftsPallet,
-	};
-
-	use sp_runtime::{
-		traits::AccountIdConversion, DispatchError, FixedPointOperand, PerThing, Perbill,
-	};
-
-	use pallet_staking::NftDelegation;
-
-	use frame_system::pallet_prelude::OriginFor;
-
-	const EXPIRATION_KEY: &[u8] = b"EXPIRATION";
-	const NOMINAL_VALUE_KEY: &[u8] = b"NOMINAL_VALUE";
+	use super::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -144,9 +139,7 @@ pub mod pallet {
 		T::AccountId, // DelegatorId
 		Twox64Concat,
 		T::AccountId, // ValidatorId
-		//TODO(vismate): use a bonded structure instead (with a fairly low number of max items) to
-		// make weight calculation easier.
-		Vec<<T as NftsConfig>::ItemId>,
+		BoundedVec<<T as NftsConfig>::ItemId, ConstU32<256>>,
 	>;
 
 	// Maps item ids to validators if bound
@@ -156,7 +149,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type ExpiryCache<T: Config> =
-		StorageMap<_, Twox64Concat, sp_staking::SessionIndex, Vec<<T as NftsConfig>::ItemId>>;
+		StorageMap<_, Twox64Concat, sp_staking::SessionIndex, SpVec<<T as NftsConfig>::ItemId>>;
 
 	// TODO: More useful events (more data)
 	#[pallet::event]
@@ -171,25 +164,49 @@ pub mod pallet {
 		/// A token has been slashed
 		TokenSlashed { item_id: <T as NftsConfig>::ItemId, nominal_value: T::Balance },
 		/// A set of token has been expired
-		TokensExpired { items: Vec<<T as NftsConfig>::ItemId> },
+		TokensExpired { items: SpVec<<T as NftsConfig>::ItemId> },
+	}
+
+	#[derive(
+		Debug, PartialEq, Eq, Copy, Clone, TypeInfo, Encode, Decode, PalletError, MaxEncodedLen,
+	)]
+	#[repr(u8)]
+	pub enum AttributeKey {
+		Expiration = 0,
+		NominalValue = 1,
+	}
+
+	impl From<AttributeKey> for &[u8] {
+		fn from(value: AttributeKey) -> Self {
+			match value {
+				AttributeKey::Expiration => b"EXPR",
+				AttributeKey::NominalValue => b"NOMV",
+			}
+		}
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		NotInitialized,
+		CollectionNotInitialized,
+		ItemNotInitialized,
+		InvalidAttribute {
+			/// Key of NFT attribute that could not be decoded
+			attribute_key: AttributeKey,
+		},
 		WrongOwner,
 		AlreadyBound,
 		NotBound,
+		ExceededMaxCapacity,
 	}
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub initial_token_holders: Vec<(T::AccountId, sp_staking::SessionIndex, T::Balance)>,
+		pub initial_token_holders: SpVec<(T::AccountId, sp_staking::SessionIndex, T::Balance)>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { initial_token_holders: Vec::new() }
+			Self { initial_token_holders: SpVec::new() }
 		}
 	}
 
@@ -277,8 +294,10 @@ pub mod pallet {
 		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
 			nominal_value.using_encoded(|nominal_value| {
 				expiration.using_encoded(|expiration_bytes| {
-					let item_id = Self::next_item_id().ok_or(Error::<T>::NotInitialized)?;
-					let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+					let item_id =
+						Self::next_item_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+					let collection_id =
+						Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
 					NftsPallet::<T>::mint_into(
 						&collection_id,
@@ -318,7 +337,8 @@ pub mod pallet {
 		pub fn nominal_value_of(
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 			Self::decode_nominal_value(&collection_id, item_id)
 		}
 
@@ -331,7 +351,8 @@ pub mod pallet {
 		pub fn expiration_of(
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<sp_staking::SessionIndex, DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 			Self::decode_expiration(&collection_id, item_id)
 		}
 
@@ -365,7 +386,7 @@ pub mod pallet {
 				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 					collection_id,
 					item_id,
-					NOMINAL_VALUE_KEY,
+					AttributeKey::NominalValue.into(),
 					nominal_value,
 				)
 			})
@@ -380,7 +401,7 @@ pub mod pallet {
 				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 					collection_id,
 					item_id,
-					EXPIRATION_KEY,
+					AttributeKey::Expiration.into(),
 					expiration,
 				)
 			})
@@ -391,11 +412,17 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
 			T::Balance::decode(
-				&mut NftsPallet::<T>::system_attribute(collection_id, item_id, NOMINAL_VALUE_KEY)
-					.ok_or(Error::<T>::NotInitialized)?
-					.as_slice(),
+				&mut NftsPallet::<T>::system_attribute(
+					collection_id,
+					item_id,
+					AttributeKey::NominalValue.into(),
+				)
+				.ok_or(Error::<T>::ItemNotInitialized)?
+				.as_slice(),
 			)
-			.map_err(|_| Error::<T>::NotInitialized.into())
+			.map_err(|_| {
+				Error::<T>::InvalidAttribute { attribute_key: AttributeKey::NominalValue }.into()
+			})
 		}
 
 		fn decode_expiration(
@@ -403,11 +430,17 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<sp_staking::SessionIndex, DispatchError> {
 			sp_staking::SessionIndex::decode(
-				&mut NftsPallet::<T>::system_attribute(collection_id, item_id, EXPIRATION_KEY)
-					.ok_or(Error::<T>::NotInitialized)?
-					.as_slice(),
+				&mut NftsPallet::<T>::system_attribute(
+					collection_id,
+					item_id,
+					AttributeKey::Expiration.into(),
+				)
+				.ok_or(Error::<T>::ItemNotInitialized)?
+				.as_slice(),
 			)
-			.map_err(|_| Error::<T>::NotInitialized.into())
+			.map_err(|_| {
+				Error::<T>::InvalidAttribute { attribute_key: AttributeKey::Expiration }.into()
+			})
 		}
 
 		fn init_attributes(
@@ -419,14 +452,14 @@ pub mod pallet {
 			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 				collection_id,
 				item_id,
-				EXPIRATION_KEY,
+				AttributeKey::Expiration.into(),
 				expiration,
 			)?;
 
 			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 				collection_id,
 				item_id,
-				NOMINAL_VALUE_KEY,
+				AttributeKey::NominalValue.into(),
 				nominal_value,
 			)
 		}
@@ -473,7 +506,8 @@ pub mod pallet {
 			validator_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<(sp_staking::SessionIndex, T::Balance), DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
 			ensure!(
 				NftsPallet::<T>::owner(collection_id, *item_id)
@@ -481,16 +515,21 @@ pub mod pallet {
 				Error::<T>::WrongOwner
 			);
 
-			if Self::is_bound(item_id) {
-				return Err(Error::<T>::AlreadyBound.into());
-			}
+			ensure!(!Self::is_bound(item_id), Error::<T>::AlreadyBound,);
 
-			BoundTokens::<T>::mutate(delegator_id, validator_id, |itms| match itms {
-				Some(v) => v.push(*item_id),
+			BoundTokens::<T>::try_mutate(delegator_id, validator_id, |items| match items {
+				Some(v) => v.try_push(*item_id),
 				None => {
-					*itms = Some([*item_id].to_vec());
+					*items = {
+						let mut v = BoundedVec::new();
+						v.try_push(*item_id)?;
+						Some(v)
+					};
+
+					Ok(())
 				},
-			});
+			})
+			.map_err(|_| Error::<T>::ExceededMaxCapacity)?;
 
 			Self::bind_cache(item_id, validator_id.clone());
 
@@ -509,7 +548,8 @@ pub mod pallet {
 			validator_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 			ensure!(
 				NftsPallet::<T>::owner(collection_id, *item_id)
 					.is_some_and(|owner| owner == *delegator_id),
@@ -541,7 +581,8 @@ pub mod pallet {
 			delegator_id: &T::AccountId,
 			slash_proportion: Perbill,
 		) -> Result<T::Balance, DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 			let items =
 				Self::bound_tokens(delegator_id, validator_id).ok_or(Error::<T>::NotBound)?;
 			let factor = slash_proportion.left_from_one();
@@ -568,7 +609,8 @@ pub mod pallet {
 			validator_id: &T::AccountId,
 			delegator_id: &T::AccountId,
 		) -> Result<T::Balance, DispatchError> {
-			let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 			let items =
 				BoundTokens::<T>::take(delegator_id, validator_id).ok_or(Error::<T>::NotBound)?;
 
@@ -584,12 +626,13 @@ pub mod pallet {
 		T::ItemId: Incrementable,
 	{
 		fn session_started(index: utils::session_hook::SessionIndex) -> DispatchResult {
-			let collection_id = Pallet::<T>::collection_id().ok_or(Error::<T>::NotInitialized)?;
+			let collection_id =
+				Pallet::<T>::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
 			if let Some(tokens_expiring) = ExpiryCache::<T>::take(index) {
 				for item in &tokens_expiring {
 					let owner = NftsPallet::<T>::owner(collection_id, *item)
-						.ok_or(Error::<T>::NotInitialized)?;
+						.ok_or(Error::<T>::ItemNotInitialized)?;
 					let validator = BindCache::<T>::take(item);
 					let nominal_value = Pallet::<T>::decode_nominal_value(&collection_id, item)?;
 
