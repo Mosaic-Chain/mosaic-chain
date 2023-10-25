@@ -67,7 +67,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{
 			tokens::nonfungibles_v2::{Create, Inspect, Mutate, Transfer},
-			BuildGenesisConfig,
+			BuildGenesisConfig, Incrementable,
 		},
 		PalletId,
 	};
@@ -83,8 +83,6 @@ pub mod pallet {
 	use pallet_staking::NftDelegation;
 
 	use frame_system::pallet_prelude::OriginFor;
-
-	use utils::traits::Successor;
 
 	const EXPIRATION_KEY: &[u8] = b"EXPIRATION";
 	const NOMINAL_VALUE_KEY: &[u8] = b"NOMINAL_VALUE";
@@ -122,9 +120,6 @@ pub mod pallet {
 			<Self as NftsConfig>::ItemId,
 			Self::Balance,
 		>;
-
-		/// A way the next item's id is generated.
-		type ItemIdSuccession: Successor<Self::ItemId>;
 	}
 
 	/// The id of the collection that's managed by this pallet.
@@ -149,7 +144,8 @@ pub mod pallet {
 		T::AccountId, // DelegatorId
 		Twox64Concat,
 		T::AccountId, // ValidatorId
-		//TODO(vismate): use a bonded structure instead (with a fairly low number of max items) to make weight calculation easier.
+		//TODO(vismate): use a bonded structure instead (with a fairly low number of max items) to
+		// make weight calculation easier.
 		Vec<<T as NftsConfig>::ItemId>,
 	>;
 
@@ -198,7 +194,10 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
+	where
+		T::ItemId: Incrementable,
+	{
 		fn build(&self) {
 			let admin: T::AccountId = T::PalletId::get().into_account_truncating();
 			PalletAccountId::<T>::put(admin.clone());
@@ -222,7 +221,7 @@ pub mod pallet {
 
 			CollectionId::<T>::put(collection_id);
 
-			let mut item_id = T::ItemIdSuccession::initial();
+			let mut item_id = T::ItemId::initial_value();
 			for (account_id, expiration, nominal_value) in &self.initial_token_holders {
 				NftsPallet::<T>::mint_into(
 					&collection_id,
@@ -248,14 +247,17 @@ pub mod pallet {
 
 				Pallet::<T>::expiry_cache(&item_id, *expiration);
 
-				item_id = T::ItemIdSuccession::successor(&item_id);
+				item_id = item_id.increment();
 			}
 
 			NextItemId::<T>::put(item_id);
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::ItemId: Incrementable,
+	{
 		/// Mint a new delegator NFT with provided expiration session index and nominal value.
 		///
 		/// # Parameters
@@ -298,7 +300,7 @@ pub mod pallet {
 						item_id,
 					});
 
-					NextItemId::<T>::put(T::ItemIdSuccession::successor(&item_id));
+					NextItemId::<T>::put(item_id.increment());
 
 					Self::expiry_cache(&item_id, expiration);
 
@@ -432,7 +434,10 @@ pub mod pallet {
 
 	// TODO: calculate weights
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::ItemId: Incrementable,
+	{
 		/// Mint a new delegator NFT with provided expiration session index and nominal value.
 		///
 		/// # Parameters
@@ -459,7 +464,10 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> NftDelegation<T::AccountId, T::Balance, <T as NftsConfig>::ItemId> for Pallet<T> {
+	impl<T: Config> NftDelegation<T::AccountId, T::Balance, <T as NftsConfig>::ItemId> for Pallet<T>
+	where
+		T::ItemId: Incrementable,
+	{
 		fn bind(
 			delegator_id: &T::AccountId,
 			validator_id: &T::AccountId,
@@ -571,7 +579,10 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> utils::traits::SessionHook for Pallet<T> {
+	impl<T: Config> utils::traits::SessionHook for Pallet<T>
+	where
+		T::ItemId: Incrementable,
+	{
 		fn session_started(index: utils::session_hook::SessionIndex) -> DispatchResult {
 			let collection_id = Pallet::<T>::collection_id().ok_or(Error::<T>::NotInitialized)?;
 

@@ -21,8 +21,8 @@
 //! ## Configuration
 //!
 //! The pallet's behavior can be customized by implementing the `Config` trait. This trait defines
-//! various associated types and constants required for the pallet's operation. Some key configuration
-//! parameters include:
+//! various associated types and constants required for the pallet's operation. Some key
+//! configuration parameters include:
 //!
 //! - `RuntimeEvent`: Specifies the event type emitted by the pallet.
 //! - `PalletId`: The ID of the pallet used to derive collection owner's addresses.
@@ -52,7 +52,7 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod weights;
+mod weights;
 pub use weights::*;
 
 // TODO: Once the pallet is ready turn off dev_mode
@@ -60,7 +60,7 @@ pub use weights::*;
 pub mod pallet {
 	use sp_std::{
 		collections::btree_map::{BTreeMap, Entry},
-		vec::Vec,
+		vec::Vec as SpVec,
 	};
 
 	use codec::Codec;
@@ -70,7 +70,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{
 			tokens::nonfungibles_v2::{Create, Inspect, Mutate, Transfer},
-			BuildGenesisConfig,
+			BuildGenesisConfig, Incrementable,
 		},
 		PalletId,
 	};
@@ -79,13 +79,12 @@ pub mod pallet {
 		MintSettings, MintType, Pallet as NftsPallet,
 	};
 
-	use sp_runtime::{traits::AccountIdConversion, DispatchError, PerThing, Perbill};
-
-	use pallet_staking::Config as StakingConfig;
+	use sp_runtime::{
+		traits::{AccountIdConversion, AtLeast32BitUnsigned},
+		DispatchError, FixedPointOperand, PerThing, Perbill,
+	};
 
 	use frame_system::pallet_prelude::OriginFor;
-
-	use utils::traits::Successor;
 
 	const PERMISSION_KEY: &[u8] = b"PERMISSION";
 	const NOMINAL_VALUE_KEY: &[u8] = b"NOMINAL_VALUE";
@@ -101,7 +100,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + NftsConfig + StakingConfig {
+	pub trait Config: frame_system::Config + NftsConfig {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -115,8 +114,12 @@ pub mod pallet {
 		/// The permission type that is stored amongst the token's attributes.
 		type Permission: Parameter + Member + Codec + MaybeSerializeDeserialize;
 
-		/// A way the next item's id is generated.
-		type ItemIdSuccession: Successor<Self::ItemId>;
+		type Balance: Parameter
+			+ Member
+			+ Codec
+			+ AtLeast32BitUnsigned
+			+ MaybeSerializeDeserialize
+			+ FixedPointOperand;
 
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
@@ -173,17 +176,20 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub unstaked_permission_holders: Vec<(T::AccountId, T::Permission, T::Balance)>,
+		pub unstaked_permission_holders: SpVec<(T::AccountId, T::Permission, T::Balance)>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { unstaked_permission_holders: Vec::new() }
+			Self { unstaked_permission_holders: SpVec::new() }
 		}
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
+	where
+		T::ItemId: Incrementable,
+	{
 		fn build(&self) {
 			let admin: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
 			PalletAccountId::<T>::put(admin.clone());
@@ -207,7 +213,7 @@ pub mod pallet {
 
 			CollectionId::<T>::put(collection_id);
 
-			NextItemId::<T>::put(T::ItemIdSuccession::initial());
+			NextItemId::<T>::put(T::ItemId::initial_value());
 			for (account_id, permission, nominal_value) in &self.unstaked_permission_holders {
 				Pallet::<T>::do_mint_permission_token(account_id, permission, nominal_value)
 					.expect("could mint new permission token");
@@ -215,7 +221,10 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::ItemId: Incrementable,
+	{
 		/// Returns an iterator over account ids
 		/// where a permission NFT is bound but not chilled
 		pub fn accounts_with_bound_permission(
@@ -374,7 +383,7 @@ pub mod pallet {
 				item_id,
 			});
 
-			NextItemId::<T>::put(T::ItemIdSuccession::successor(&item_id));
+			NextItemId::<T>::put(item_id.increment());
 
 			Ok(item_id)
 		}
@@ -382,7 +391,10 @@ pub mod pallet {
 
 	// TODO: calculate weights
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::ItemId: Incrementable,
+	{
 		/// Mint a new permission NFT with provided permission and nominal value.
 		///
 		/// # Parameters
@@ -420,6 +432,8 @@ pub mod pallet {
 			T::Permission,
 			<T as NftsConfig>::ItemId,
 		> for Pallet<T>
+	where
+		T::ItemId: Incrementable,
 	{
 		fn mint(
 			account_id: &T::AccountId,
@@ -490,7 +504,8 @@ pub mod pallet {
 
 				let collection_id = Self::collection_id().ok_or(Error::<T>::NotInitialized)?;
 
-				// TODO: do we want this behaviour? What if its weren't us who locked the transfer of the item?
+				// TODO: do we want this behaviour? What if its weren't us who locked the transfer
+				// of the item?
 				<NftsPallet<T> as Transfer<_>>::enable_transfer(&collection_id, &item_id)?;
 
 				BoundTokens::<T>::put(bound_tokens);

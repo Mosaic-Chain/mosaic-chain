@@ -314,28 +314,17 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
 }
 
-pub struct NftIdSuccession;
-impl utils::traits::Successor<u32> for NftIdSuccession {
-	fn initial() -> u32 {
-		0
-	}
-
-	fn successor(val: &u32) -> u32 {
-		val + 1
-	}
-}
-
 parameter_types! {
 	pub const NftPermissionPalletId: PalletId = PalletId(*b"nft_perm");
 }
 
 impl pallet_nft_permission::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Runtime>;
+	type Balance = Balance;
+	type WeightInfo = pallet_nft_permission::SubstrateWeight<Runtime>;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Permission = pallet_staking::PermissionType;
-	type ItemIdSuccession = NftIdSuccession;
 }
 
 parameter_types! {
@@ -542,7 +531,6 @@ impl pallet_nft_delegation::Config for Runtime {
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Balance = Balance;
 	type NftExpirationHandler = ();
-	type ItemIdSuccession = NftIdSuccession;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
