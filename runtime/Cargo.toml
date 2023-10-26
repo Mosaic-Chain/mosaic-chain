@@ -87,6 +87,7 @@ std = [
 	"pallet-grandpa/std",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-sudo/std",
+	"pallet-staking/std",
 	"pallet-nft-permission/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
