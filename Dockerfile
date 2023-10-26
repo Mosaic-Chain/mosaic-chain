@@ -33,6 +33,6 @@ RUN apt update -y \
 
 EXPOSE 30333 30333/udp 9944 9933
 
-COPY --from=builder /opt/app/target/release/node-template /usr/local/bin/
+COPY --from=builder /opt/app/target/release/mosaic-chain /usr/local/bin/
 
-CMD ["node-template"]
+CMD ["mosaic-chain"]

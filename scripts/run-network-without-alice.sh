@@ -3,11 +3,11 @@ ids=(bob charlie dave eve ferdie)
 max=5
 for (( i=0; i < $max; i++ ))
 do
-	./target/release/node-template purge-chain \
+	./target/release/mosaic-chain purge-chain \
 	--base-path /tmp/${ids[i]} \
 	--chain local -y \
 
-	./target/release/node-template \
+	./target/release/mosaic-chain \
 	--base-path /tmp/${ids[i]} \
 	--chain local \
 	--${ids[i]} \

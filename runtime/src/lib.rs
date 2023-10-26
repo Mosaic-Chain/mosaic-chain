@@ -115,8 +115,8 @@ pub mod opaque {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("node-template"),
-	impl_name: create_runtime_str!("node-template"),
+	spec_name: create_runtime_str!("mosaic-chain"),
+	impl_name: create_runtime_str!("mosaic-chain"),
 	authoring_version: 1,
 	// The version of the runtime specification. A full node will not attempt to use its native
 	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
@@ -329,9 +329,6 @@ impl pallet_nft_permission::Config for Runtime {
 
 parameter_types! {
 	pub const MinimumCommissionPpb: Perbill = Perbill::from_percent(1);
-}
-
-parameter_types! {
 	pub const StakingPalletId: PalletId = PalletId(*b"mstaking");
 }
 
@@ -398,38 +395,6 @@ impl pallet_session::Config for Runtime {
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
-}
-
-pub struct LogOffence;
-
-impl
-	OnOffenceHandler<
-		<Runtime as frame_system::Config>::AccountId,
-		<Runtime as pallet_offences::Config>::IdentificationTuple,
-		frame_support::weights::Weight,
-	> for LogOffence
-{
-	fn on_offence(
-		offenders: &[sp_staking::offence::OffenceDetails<
-			<Runtime as frame_system::Config>::AccountId,
-			<Runtime as pallet_offences::Config>::IdentificationTuple,
-		>],
-		_slash_fraction: &[Perbill],
-		_session: sp_staking::SessionIndex,
-		_disable_strategy: sp_staking::offence::DisableStrategy,
-	) -> frame_support::weights::Weight {
-		log::warn!(
-			"OFFENCES: {:?}",
-			(
-				offenders.len(),
-				offenders
-					.iter()
-					.map(|o| sp_core::crypto::Ss58Codec::to_ss58check(&o.offender.0))
-					.collect::<Vec<_>>()
-			)
-		);
-		Default::default()
-	}
 }
 
 // TODO: figure out how to be more generic over the id tuple
@@ -599,8 +564,6 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		//[pallet_sudo, Sudo]
-		//[pallet_template, TemplateModule]
 		[pallet_validator_subset_selection, ValidatorSubsetSelection]
 	);
 }

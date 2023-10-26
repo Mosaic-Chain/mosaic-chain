@@ -1,13 +1,13 @@
 use std::marker::PhantomData;
 
-use node_template_runtime::{
+use mosaic_chain_runtime::{
 	opaque::SessionKeys, AccountId, Balance, BalancesConfig, NftPermissionConfig,
 	RuntimeGenesisConfig, SessionConfig, Signature, StakingConfig, SudoConfig, SystemConfig,
 	ValidatorSubsetSelectionConfig, WASM_BINARY,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
-use sc_service::ChainType;
+use sc_service::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
@@ -48,12 +48,21 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId, ImOnlineId, Acco
 	)
 }
 
+pub fn properties() -> Properties {
+	let mut properties = Properties::new();
+	properties.insert("tokenSymbol".into(), "MOS".into());
+	properties.insert("tokenDecimals".into(), 18.into());
+	properties.insert("ss58Format".into(), 42.into());
+	properties.insert("color".into(), "#5f32ff".into());
+	properties
+}
+
 pub fn development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Development",
+		"Mosaic Chain Development",
 		// ID
 		"dev",
 		ChainType::Development,
@@ -130,7 +139,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		None,
 		None,
 		// Properties
-		None,
+		Some(properties()),
 		// Extensions
 		None,
 	))
@@ -141,7 +150,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Local Testnet",
+		"Mosaic Chain Local Testnet",
 		// ID
 		"local_testnet",
 		ChainType::Local,
@@ -222,9 +231,9 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		None,
 		// Protocol ID
 		None,
+		None,
 		// Properties
-		None,
-		None,
+		Some(properties()),
 		// Extensions
 		None,
 	))

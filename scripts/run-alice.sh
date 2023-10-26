@@ -1,11 +1,11 @@
 #! /bin/bash
 
-./target/release/node-template purge-chain \
+./target/release/mosaic-chain purge-chain \
 --base-path \
 /tmp/alice \
 --chain local -y
 
-./target/release/node-template \
+./target/release/mosaic-chain \
 --base-path /tmp/alice \
 --chain local \
 --alice \
