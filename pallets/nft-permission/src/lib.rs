@@ -459,7 +459,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config>
-		pallet_staking::NftStaking<
+		utils::traits::NftStaking<
 			T::AccountId,
 			T::Balance,
 			T::Permission,

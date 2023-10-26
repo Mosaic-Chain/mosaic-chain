@@ -53,29 +53,11 @@ use pallet_nfts::{
 	CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
 	MintSettings, MintType, Pallet as NftsPallet,
 };
-use pallet_staking::NftDelegation;
 use sp_runtime::{
 	traits::AccountIdConversion, DispatchError, FixedPointOperand, PerThing, Perbill,
 };
 
-pub trait OnNftExpire<AccountId, ItemId, Balance> {
-	fn on_expire(
-		owner: &AccountId,
-		validator: Option<&AccountId>,
-		item_id: &ItemId,
-		nominal_value: &Balance,
-	);
-}
-
-impl<AccountId, ItemId, Balance> OnNftExpire<AccountId, ItemId, Balance> for () {
-	fn on_expire(
-		_owner: &AccountId,
-		_validator: Option<&AccountId>,
-		_item_id: &ItemId,
-		_nominal_value: &Balance,
-	) {
-	}
-}
+use utils::traits::{NftDelegation, OnDelegationNftExpire};
 
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
@@ -110,7 +92,7 @@ pub mod pallet {
 			+ TypeInfo
 			+ FixedPointOperand;
 
-		type NftExpirationHandler: OnNftExpire<
+		type NftExpirationHandler: OnDelegationNftExpire<
 			Self::AccountId,
 			<Self as NftsConfig>::ItemId,
 			Self::Balance,

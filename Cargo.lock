@@ -4868,13 +4868,13 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "pallet-nfts",
- "pallet-staking",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "utils",
 ]
 
 [[package]]
@@ -9282,7 +9282,6 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
- "sp-session",
  "sp-staking",
 ]
 

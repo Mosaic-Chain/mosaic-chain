@@ -1,3 +1,6 @@
 #![no_std]
 pub mod session_hook;
-pub mod traits;
+pub mod staking;
+pub mod traits {
+	pub use super::{session_hook::*, staking::*};
+}
