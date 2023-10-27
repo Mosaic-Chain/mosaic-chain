@@ -7,40 +7,37 @@
 /// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
-//#[cfg(test)]
-//mod mock;
-//
-//#[cfg(test)]
-//mod tests;
+#[cfg(any())]
+mod mock;
+#[cfg(any())]
+mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+use codec::{Codec, HasCompact};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{Currency, Imbalance, LockableCurrency, OnUnbalanced, ValidatorSet, WithdrawReasons},
+	Twox64Concat,
+};
+use frame_system::pallet_prelude::*;
+use pallet_nfts::Config as NftsConfig;
+use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
+use sp_runtime::{
+	helpers_128bit::multiply_by_rational_with_rounding,
+	traits::{Convert, Zero},
+	DispatchError, FixedPointOperand, PerThing, Perbill, Rounding, Saturating,
+};
+use sp_std::{iter::Sum, ops::Add, vec::Vec as SpVec};
+
+use utils::traits::{NftDelegation, NftStaking};
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use codec::HasCompact;
-	use frame_support::{
-		dispatch::Codec,
-		pallet_prelude::{ValueQuery, *},
-		traits::{
-			Currency, Imbalance, LockableCurrency, OnUnbalanced, ValidatorSet, WithdrawReasons,
-		},
-		Twox64Concat,
-	};
-	use frame_system::pallet_prelude::*;
-	use pallet_nfts::Config as NftsConfig;
-	use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
-	use sp_runtime::{
-		helpers_128bit::multiply_by_rational_with_rounding,
-		traits::{Convert, Zero},
-		DispatchError, FixedPointOperand, PerThing, Perbill, Rounding, Saturating,
-	};
-	use sp_std::{iter::Sum, ops::Add, vec::Vec as SpVec};
-
-	use utils::traits::{NftDelegation, NftStaking};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -252,13 +249,13 @@ pub mod pallet {
 		fn build(&self) {
 			for (validator_id, permission, nominal_value) in &self.initial_staking_validators {
 				let item_id = T::NftStakingHandler::mint(validator_id, permission, nominal_value)
-					.expect("could mint new permission nft");
+					.expect("couldn't mint new nft on genesis; this shouldn't happen");
 
 				assert!(Nodes::<T>::get(validator_id).is_none());
 				assert!(AccountVariant::<T>::get(validator_id).is_none());
 
 				T::NftStakingHandler::bind(validator_id, &item_id)
-					.expect("could bind newly made permission nft");
+					.expect("could't bind permission nft on genesis; this shouldn't happen");
 				AccountVariant::<T>::insert(validator_id, permission);
 				ValidatorCommission::<T>::insert(
 					validator_id.clone(),
@@ -269,7 +266,7 @@ pub mod pallet {
 					},
 				);
 				Pallet::<T>::do_stake_nft(validator_id, validator_id, *nominal_value)
-					.expect("could stake nft");
+					.expect("couldn't stake nft on genesis; this shouldn't happen");
 			}
 		}
 	}
@@ -283,31 +280,28 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_add(value);
 			});
-			Nodes::<T>::mutate(node_id, |x| {
+			Nodes::<T>::try_mutate(node_id, |x| {
+				let Some(exposure) = x else {
+					return Err(Error::<T>::InvalidTarget);
+				};
 				if node_id == staker_id {
-					let Some(exposure) = x else {
-						return Err(Error::<T>::InvalidTarget);
-					};
 					exposure.own.currency = exposure.own.currency.saturating_add(value);
-				} else {
-					let Some(exposure) = x else {
-						return Err(Error::<T>::InvalidTarget);
-					};
-					if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
-						delegator_exposure.currency =
-							delegator_exposure.currency.saturating_add(value);
-					} else {
-						let delegator_exposure = Exposure::<<T as pallet::Config>::Balance> {
-							currency: value,
-							..Default::default()
-						};
-						exposure.delegators.push((staker_id.clone(), delegator_exposure));
-					};
+					return Ok(());
 				}
 
-				Self::lock_currency(staker_id, value);
+				if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
+					delegator_exposure.currency = delegator_exposure.currency.saturating_add(value);
+				} else {
+					let delegator_exposure = Exposure::<<T as pallet::Config>::Balance> {
+						currency: value,
+						..Default::default()
+					};
+					exposure.delegators.push((staker_id.clone(), delegator_exposure));
+				};
+
 				Ok(())
 			})?;
+			Self::lock_currency(staker_id, value);
 			Ok(())
 		}
 
@@ -319,7 +313,7 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_sub(value);
 			});
-			Nodes::<T>::mutate_exists(node_id, |x| {
+			Nodes::<T>::try_mutate_exists(node_id, |x| {
 				if node_id == staker_id {
 					let mut exposure = x.clone().unwrap_or_default();
 					if value > exposure.own.currency {
@@ -349,7 +343,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn do_stake_nft(
+		fn do_stake_nft(
 			node_id: &ValidatorId<T>,
 			staker_id: &T::AccountId,
 			value: T::Balance,
@@ -385,18 +379,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn do_bind_nft(
-			node_id: ValidatorId<T>,
-			node_variant: PermissionType,
-			nominal_value: T::Balance,
-		) -> DispatchResult {
-			Self::do_stake_nft(&node_id, &node_id, nominal_value)?;
-			AccountVariant::<T>::insert(node_id.clone(), node_variant);
-			ValidatorCommission::<T>::insert(node_id, T::MinimumCommissionAllowed::get());
-			Ok(())
-		}
-
-		pub fn do_unstake_nft(
+		fn do_unstake_nft(
 			node_id: &ValidatorId<T>,
 			staker_id: &T::AccountId,
 			value: T::Balance,
