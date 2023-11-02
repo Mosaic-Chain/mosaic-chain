@@ -347,7 +347,7 @@ impl pallet_nft_permission::Config for Runtime {
 	type WeightInfo = pallet_nft_permission::SubstrateWeight<Runtime>;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
-	type Permission = pallet_staking::PermissionType;
+	type Permission = pallet_nft_staking::PermissionType;
 }
 
 parameter_types! {
@@ -355,9 +355,9 @@ parameter_types! {
 	pub const StakingPalletId: PalletId = PalletId(*b"mstaking");
 }
 
-impl pallet_staking::Config for Runtime {
+impl pallet_nft_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_nft_staking::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
 	type NftDelegationHandler = NftDelegation;
 	type NftStakingHandler = NftPermission;
@@ -535,7 +535,7 @@ construct_runtime!(
 		Nfts: pallet_nfts,
 		NftDelegation: pallet_nft_delegation,
 		NftPermission: pallet_nft_permission,
-		Staking: pallet_staking,
+		Staking: pallet_nft_staking,
 		ValidatorSubsetSelection: pallet_validator_subset_selection,
 		InsecureRandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 		Session: pallet_session,

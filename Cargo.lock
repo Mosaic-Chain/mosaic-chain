@@ -4275,7 +4275,7 @@ dependencies = [
  "jsonrpsee",
  "mosaic-chain-runtime",
  "pallet-im-online",
- "pallet-staking",
+ "pallet-nft-staking",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
@@ -4329,10 +4329,10 @@ dependencies = [
  "pallet-insecure-randomness-collective-flip",
  "pallet-nft-delegation",
  "pallet-nft-permission",
+ "pallet-nft-staking",
  "pallet-nfts",
  "pallet-offences",
  "pallet-session",
- "pallet-staking",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -4845,9 +4845,9 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
+ "pallet-nft-staking",
  "pallet-nfts",
  "pallet-session",
- "pallet-staking",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -4873,6 +4873,29 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+ "utils",
+]
+
+[[package]]
+name = "pallet-nft-staking"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-im-online",
+ "pallet-nfts",
+ "pallet-offences",
+ "pallet-session",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
  "sp-std",
  "utils",
 ]
@@ -4930,29 +4953,6 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "sp-trie",
-]
-
-[[package]]
-name = "pallet-staking"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "pallet-im-online",
- "pallet-nfts",
- "pallet-offences",
- "pallet-session",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std",
- "utils",
 ]
 
 [[package]]

@@ -2,7 +2,7 @@
 members = [
     "node",
     "pallets/nft-permission",
-    "pallets/staking",
+    "pallets/nft-staking",
     "pallets/nft-delegation",
     "pallets/validator-subset-selection",
     "runtime",

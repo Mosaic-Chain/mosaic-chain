@@ -1,6 +1,6 @@
 use frame_support::{assert_err, assert_ok};
 use frame_system::RawOrigin;
-use pallet_staking::NftStaking;
+use pallet_nft_staking::NftStaking;
 use sp_runtime::Perbill;
 
 use crate::{mock::*, Error, Event};

@@ -1,5 +1,5 @@
 [package]
-name = "pallet-staking"
+name = "pallet-nft-staking"
 version = "0.1.0"
 description = "FRAME pallet template for defining custom runtime logic."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]

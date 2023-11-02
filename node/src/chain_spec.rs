@@ -6,7 +6,7 @@ use mosaic_chain_runtime::{
 	ValidatorSubsetSelectionConfig, WASM_BINARY,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_staking::PermissionType;
+use pallet_nft_staking::PermissionType;
 use sc_service::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;

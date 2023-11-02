@@ -59,7 +59,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 # Local Dependencies
 pallet-nft-permission = { version = "0.1.0", default-features = false, path = "../pallets/nft-permission" }
 pallet-nft-delegation = { version = "0.1.0", default-features = false, path = "../pallets/nft-delegation" }
-pallet-staking = { version = "0.1.0", default-features = false, path = "../pallets/staking" }
+pallet-nft-staking = { version = "0.1.0", default-features = false, path = "../pallets/nft-staking" }
 pallet-validator-subset-selection = { version = "0.1.0", default-features = false, path = "../pallets/validator-subset-selection" }
 
 utils = { version = "0.1.0", path = "../utils" }
@@ -87,7 +87,7 @@ std = [
 	"pallet-grandpa/std",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-sudo/std",
-	"pallet-staking/std",
+	"pallet-nft-staking/std",
 	"pallet-nft-permission/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",

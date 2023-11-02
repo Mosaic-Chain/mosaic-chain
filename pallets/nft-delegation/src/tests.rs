@@ -3,7 +3,7 @@ use frame_support::{
 	traits::{OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use pallet_staking::NftDelegation as TNftDelegation;
+use pallet_nft_staking::NftDelegation as TNftDelegation;
 use sp_runtime::Perbill;
 
 use crate::{mock::*, Error, Event};
