@@ -51,6 +51,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(9_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
 	/// Storage: TemplateModule Something (r:1 w:1)
 	/// Proof: TemplateModule Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn cause_error() -> Weight {
@@ -76,6 +77,7 @@ impl WeightInfo for () {
 		Weight::from_parts(9_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	
 	/// Storage: TemplateModule Something (r:1 w:1)
 	/// Proof: TemplateModule Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn cause_error() -> Weight {

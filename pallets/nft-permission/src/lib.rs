@@ -210,6 +210,7 @@ pub mod pallet {
 	{
 		fn build(&self) {
 			let admin: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
+
 			PalletAccountId::<T>::put(admin.clone());
 
 			let collection_id = NftsPallet::<T>::create_collection(
@@ -230,8 +231,8 @@ pub mod pallet {
 			.expect("could create collection");
 
 			CollectionId::<T>::put(collection_id);
-
 			NextItemId::<T>::put(T::ItemId::initial_value());
+
 			for (account_id, permission, nominal_value) in &self.unstaked_permission_holders {
 				Pallet::<T>::do_mint_permission_token(account_id, permission, nominal_value)
 					.expect("could mint new permission token");
@@ -248,6 +249,7 @@ pub mod pallet {
 		pub fn accounts_with_bound_permission(
 		) -> Result<impl Iterator<Item = T::AccountId>, DispatchError> {
 			let bound_tokens = Self::bound_tokens();
+
 			Ok(bound_tokens.into_iter().filter_map(|(account_id, (_, chilled))| {
 				(chilled == ChillState::Unchilled).then_some(account_id)
 			}))
@@ -288,6 +290,7 @@ pub mod pallet {
 		) -> Result<T::Balance, DispatchError> {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
 			Self::decode_nominal_value(&collection_id, item_id)
 		}
 
@@ -302,6 +305,7 @@ pub mod pallet {
 		) -> Result<T::Permission, DispatchError> {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
 			Self::decode_permission(&collection_id, item_id)
 		}
 
@@ -513,6 +517,7 @@ pub mod pallet {
 				let nominal_value = Self::decode_nominal_value(&collection_id, item_id)?;
 
 				BoundTokens::<T>::put(bound_tokens);
+
 				Self::deposit_event(Event::<T>::TokenBound { item_id: *item_id });
 
 				Ok((permission, nominal_value))
@@ -534,16 +539,16 @@ pub mod pallet {
 				if entry.get().1 == ChillState::Unchilled {
 					return Err(Error::<T>::NotChilled.into());
 				}
-				let (_account_id, (item_id, _chilled)) = entry.remove_entry();
 
+				let (_account_id, (item_id, _chilled)) = entry.remove_entry();
 				let collection_id =
 					Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
 				<NftsPallet<T> as Transfer<_>>::enable_transfer(&collection_id, &item_id)?;
 
 				BoundTokens::<T>::put(bound_tokens);
-				Self::deposit_event(Event::<T>::TokenUnbound { item_id });
 
+				Self::deposit_event(Event::<T>::TokenUnbound { item_id });
 				Self::decode_nominal_value(&collection_id, &item_id)
 			} else {
 				Err(Error::<T>::NotBound.into())
@@ -564,11 +569,9 @@ pub mod pallet {
 
 			if let Entry::Occupied(c) = bound_tokens.entry(account_id.clone()) {
 				let (item_id, _) = c.get();
-
 				let collection_id =
 					Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 				let old_nominal_value = Self::decode_nominal_value(&collection_id, item_id)?;
-
 				let new_nominal_value = slash_proportion.left_from_one() * old_nominal_value;
 
 				Self::encode_nominal_value(&collection_id, item_id, &new_nominal_value)?;
@@ -602,9 +605,11 @@ pub mod pallet {
 				}
 
 				let (item_id, chilled) = c.get_mut();
+
 				*chilled = ChillState::Chilled;
 
 				Self::deposit_event(Event::<T>::TokenChilled { item_id: *item_id });
+
 				BoundTokens::<T>::put(bound_tokens);
 
 				Ok(())
@@ -629,9 +634,11 @@ pub mod pallet {
 				}
 
 				let (item_id, chilled) = c.get_mut();
+
 				*chilled = ChillState::Unchilled;
 
 				Self::deposit_event(Event::<T>::TokenUnchilled { item_id: *item_id });
+
 				BoundTokens::<T>::put(bound_tokens);
 
 				Ok(())

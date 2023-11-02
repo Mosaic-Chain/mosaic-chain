@@ -6,14 +6,12 @@ use mosaic_chain_runtime::{
 	ValidatorSubsetSelectionConfig, WASM_BINARY,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-
+use pallet_staking::PermissionType;
 use sc_service::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
-
-use pallet_staking::PermissionType;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -50,10 +48,12 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId, ImOnlineId, Acco
 
 pub fn properties() -> Properties {
 	let mut properties = Properties::new();
+
 	properties.insert("tokenSymbol".into(), "MOS".into());
 	properties.insert("tokenDecimals".into(), 18.into());
 	properties.insert("ss58Format".into(), 42.into());
 	properties.insert("color".into(), "#5f32ff".into());
+
 	properties
 }
 

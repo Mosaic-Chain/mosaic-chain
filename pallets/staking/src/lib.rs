@@ -17,6 +17,8 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+use sp_std::{iter::Sum, ops::Add, vec::Vec as SpVec};
+
 use codec::{Codec, HasCompact};
 use frame_support::{
 	pallet_prelude::*,
@@ -31,7 +33,6 @@ use sp_runtime::{
 	traits::{Convert, Zero},
 	DispatchError, FixedPointOperand, PerThing, Perbill, Rounding, Saturating,
 };
-use sp_std::{iter::Sum, ops::Add, vec::Vec as SpVec};
 
 use utils::traits::{NftDelegation, NftStaking};
 
@@ -103,11 +104,8 @@ pub mod pallet {
 		>;
 
 		type NftDelegationHandler: NftDelegation<Self::AccountId, Self::Balance, Self::ItemId>;
-
 		type MinimumStakingDuration: Get<u32>;
-
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
-
 		type MinimumCommissionAllowed: Get<Perbill>;
 
 		#[pallet::constant]
@@ -138,6 +136,7 @@ pub mod pallet {
 			self.currency + self.nft
 		}
 	}
+
 	impl<Balance: Default + HasCompact> Default for Exposure<Balance> {
 		fn default() -> Self {
 			Self { currency: Default::default(), nft: Default::default() }
@@ -280,10 +279,12 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_add(value);
 			});
+
 			Nodes::<T>::try_mutate(node_id, |x| {
 				let Some(exposure) = x else {
 					return Err(Error::<T>::InvalidTarget);
 				};
+
 				if node_id == staker_id {
 					exposure.own.currency = exposure.own.currency.saturating_add(value);
 					return Ok(());
@@ -296,12 +297,15 @@ pub mod pallet {
 						currency: value,
 						..Default::default()
 					};
+
 					exposure.delegators.push((staker_id.clone(), delegator_exposure));
 				};
 
 				Ok(())
 			})?;
+
 			Self::lock_currency(staker_id, value);
+
 			Ok(())
 		}
 
@@ -313,13 +317,17 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_sub(value);
 			});
+
 			Nodes::<T>::try_mutate_exists(node_id, |x| {
 				if node_id == staker_id {
 					let mut exposure = x.clone().unwrap_or_default();
+
 					if value > exposure.own.currency {
 						return Err(Error::<T>::NotEnoughFunds);
 					}
+
 					exposure.own.currency = exposure.own.currency.saturating_sub(value);
+
 					*x = Some(exposure.clone());
 				} else {
 					let Some(exposure) = x else {
@@ -330,6 +338,7 @@ pub mod pallet {
 						if value > delegator_exposure.currency {
 							return Err(Error::<T>::NotEnoughFunds);
 						}
+
 						delegator_exposure.currency =
 							delegator_exposure.currency.saturating_sub(value);
 					} else {
@@ -338,8 +347,10 @@ pub mod pallet {
 				}
 
 				Self::release_currency(staker_id, value);
+
 				Ok(())
 			})?;
+
 			Ok(())
 		}
 
@@ -351,19 +362,23 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_add(value);
 			});
+
 			Nodes::<T>::mutate(node_id, |x| {
 				if node_id == staker_id {
 					if let Some(exposure) = x {
 						exposure.own.nft = exposure.own.nft.saturating_add(value);
 					} else {
 						let mut exposure = NodeDetails::<T::AccountId, T::Balance>::default();
+
 						exposure.own.nft = exposure.own.nft.saturating_add(value);
+
 						*x = Some(exposure);
 					}
 				} else {
 					let Some(exposure) = x else {
 						return Err(Error::<T>::InvalidTarget);
 					};
+
 					if let Some(delegator_exposure) = exposure.get_delegator(staker_id) {
 						delegator_exposure.nft = delegator_exposure.nft.saturating_add(value);
 					} else {
@@ -371,11 +386,14 @@ pub mod pallet {
 							nft: value,
 							..Default::default()
 						};
+
 						exposure.delegators.push((staker_id.clone(), delegator_exposure.clone()));
 					};
 				}
+
 				Ok(())
 			})?;
+
 			Ok(())
 		}
 
@@ -387,13 +405,16 @@ pub mod pallet {
 			TotalStake::<T>::mutate(|balance| {
 				*balance = (*balance).saturating_sub(value);
 			});
+
 			Nodes::<T>::mutate_exists(node_id, |x| {
 				if node_id == staker_id {
 					let mut exposure = x.clone().unwrap_or_default();
+
 					if value >= exposure.own_exposure() {
 						*x = None;
 					} else {
 						exposure.own.nft = exposure.own.nft.saturating_sub(value);
+
 						*x = Some(exposure);
 					}
 				} else {
@@ -407,14 +428,18 @@ pub mod pallet {
 						return Err(Error::<T>::InvalidTarget);
 					};
 				}
+
 				Ok(())
 			})?;
+
 			Ok(())
 		}
 
 		fn do_kick_nft(node_id: &ValidatorId<T>, delegator_id: &DelegatorId<T>) -> DispatchResult {
 			let nominal_value = T::NftDelegationHandler::kick(node_id, delegator_id)?;
+
 			Self::do_unstake_nft(node_id, delegator_id, nominal_value)?;
+
 			Ok(())
 		}
 
@@ -444,9 +469,11 @@ pub mod pallet {
 				|(delegator, individual_exposure)| {
 					Self::do_kick_currency(node_id, delegator, individual_exposure.currency)?;
 					Self::do_kick_nft(node_id, delegator)?;
+
 					Ok::<(), DispatchError>(())
 				},
 			)?;
+
 			Ok(())
 		}
 
@@ -493,6 +520,7 @@ pub mod pallet {
 
 			if let Some(locked) = LockedCurrency::<T>::get(account_id) {
 				let locked = locked.saturating_sub(amount);
+
 				if locked.is_zero() {
 					Self::release_lock(account_id);
 				} else {
@@ -512,7 +540,6 @@ pub mod pallet {
 			let total_node_exposure: u128 = node_details.total_exposure().into();
 			let own_node_exposure: u128 = node_details.own.exposure().into();
 			let delegated_node_exposure: u128 = total_node_exposure - own_node_exposure;
-
 			let commission_part_per_billion =
 				ValidatorCommission::<T>::get(validator_account_id.clone()).deconstruct() as u128;
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
@@ -543,13 +570,13 @@ pub mod pallet {
 			.expect("no arithmetic error");
 
 			let total_validator_cut = inherent_validator_cut + commission_validator_cut;
-
 			let imbalance = <T as Config>::Currency::deposit_creating(
 				&validator_account_id,
 				total_validator_cut.into(),
 			);
 
 			Self::lock_currency(&validator_account_id, imbalance.peek());
+
 			node_details.own.currency = node_details.own.currency.saturating_add(imbalance.peek());
 
 			Self::deposit_event(Event::<T>::Rewarded {
@@ -579,8 +606,10 @@ pub mod pallet {
 				});
 
 				Self::lock_currency(delegator_id, imbalance.peek());
+
 				delegator_exposure.currency =
 					delegator_exposure.currency.saturating_add(imbalance.peek());
+
 				total_imbalance.subsume(imbalance);
 			}
 
@@ -622,10 +651,12 @@ pub mod pallet {
 				if <T as pallet::Config>::Currency::can_slash(&validator_account_id, slash_amount) {
 					let (actual_slash, _) =
 						<T as pallet::Config>::Currency::slash(&validator_account_id, slash_amount);
+
 					node_details.own.currency =
 						node_details.own.currency.saturating_sub(actual_slash.peek());
 
 					total_stake_slash = total_stake_slash.saturating_add(actual_slash.peek());
+
 					Self::release_currency(&validator_account_id, actual_slash.peek());
 				}
 			}
@@ -649,9 +680,11 @@ pub mod pallet {
 				// Slash delegator currency
 				if !exposure.currency.is_zero() {
 					let slash_amount = slash_proportion * exposure.currency;
+
 					if <T as pallet::Config>::Currency::can_slash(delegator_id, slash_amount) {
 						let (actual_slash, _) =
 							<T as pallet::Config>::Currency::slash(delegator_id, slash_amount);
+
 						exposure.currency = exposure.currency.saturating_sub(actual_slash.peek());
 						total_stake_slash = total_stake_slash.saturating_add(actual_slash.peek());
 
@@ -673,8 +706,8 @@ pub mod pallet {
 			target: ValidatorId<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
 			let target_variant = AccountVariant::<T>::get(&target);
+
 			ensure!(target_variant.is_some(), Error::<T>::InvalidTarget);
 			ensure!(target_variant == Some(PermissionType::DPoS), Error::<T>::TargetNotDPoS);
 
@@ -688,6 +721,7 @@ pub mod pallet {
 			);
 
 			Self::do_stake_nft(&who, &target, nominal_value)?;
+
 			Ok(())
 		}
 
@@ -701,7 +735,9 @@ pub mod pallet {
 
 			// TODO: check for MinimumStakingDuration
 			let nominal_value = T::NftDelegationHandler::unbind(&who, &target, &item_id)?;
+
 			Self::do_unstake_nft(&target, &who, nominal_value)?;
+
 			Ok(())
 		}
 
@@ -727,6 +763,7 @@ pub mod pallet {
 			);
 
 			AccountVariant::<T>::insert(&who, variant);
+
 			Self::do_stake_nft(&who, &who, nominal_value)?;
 
 			Ok(())
@@ -735,7 +772,6 @@ pub mod pallet {
 		#[pallet::call_index(3)]
 		pub fn unbind_nft(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
 			let permission_type = AccountVariant::<T>::get(&who).ok_or(Error::<T>::NotBound)?;
 
 			if permission_type == PermissionType::DPoS {
@@ -755,10 +791,13 @@ pub mod pallet {
 				.collect::<SpVec<T::ValidatorId>>();
 
 			let validator_id = T::ValidatorIdOf::convert(who.clone()).expect("TODO");
+
 			ensure!(!validator_set.contains(&validator_id), Error::<T>::AlreadyInQueue);
 
 			let nominal_value = T::NftStakingHandler::unbind(&who)?;
+
 			Self::do_unstake_nft(&who, &who, nominal_value)?;
+
 			AccountVariant::<T>::remove(&who);
 			Nodes::<T>::remove(&who);
 
@@ -771,9 +810,9 @@ pub mod pallet {
 			#[pallet::compact] value: T::Balance,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
 			let stash_balance = <T as pallet::Config>::Currency::free_balance(&who);
 			let value = value.min(stash_balance);
+
 			Self::do_stake_currency(&who, &who, value)?;
 
 			Ok(())
@@ -799,13 +838,14 @@ pub mod pallet {
 			target: ValidatorId<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
 			let target_variant = AccountVariant::<T>::get(&target);
+
 			ensure!(target_variant.is_some(), Error::<T>::InvalidTarget);
 			ensure!(target_variant == Some(PermissionType::DPoS), Error::<T>::TargetNotDPoS);
 
 			let stash_balance = <T as pallet::Config>::Currency::free_balance(&who);
 			let value = value.min(stash_balance);
+
 			Self::do_stake_currency(&target, &who, value)?;
 
 			Ok(())
@@ -828,6 +868,7 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		pub fn kick(origin: OriginFor<T>, target: ValidatorId<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
 			Self::do_kick(&who, &target)?;
 
 			Ok(())
@@ -836,6 +877,7 @@ pub mod pallet {
 		#[pallet::call_index(9)]
 		pub fn set_commission(origin: OriginFor<T>, commission: Perbill) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
 			// FIXME: Check for permission type
 			ValidatorCommission::<T>::set(who, commission);
 
@@ -859,7 +901,6 @@ pub mod pallet {
 			// FIXME: replace active validator len with total number of blocks created in session
 			// TODO: set this to a more sensible value
 			let session_reward = 100 * active_validators.len() as u128;
-
 			let mut total_stake_slash: T::Balance = Zero::zero();
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 
@@ -900,6 +941,7 @@ pub mod pallet {
 			});
 
 			T::Reward::on_unbalanced(total_imbalance);
+
 			Ok(())
 		}
 	}

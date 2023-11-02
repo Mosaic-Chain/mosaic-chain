@@ -139,12 +139,16 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A token has been minted to the specified account.
 		TokenCreated { account: T::AccountId, item_id: <T as NftsConfig>::ItemId },
+
 		/// A token has been successfully bound
 		TokenBound { item_id: <T as NftsConfig>::ItemId },
+
 		/// A token has been successfully unbound
 		TokenUnbound { item_id: <T as NftsConfig>::ItemId },
+
 		/// A token has been slashed
 		TokenSlashed { item_id: <T as NftsConfig>::ItemId, nominal_value: T::Balance },
+
 		/// A set of token has been expired
 		TokensExpired { items: SpVec<<T as NftsConfig>::ItemId> },
 	}
@@ -221,6 +225,7 @@ pub mod pallet {
 			CollectionId::<T>::put(collection_id);
 
 			let mut item_id = T::ItemId::initial_value();
+
 			for (account_id, expiration, nominal_value) in &self.initial_token_holders {
 				NftsPallet::<T>::mint_into(
 					&collection_id,
@@ -321,6 +326,7 @@ pub mod pallet {
 		) -> Result<T::Balance, DispatchError> {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
 			Self::decode_nominal_value(&collection_id, item_id)
 		}
 
@@ -335,6 +341,7 @@ pub mod pallet {
 		) -> Result<sp_staking::SessionIndex, DispatchError> {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
 			Self::decode_expiration(&collection_id, item_id)
 		}
 
@@ -475,6 +482,7 @@ pub mod pallet {
 			nominal_value: T::Balance,
 		) -> DispatchResult {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
+
 			Self::do_mint_delegator_token(&account_id, expiration, &nominal_value).map(|_| ())
 		}
 	}
@@ -568,11 +576,12 @@ pub mod pallet {
 			let items =
 				Self::bound_tokens(delegator_id, validator_id).ok_or(Error::<T>::NotBound)?;
 			let factor = slash_proportion.left_from_one();
-
 			let mut nominal_value_sum = T::Balance::from(0u32);
+
 			for item in items {
 				let old_nominal_value = Self::decode_nominal_value(&collection_id, &item)?;
 				let new_nominal_value = factor * old_nominal_value;
+
 				Self::encode_nominal_value(&collection_id, &item, &new_nominal_value)?;
 
 				// TODO: do we really want to send all these events?

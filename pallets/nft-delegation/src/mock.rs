@@ -1,10 +1,10 @@
-use crate::{self as nft_delegation, OnNftExpire};
+use sp_std::collections::btree_map::BTreeMap;
+
 use frame_support::{
 	parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64},
 	PalletId,
 };
-
 use pallet_session::{SessionHandler, SessionManager, ShouldEndSession};
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
@@ -14,8 +14,7 @@ use sp_runtime::{
 	BuildStorage, MultiSignature, RuntimeAppPublic,
 };
 
-use sp_std::collections::btree_map::BTreeMap;
-
+use crate::{self as nft_delegation, OnNftExpire};
 use utils::traits::SessionHook;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -160,21 +159,13 @@ impl<AccountId, Hook: SessionHook> SessionManager<AccountId>
 
 impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-
 	type ValidatorId = Self::AccountId;
-
 	type ValidatorIdOf = ();
-
 	type ShouldEndSession = AlwaysEndSession;
-
 	type NextSessionRotation = ();
-
 	type SessionManager = DummySessionManager<AccountId, NftDelegation>;
-
 	type SessionHandler = OtherSessionHandler;
-
 	type Keys = MockSessionKeys;
-
 	type WeightInfo = ();
 }
 
@@ -193,6 +184,7 @@ impl<AccountId, Balance> OnNftExpire<AccountId, u32, Balance> for ExpirationHand
 		_nominal_value: &Balance,
 	) {
 		let session = Session::current_index();
+
 		ExpiredTokens::mutate(|exp| exp.entry(session).or_default().push(*item_id));
 	}
 }
@@ -200,6 +192,7 @@ impl<AccountId, Balance> OnNftExpire<AccountId, u32, Balance> for ExpirationHand
 impl ExpirationHandler {
 	pub fn expired_this_session() -> Option<Vec<u32>> {
 		let session = Session::current_index();
+
 		Self::expired_on(session)
 	}
 
@@ -240,6 +233,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
+
 	ext.execute_with(|| System::set_block_number(1));
+
 	ext
 }

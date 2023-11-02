@@ -1,4 +1,3 @@
-use crate as nft_permission;
 use frame_support::{
 	parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64},
@@ -9,6 +8,8 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
+
+use crate as nft_permission;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -130,6 +131,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
+
 	ext.execute_with(|| System::set_block_number(1));
+
 	ext
 }

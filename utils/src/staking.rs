@@ -1,4 +1,7 @@
-use frame_support::{sp_runtime::{DispatchError, Perbill}, pallet_prelude::DispatchResult};
+use frame_support::{
+	pallet_prelude::DispatchResult,
+	sp_runtime::{DispatchError, Perbill},
+};
 
 pub trait OnDelegationNftExpire<AccountId, ItemId, Balance> {
 	fn on_expire(

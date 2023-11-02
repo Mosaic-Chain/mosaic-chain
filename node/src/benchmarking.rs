@@ -2,7 +2,7 @@
 //!
 //! Should only be used for benchmarking as it may break in other contexts.
 
-use crate::service::FullClient;
+use std::{sync::Arc, time::Duration};
 
 use mosaic_chain_runtime as runtime;
 use runtime::{AccountId, Balance, BalancesCall, SystemCall};
@@ -13,7 +13,7 @@ use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
 
-use std::{sync::Arc, time::Duration};
+use crate::service::FullClient;
 
 /// Generates extrinsics for the `benchmark overhead` command.
 ///
@@ -82,11 +82,8 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 		let extrinsic: OpaqueExtrinsic = create_benchmark_extrinsic(
 			self.client.as_ref(),
 			acc,
-			BalancesCall::transfer_keep_alive {
-				dest: self.dest.clone().into(),
-				value: self.value,
-			}
-			.into(),
+			BalancesCall::transfer_keep_alive { dest: self.dest.clone().into(), value: self.value }
+				.into(),
 			nonce,
 		)
 		.into();
@@ -160,5 +157,6 @@ pub fn inherent_benchmark_data() -> Result<InherentData> {
 
 	futures::executor::block_on(timestamp.provide_inherent_data(&mut inherent_data))
 		.map_err(|e| format!("creating inherent data: {:?}", e))?;
+
 	Ok(inherent_data)
 }

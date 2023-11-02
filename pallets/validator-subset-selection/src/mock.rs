@@ -1,15 +1,16 @@
 use core::marker::PhantomData;
 
-use crate as pallet_validator_subset_selection;
-use crate::RandomU128;
-use frame_support::pallet_prelude::*;
-
-use frame_support::traits::{ConstU16, ConstU64};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{ConstU16, ConstU64},
+};
 use sp_core::{Hasher, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
+
+use crate::{self as pallet_validator_subset_selection, RandomU128};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -55,6 +56,7 @@ pub struct MockRandomGenerator;
 impl RandomU128 for MockRandomGenerator {
 	fn random(subject: &[u8]) -> u128 {
 		let hash_of_nonce = BlakeTwo256::hash(subject);
+
 		u128::from_le_bytes(
 			hash_of_nonce.as_ref()[0..16]
 				.try_into()
@@ -67,6 +69,7 @@ fn account(id: u64) -> AccountId {
 	let id_as_bytes = id.to_ne_bytes();
 	let zeros: [u8; 24] = [0; 24];
 	let ret: [u8; 32] = [&id_as_bytes[..], &zeros[..]].concat().try_into().unwrap();
+
 	ret.into()
 }
 
@@ -76,6 +79,7 @@ impl frame_support::traits::StorageInstance for SupersetSizeStorageInstance {
 	fn pallet_prefix() -> &'static str {
 		"NoPallet"
 	}
+
 	const STORAGE_PREFIX: &'static str = "SupersetSize";
 }
 
@@ -84,6 +88,7 @@ type SupersetSize = StorageValue<SupersetSizeStorageInstance, u64, ValueQuery>;
 impl pallet_validator_subset_selection::ValidatorSuperset<AccountId> for Test {
 	fn get_superset() -> Vec<AccountId> {
 		let superset_size = SupersetSize::get();
+
 		(0..superset_size).map(|n| account(n)).collect()
 	}
 }
@@ -99,6 +104,7 @@ impl pallet_validator_subset_selection::Config for Test {
 
 pub fn new_test_ext(superset_size: Option<u64>) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
 	pallet_validator_subset_selection::GenesisConfig::<Test> {
 		initial_subset_size: 250,
 		_phantom: PhantomData,
@@ -107,9 +113,11 @@ pub fn new_test_ext(superset_size: Option<u64>) -> sp_io::TestExternalities {
 	.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
+
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		SupersetSize::set(superset_size.unwrap_or_else(|| 1000));
 	});
+
 	ext
 }

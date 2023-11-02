@@ -39,14 +39,16 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use sp_std::{marker::PhantomData, prelude::*};
+
 use frame_support::{pallet_prelude::*, traits::ValidatorSet};
-pub use pallet::*;
 use sp_application_crypto::Ss58Codec;
 use sp_runtime::{
 	traits::{Hash, One, Zero},
 	FixedI64, PerThing,
 };
-use sp_std::{marker::PhantomData, prelude::*};
+
+pub use pallet::*;
 
 #[frame_support::pallet(dev_mode)] //TODO: remove dev mode
 pub mod pallet {
@@ -145,14 +147,15 @@ pub mod pallet {
 
 			if (validators.len() as u64) < subset_size {
 				Self::deposit_event(Event::FewerValidatorsThanSubset);
+
 				return validators;
 			}
 
 			// We divide the mean by two, because we are distributing it between two buckets
 			let mean =
 				FixedI64::from_rational(u128::from(subset_size), 2 * validators.len() as u128);
-
 			let mut selected_subset = Vec::<T::ValidatorId>::with_capacity(subset_size as usize);
+
 			for v in &validators {
 				let mut buckets =
 					Self::buckets(v).unwrap_or_else(|| (Self::random(), Self::random()));
@@ -162,6 +165,7 @@ pub mod pallet {
 
 				if let Some(new_buckets) = Self::select(buckets) {
 					buckets = new_buckets;
+
 					selected_subset.push(v.clone());
 				}
 
@@ -170,6 +174,7 @@ pub mod pallet {
 
 			if selected_subset.is_empty() {
 				Self::deposit_event(Event::EmptySubset);
+
 				// If the subset is empty we redo the process
 				// With enough validators the probability of this is negligible
 				Self::select_subset(validators)
@@ -201,7 +206,9 @@ pub mod pallet {
 		///Helper function to generate more unique random numbers in a block
 		fn next_nonce() -> u64 {
 			let nonce = Nonce::<T>::get().unwrap_or_default();
+
 			Nonce::<T>::put(nonce.wrapping_add(1));
+
 			nonce
 		}
 
@@ -226,15 +233,18 @@ pub mod pallet {
 		/// Initial "randomness" expected to be used in the 0th session
 		fn bootstrap_randomness(nonce: &[u8]) -> T::Hash {
 			let s = [b"Mosaic", nonce, b"Chain"].concat();
+
 			T::Hashing::hash(&s)
 		}
 
 		fn session_length(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
 			let min_session_length = T::MinSessionLength::get();
+
 			if subset_size >= min_session_length {
 				subset_size
 			} else {
 				let remainder = min_session_length % subset_size;
+
 				if remainder.is_zero() {
 					min_session_length
 				} else {
@@ -250,8 +260,11 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		pub fn change_subset_size(origin: OriginFor<T>, new_subset_size: u64) -> DispatchResult {
 			ensure_root(origin)?;
+
 			SubsetSize::<T>::put(new_subset_size);
+
 			Self::deposit_event(Event::SubsetSizeChanged(new_subset_size));
+
 			Ok(())
 		}
 	}
@@ -266,13 +279,11 @@ pub mod pallet {
 
 				let superset = T::ValidatorSuperset::validators();
 				let subset_size = Self::subset_size() as usize;
-
 				let selected_subset = if superset.len() > subset_size {
 					superset[0..subset_size].to_owned()
 				} else {
 					superset
 				};
-
 				let current_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
 				let new_session_start = Zero::zero();
 				let new_session_end = Self::session_length(current_subset_size);
@@ -290,15 +301,19 @@ pub mod pallet {
 				Some(selected_subset)
 			} else {
 				assert!(session_index == 1);
+
 				Self::new_session(session_index)
 			}
 		}
 
 		fn end_session(session_index: sp_staking::SessionIndex) {
 			T::SessionHook::session_ended(session_index).expect("session hook ran successfully");
+
 			CurrentSessionEnd::<T>::mutate(|session_end| {
 				let next_session_end = NextSessionEnd::<T>::get();
+
 				CurrentSessionLength::<T>::put(next_session_end - *session_end);
+
 				*session_end = next_session_end;
 			});
 		}
@@ -309,16 +324,17 @@ pub mod pallet {
 
 		fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<T::ValidatorId>> {
 			log::info!("new session {session_index}");
+
 			T::SessionHook::session_planned(session_index).expect("session hook ran successfully");
 
 			let selected_subset = Self::select_subset(T::ValidatorSuperset::validators());
-
 			let new_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
 			let new_session_length = Self::session_length(new_subset_size);
 			let current_session_end: BlockNumberFor<T> = Self::current_session_end();
 			let new_session_end: BlockNumberFor<T> = current_session_end + new_session_length;
 
 			NextSessionEnd::<T>::put(new_session_end);
+
 			AvgSessionLenght::<T>::mutate(|v| {
 				let session_index = BlockNumberFor::<T>::from(session_index);
 				*v = (*v * session_index + new_session_length) / (session_index + One::one());

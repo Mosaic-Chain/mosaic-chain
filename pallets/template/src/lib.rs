@@ -30,6 +30,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -57,6 +58,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Error names should be descriptive.
 		NoneValue,
+
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
 	}
@@ -81,6 +83,7 @@ pub mod pallet {
 
 			// Emit an event.
 			Self::deposit_event(Event::SomethingStored { something, who });
+
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}
@@ -98,8 +101,10 @@ pub mod pallet {
 				Some(old) => {
 					// Increment the value read from storage; will error in the event of overflow.
 					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
+
 					// Update the value in storage with the incremented result.
 					<Something<T>>::put(new);
+
 					Ok(())
 				},
 			}
