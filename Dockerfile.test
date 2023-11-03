@@ -6,25 +6,19 @@ RUN apt update -y \
 
 RUN rustup target add wasm32-unknown-unknown
 RUN rustup component add rustfmt clippy
+RUN cargo install cargo-nextest --locked
 
 WORKDIR /opt/app
 COPY . .
 
 ENV RUSTFLAGS=-Dwarnings
 
-RUN cargo fmt -- --check 
+RUN cargo fmt -- --check
 
-# without features
-RUN cargo check --color=always --tests --examples
+RUN cargo clippy --color=always --tests --examples --bins --benches --features runtime-benchmarks,try-runtime
 
-# with runtime benchmarks
-#RUN cargo check --color=always --tests --examples --features runtime-benchmarks
+# Does this add any relevant tests? We should use `mosaic-chain benchmark pallet`
+# anyways, where the binary is built with the `runtime-benchmarks` feature.
+#RUN cargo test --release --features runtime-benchmarks
 
-# with try-runtime
-#RUN cargo check --color=always --tests --examples --features try-runtime
-
-# clippy with all features
-# disabled until we clean up the code
-#RUN cargo clippy --color=always --tests --examples --features runtime-benchmarks,try-runtime
-
-#RUN cargo test --release --features runtime-benchmarks,try-runtime
+RUN cargo nextest run --release --features try-runtime

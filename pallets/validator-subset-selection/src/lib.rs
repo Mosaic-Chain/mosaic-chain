@@ -323,8 +323,6 @@ pub mod pallet {
 		}
 
 		fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<T::ValidatorId>> {
-			log::info!("new session {session_index}");
-
 			T::SessionHook::session_planned(session_index).expect("session hook ran successfully");
 
 			let selected_subset = Self::select_subset(T::ValidatorSuperset::validators());

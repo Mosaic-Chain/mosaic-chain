@@ -583,11 +583,9 @@ pub type Executive = frame_executive::Executive<
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
+	use frame_benchmarking::define_benchmarks;
+
 	define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
