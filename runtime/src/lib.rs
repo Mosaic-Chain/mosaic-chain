@@ -258,6 +258,9 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxSetIdSessionEntries = ConstU64<0>;
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
+	// We have no such things as nominators, grandpa only uses this for weight calulation of offence reporting extrinsics.
+	// Since we use the default implementation of EquivocationReportSystem (noop), we can safely set this to 0.
+	type MaxNominators = ConstU32<0>;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -786,7 +789,8 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch, TrackedStorageKey};
+			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
 

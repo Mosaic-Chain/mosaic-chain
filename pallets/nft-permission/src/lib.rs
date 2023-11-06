@@ -231,7 +231,7 @@ pub mod pallet {
 			.expect("could create collection");
 
 			CollectionId::<T>::put(collection_id);
-			NextItemId::<T>::put(T::ItemId::initial_value());
+			NextItemId::<T>::put(T::ItemId::initial_value().expect("Item Id has initial value"));
 
 			for (account_id, permission, nominal_value) in &self.unstaked_permission_holders {
 				Pallet::<T>::do_mint_permission_token(account_id, permission, nominal_value)
@@ -420,7 +420,8 @@ pub mod pallet {
 				item_id,
 			});
 
-			NextItemId::<T>::put(item_id.increment());
+			let next_item_id = item_id.increment().ok_or(Error::<T>::ItemNotInitialized)?;
+			NextItemId::<T>::put(next_item_id);
 
 			Ok(item_id)
 		}

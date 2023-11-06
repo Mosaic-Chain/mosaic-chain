@@ -224,7 +224,7 @@ pub mod pallet {
 
 			CollectionId::<T>::put(collection_id);
 
-			let mut item_id = T::ItemId::initial_value();
+			let mut item_id = T::ItemId::initial_value().expect("ItemId has an initial value");
 
 			for (account_id, expiration, nominal_value) in &self.initial_token_holders {
 				NftsPallet::<T>::mint_into(
@@ -251,7 +251,7 @@ pub mod pallet {
 
 				Pallet::<T>::expiry_cache(&item_id, *expiration);
 
-				item_id = item_id.increment();
+				item_id = item_id.increment().expect("could increment item_id");
 			}
 
 			NextItemId::<T>::put(item_id);
@@ -306,7 +306,8 @@ pub mod pallet {
 						item_id,
 					});
 
-					NextItemId::<T>::put(item_id.increment());
+					let next_item_id = item_id.increment().ok_or(Error::<T>::ItemNotInitialized)?;
+					NextItemId::<T>::put(next_item_id);
 
 					Self::expiry_cache(&item_id, expiration);
 
