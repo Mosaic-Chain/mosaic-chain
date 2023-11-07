@@ -879,8 +879,26 @@ pub mod pallet {
 		pub fn set_commission(origin: OriginFor<T>, commission: Perbill) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			// FIXME: Check for permission type
+			// FIXME: Check for permission type and only allow to set if not bound (or chilled?)
 			ValidatorCommission::<T>::set(who, commission);
+
+			Ok(())
+		}
+
+		#[pallet::call_index(10)]
+		pub fn chill_validator(origin: OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			T::NftStakingHandler::chill(&who)?;
+
+			Ok(())
+		}
+
+		#[pallet::call_index(11)]
+		pub fn unchill_validator(origin: OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			T::NftStakingHandler::unchill(&who)?;
 
 			Ok(())
 		}
