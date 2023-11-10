@@ -6,7 +6,7 @@ use frame_system::RawOrigin;
 use sp_runtime::Perbill;
 
 use crate::{mock::*, Error, Event};
-use utils::traits::NftDelegation as TNftDelegation;
+use utils::traits::NftDelegation as TNftDelegation; // this alias is needed to distingish between the runtime definition and the utils trait
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 

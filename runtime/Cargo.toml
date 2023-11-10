@@ -85,6 +85,7 @@ std = [
 	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
+	"pallet-im-online/std",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-nft-delegation/std",
 	"pallet-nft-permission/std",

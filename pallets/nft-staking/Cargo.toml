@@ -49,6 +49,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-im-online/std",
 	"pallet-nfts/std",
 	"scale-info/std",
 ]
