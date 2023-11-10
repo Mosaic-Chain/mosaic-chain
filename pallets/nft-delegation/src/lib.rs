@@ -30,10 +30,10 @@
 /// each session change.
 pub use pallet::*;
 
-#[cfg(any())]
+#[cfg(test)]
 mod mock;
 
-#[cfg(any())]
+#[cfg(test)]
 mod tests;
 
 use sp_std::vec::Vec as SpVec;

@@ -1,12 +1,12 @@
 use frame_support::{
 	assert_err, assert_ok,
-	traits::{OnFinalize, OnInitialize},
+	traits::{Incrementable, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use pallet_nft_staking::NftDelegation as TNftDelegation;
 use sp_runtime::Perbill;
 
 use crate::{mock::*, Error, Event};
+use utils::traits::NftDelegation as TNftDelegation;
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 
@@ -20,7 +20,8 @@ fn mint_delegator_token_should_work() {
 		let owner = account(1);
 		let expiration = 3;
 		let nominal_value = 100;
-		let item_id = <Test as utils::traits::Successor<u32>>::initial();
+		let item_id =
+			<<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value().expect("WHY");
 
 		assert_ok!(
 			NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value),
@@ -30,7 +31,8 @@ fn mint_delegator_token_should_work() {
 		System::assert_last_event(
 			Event::TokenCreated {
 				account: owner,
-				item_id: <Test as utils::traits::Successor<u32>>::initial(),
+				item_id: <<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value()
+					.expect("AGAIN. WHY"),
 			}
 			.into(),
 		);

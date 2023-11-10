@@ -14,7 +14,7 @@ use sp_runtime::{
 	BuildStorage, MultiSignature, RuntimeAppPublic,
 };
 
-use crate::{self as nft_delegation, OnNftExpire};
+use crate::{self as nft_delegation, OnDelegationNftExpire};
 use utils::traits::SessionHook;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -176,7 +176,7 @@ parameter_types! {
 
 pub struct ExpirationHandler;
 
-impl<AccountId, Balance> OnNftExpire<AccountId, u32, Balance> for ExpirationHandler {
+impl<AccountId, Balance> OnDelegationNftExpire<AccountId, u32, Balance> for ExpirationHandler {
 	fn on_expire(
 		_owner: &AccountId,
 		_validator: Option<&AccountId>,
@@ -205,21 +205,10 @@ impl ExpirationHandler {
 	}
 }
 
-impl utils::traits::Successor<u32> for Test {
-	fn initial() -> u32 {
-		0
-	}
-
-	fn successor(val: &u32) -> u32 {
-		val + 1
-	}
-}
-
 impl nft_delegation::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
-	type ItemIdSuccession = Self;
 	type NftExpirationHandler = ExpirationHandler;
 	type Balance = u64;
 }
