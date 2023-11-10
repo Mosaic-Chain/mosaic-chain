@@ -1,9 +1,9 @@
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, traits::Incrementable};
 use frame_system::RawOrigin;
-use pallet_nft_staking::NftStaking;
 use sp_runtime::Perbill;
 
 use crate::{mock::*, Error, Event};
+use utils::traits::NftStaking;
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 
@@ -23,7 +23,8 @@ fn mint_permission_should_work() {
 		System::assert_last_event(
 			Event::TokenCreated {
 				account: owner,
-				item_id: <Test as utils::traits::Successor<u32>>::initial(),
+				item_id: <<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value()
+					.unwrap(),
 			}
 			.into(),
 		);

@@ -42,10 +42,10 @@
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any())]
+#[cfg(test)]
 mod mock;
 
-#[cfg(any())]
+#[cfg(test)]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]

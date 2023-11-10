@@ -21,7 +21,7 @@ fn mint_delegator_token_should_work() {
 		let expiration = 3;
 		let nominal_value = 100;
 		let item_id =
-			<<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value().expect("WHY");
+			<<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value().unwrap();
 
 		assert_ok!(
 			NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value),
@@ -32,7 +32,7 @@ fn mint_delegator_token_should_work() {
 			Event::TokenCreated {
 				account: owner,
 				item_id: <<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value()
-					.expect("AGAIN. WHY"),
+					.unwrap(),
 			}
 			.into(),
 		);

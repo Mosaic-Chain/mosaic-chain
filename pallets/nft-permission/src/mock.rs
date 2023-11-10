@@ -102,22 +102,11 @@ parameter_types! {
 	pub const NftPermissionPalletId: PalletId = PalletId(*b"nft_perm");
 }
 
-impl utils::traits::Successor<u32> for Test {
-	fn initial() -> u32 {
-		0
-	}
-
-	fn successor(val: &u32) -> u32 {
-		val + 1
-	}
-}
-
 impl nft_permission::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = nft_permission::weights::SubstrateWeight<Test>;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
-	type ItemIdSuccession = Self;
 	type Permission = String;
 	type Balance = u64;
 }
@@ -126,7 +115,7 @@ impl nft_permission::Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-	nft_permission::GenesisConfig::<Test> { initial_permission_holders: vec![] }
+	nft_permission::GenesisConfig::<Test> { unstaked_permission_holders: vec![] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
