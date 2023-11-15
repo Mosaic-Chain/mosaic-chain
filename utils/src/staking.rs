@@ -44,11 +44,7 @@ pub trait NftDelegation<AccountId, Balance, ItemId> {
 		item_id: &ItemId,
 	) -> Result<(SessionIndex, Balance), DispatchError>;
 
-	fn unbind(
-		delegator_id: &AccountId,
-		validator_id: &AccountId,
-		item_id: &ItemId,
-	) -> Result<Balance, DispatchError>;
+	fn unbind(delegator_id: &AccountId, item_id: &ItemId) -> Result<Balance, DispatchError>;
 
 	fn slash(
 		delegator_id: &AccountId,

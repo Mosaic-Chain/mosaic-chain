@@ -539,7 +539,6 @@ pub mod pallet {
 
 		fn unbind(
 			delegator_id: &T::AccountId,
-			validator_id: &T::AccountId, // TODO: this is wildly unnecessary, as an nft cannot be bound on more than one validator at a time
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
 			let collection_id =
@@ -550,9 +549,10 @@ pub mod pallet {
 				Error::<T>::WrongOwner
 			);
 
-			// FIXME: currently this returns notbound even if the NFT *is* bound but not on the correct validator
+			let validator_id = BindCache::<T>::get(item_id).ok_or(Error::<T>::NotBound)?;
+
 			let mut items =
-				Self::bound_tokens(delegator_id, validator_id).ok_or(Error::<T>::NotBound)?;
+				Self::bound_tokens(delegator_id, &validator_id).ok_or(Error::<T>::NotBound)?;
 
 			if let Some(idx) = items.iter().position(|id| id == item_id) {
 				items.swap_remove(idx);
@@ -631,11 +631,12 @@ pub mod pallet {
 				for item in &tokens_expiring {
 					let owner = NftsPallet::<T>::owner(collection_id, *item)
 						.ok_or(Error::<T>::ItemNotInitialized)?;
-					let validator = BindCache::<T>::take(item);
 					let nominal_value = Pallet::<T>::decode_nominal_value(&collection_id, item)?;
 
-					if let Some(validator_id) = validator.as_ref() {
-						Pallet::<T>::unbind(&owner, validator_id, item)?;
+					let validator = BindCache::<T>::take(item);
+
+					if validator.is_some() {
+						Pallet::<T>::unbind(&owner, item)?;
 					}
 
 					T::NftExpirationHandler::on_expire(

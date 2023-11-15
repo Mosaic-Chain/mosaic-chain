@@ -738,7 +738,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// TODO: check for MinimumStakingDuration
-			let nominal_value = T::NftDelegationHandler::unbind(&who, &target, &item_id)?;
+			let nominal_value = T::NftDelegationHandler::unbind(&who, &item_id)?;
 
 			Self::do_unstake_nft(&target, &who, nominal_value)?;
 
