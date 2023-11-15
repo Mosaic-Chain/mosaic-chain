@@ -97,18 +97,13 @@ fn unbind_should_work() {
 		let item_id =
 			NftDelegation::do_mint_delegator_token(&owner1, expiration, &nominal_value).unwrap();
 
-		assert_err!(
-			NftDelegation::unbind(&validator, &validator, &item_id),
-			Error::<Test>::WrongOwner
-		);
+		assert_err!(NftDelegation::unbind(&owner2, &item_id), Error::<Test>::WrongOwner);
 
-		assert_err!(NftDelegation::unbind(&owner1, &validator, &item_id), Error::<Test>::NotBound);
+		assert_err!(NftDelegation::unbind(&owner1, &item_id), Error::<Test>::NotBound);
 
 		NftDelegation::bind(&owner1, &validator, &item_id).unwrap();
 
-		// NOTE: this is semantically incorrect behavior, see FIXME at NftDelegation trait `unbind` implementation in lib.rs and I188
-		assert_err!(NftDelegation::unbind(&owner1, &account(3), &item_id), Error::<Test>::NotBound);
-		assert_ok!(NftDelegation::unbind(&owner1, &validator, &item_id), nominal_value);
+		assert_ok!(NftDelegation::unbind(&owner1, &item_id), nominal_value);
 
 		System::assert_last_event(Event::TokenUnbound { item_id }.into());
 
