@@ -506,7 +506,7 @@ pub mod pallet {
 				Error::<T>::WrongOwner
 			);
 
-			ensure!(!Self::is_bound(item_id), Error::<T>::AlreadyBound,);
+			ensure!(!Self::is_bound(item_id), Error::<T>::AlreadyBound);
 
 			BoundTokens::<T>::try_mutate(delegator_id, validator_id, |items| match items {
 				Some(v) => v.try_push(*item_id),
@@ -536,7 +536,7 @@ pub mod pallet {
 
 		fn unbind(
 			delegator_id: &T::AccountId,
-			validator_id: &T::AccountId,
+			validator_id: &T::AccountId, // TODO: this is wildly unnecessary, as an nft cannot be bound on more than one validator at a time
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
 			let collection_id =
@@ -547,8 +547,10 @@ pub mod pallet {
 				Error::<T>::WrongOwner
 			);
 
+			// FIXME: currently this returns notbound even if the NFT *is* bound but not on the correct validator
 			let mut items =
 				Self::bound_tokens(delegator_id, validator_id).ok_or(Error::<T>::NotBound)?;
+
 			if let Some(idx) = items.iter().position(|id| id == item_id) {
 				items.swap_remove(idx);
 				BoundTokens::<T>::set(delegator_id, validator_id, Some(items));
@@ -608,6 +610,7 @@ pub mod pallet {
 
 			items.into_iter().try_fold(0u32.into(), |acc, item| {
 				let value = Self::decode_nominal_value(&collection_id, &item)?;
+
 				Ok(acc + value)
 			})
 		}
@@ -642,6 +645,7 @@ pub mod pallet {
 
 				Pallet::<T>::deposit_event(Event::<T>::TokensExpired { items: tokens_expiring });
 			}
+
 			Ok(())
 		}
 	}

@@ -1,5 +1,6 @@
 use frame_support::{assert_err, assert_ok, traits::Incrementable};
 use frame_system::RawOrigin;
+use pallet_nfts::Error as NftsError;
 use sp_runtime::Perbill;
 
 use crate::{mock::*, Error, Event};
@@ -18,16 +19,14 @@ fn mint_permission_should_work() {
 		let nominal_value = 42;
 		let owner = account(1);
 		let item_id =
-			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
+			<<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value().unwrap();
 
-		System::assert_last_event(
-			Event::TokenCreated {
-				account: owner,
-				item_id: <<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value()
-					.unwrap(),
-			}
-			.into(),
+		assert_ok!(
+			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value),
+			item_id
 		);
+
+		System::assert_last_event(Event::TokenCreated { account: owner, item_id }.into());
 
 		assert_ok!(NftPermission::permission_of(&item_id), permission);
 		assert_ok!(NftPermission::nominal_value_of(&item_id), nominal_value);
@@ -52,13 +51,15 @@ fn bind_should_work() {
 
 		assert_err!(NftPermission::bind(&owner, &item2), Error::<Test>::AlreadyBound);
 
-		Nfts::transfer(
-			RawOrigin::Signed(owner).into(),
-			NftPermission::collection_id().unwrap(),
-			item1,
-			account(2),
-		)
-		.unwrap_err();
+		assert_err!(
+			Nfts::transfer(
+				RawOrigin::Signed(owner).into(),
+				NftPermission::collection_id().unwrap(),
+				item1,
+				account(2),
+			),
+			NftsError::<Test>::ItemLocked
+		);
 	});
 }
 
@@ -67,24 +68,33 @@ fn unbind_should_work() {
 	new_test_ext().execute_with(|| {
 		let permission = "ValidPermission".into();
 		let nominal_value = 42;
-		let owner = account(1);
-		let item =
-			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
+		let owner1 = account(1);
+		let owner2 = account(2);
+		let item_id =
+			NftPermission::do_mint_permission_token(&owner1, &permission, &nominal_value).unwrap();
 
-		assert_err!(NftPermission::unbind(&owner), Error::<Test>::NotBound);
-		assert_ok!(NftPermission::bind(&owner, &item), (permission, nominal_value));
-		assert_err!(NftPermission::unbind(&owner), Error::<Test>::NotChilled);
-		assert_ok!(NftPermission::chill(&owner));
-		assert_ok!(NftPermission::unbind(&owner), nominal_value);
+		assert_err!(NftPermission::unbind(&owner1), Error::<Test>::NotBound);
 
-		System::assert_last_event(Event::TokenUnbound { item_id: item }.into());
+		NftPermission::bind(&owner1, &item_id).unwrap();
+		assert_err!(NftPermission::unbind(&owner1), Error::<Test>::NotChilled);
 
-		assert_ok!(Nfts::transfer(
-			RawOrigin::Signed(owner).into(),
-			NftPermission::collection_id().unwrap(),
-			item,
-			account(2),
-		));
+		NftPermission::chill(&owner1).unwrap();
+		assert_ok!(NftPermission::unbind(&owner1), nominal_value);
+
+		System::assert_last_event(Event::TokenUnbound { item_id }.into());
+
+		assert_ok!(
+			Nfts::transfer(
+				RawOrigin::Signed(owner1).into(),
+				NftPermission::collection_id().unwrap(),
+				item_id,
+				owner2.clone(),
+			),
+			()
+		);
+
+		// Check whether unbind cleaned up everything correctly for a rebind
+		assert_ok!(NftPermission::bind(&owner2, &item_id), (permission, nominal_value));
 	});
 }
 
@@ -94,14 +104,15 @@ fn chill_should_work() {
 		let permission = "ValidPermission".into();
 		let nominal_value = 42;
 		let owner = account(1);
-		let item =
+		let item_id =
 			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
 		assert_err!(NftPermission::chill(&owner), Error::<Test>::NotBound);
-		assert_ok!(NftPermission::bind(&owner, &item), (permission, nominal_value));
-		assert_ok!(NftPermission::chill(&owner));
 
-		System::assert_last_event(Event::TokenChilled { item_id: item }.into());
+		NftPermission::bind(&owner, &item_id).unwrap();
+		assert_ok!(NftPermission::chill(&owner), ());
+
+		System::assert_last_event(Event::TokenChilled { item_id }.into());
 
 		assert_err!(NftPermission::chill(&owner), Error::<Test>::AlreadyChilled);
 	});
@@ -113,15 +124,16 @@ fn unchill_should_work() {
 		let permission = "ValidPermission".into();
 		let nominal_value = 42;
 		let owner = account(1);
-		let item =
+		let item_id =
 			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
 
 		assert_err!(NftPermission::unchill(&owner), Error::<Test>::NotBound);
-		assert_ok!(NftPermission::bind(&owner, &item), (permission, nominal_value));
-		assert_ok!(NftPermission::chill(&owner));
-		assert_ok!(NftPermission::unchill(&owner));
 
-		System::assert_last_event(Event::TokenUnchilled { item_id: item }.into());
+		NftPermission::bind(&owner, &item_id).unwrap();
+		NftPermission::chill(&owner).unwrap();
+		assert_ok!(NftPermission::unchill(&owner), ());
+
+		System::assert_last_event(Event::TokenUnchilled { item_id }.into());
 
 		assert_err!(NftPermission::unchill(&owner), Error::<Test>::NotChilled);
 	});
@@ -133,16 +145,19 @@ fn slash_should_work() {
 		let permission = "ValidPermission".into();
 		let nominal_value = 100;
 		let owner = account(1);
-		let item =
+		let item_id =
 			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
+		let slash_proportion = Perbill::from_percent(16);
 
-		assert_err!(
-			NftPermission::slash(&owner, Perbill::from_percent(16)),
-			Error::<Test>::NotBound
+		assert_err!(NftPermission::slash(&owner, slash_proportion), Error::<Test>::NotBound);
+
+		NftPermission::bind(&owner, &item_id).unwrap();
+		assert_ok!(NftPermission::slash(&owner, slash_proportion));
+
+		let slashed_value = nominal_value - slash_proportion * nominal_value;
+
+		System::assert_last_event(
+			Event::TokenSlashed { item_id, nominal_value: slashed_value }.into(),
 		);
-		assert_ok!(NftPermission::bind(&owner, &item), (permission, nominal_value));
-		assert_ok!(NftPermission::slash(&owner, Perbill::from_percent(16)));
-
-		System::assert_last_event(Event::TokenSlashed { item_id: item, nominal_value: 84 }.into());
 	});
 }

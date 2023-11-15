@@ -147,14 +147,19 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A token has been minted to the specified account.
 		TokenCreated { account: T::AccountId, item_id: <T as NftsConfig>::ItemId },
+
 		/// A token has been successfully bound
 		TokenBound { item_id: <T as NftsConfig>::ItemId },
+
 		/// A token has been successfully unbound
 		TokenUnbound { item_id: <T as NftsConfig>::ItemId },
+
 		/// A token has been successfully chilled
 		TokenChilled { item_id: <T as NftsConfig>::ItemId },
+
 		/// A token has been successfully unchilled
 		TokenUnchilled { item_id: <T as NftsConfig>::ItemId },
+
 		/// A token has been slashed
 		TokenSlashed { item_id: <T as NftsConfig>::ItemId, nominal_value: T::Balance },
 	}
@@ -421,6 +426,7 @@ pub mod pallet {
 			});
 
 			let next_item_id = item_id.increment().ok_or(Error::<T>::ItemNotInitialized)?;
+
 			NextItemId::<T>::put(next_item_id);
 
 			Ok(item_id)
@@ -480,6 +486,7 @@ pub mod pallet {
 		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
 			Self::do_mint_permission_token(account_id, permission, nominal_value)
 		}
+
 		// Bind a permission NFT to an account, locking its use.
 		/// Returns the associated permission an nominal value decoded from token.
 		///
