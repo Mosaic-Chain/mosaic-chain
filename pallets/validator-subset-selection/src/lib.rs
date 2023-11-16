@@ -48,6 +48,8 @@ use sp_runtime::{
 	FixedI64, PerThing,
 };
 
+use utils::SessionIndex;
+
 pub use pallet::*;
 
 #[frame_support::pallet(dev_mode)] //TODO: remove dev mode
@@ -87,7 +89,7 @@ pub mod pallet {
 			validator_subset: Vec<T::ValidatorId>,
 			session_start: BlockNumberFor<T>,
 			session_end: BlockNumberFor<T>,
-			session_index: sp_staking::SessionIndex,
+			session_index: SessionIndex,
 		},
 		SubsetSizeChanged(u64),
 	}
@@ -270,9 +272,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
-		fn new_session_genesis(
-			session_index: sp_staking::SessionIndex,
-		) -> Option<Vec<T::ValidatorId>> {
+		fn new_session_genesis(session_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
 			if session_index == 0 {
 				T::SessionHook::session_genesis(session_index)
 					.expect("session hook ran successfully");
@@ -306,7 +306,7 @@ pub mod pallet {
 			}
 		}
 
-		fn end_session(session_index: sp_staking::SessionIndex) {
+		fn end_session(session_index: SessionIndex) {
 			T::SessionHook::session_ended(session_index).expect("session hook ran successfully");
 
 			CurrentSessionEnd::<T>::mutate(|session_end| {
@@ -318,11 +318,11 @@ pub mod pallet {
 			});
 		}
 
-		fn start_session(session_index: sp_staking::SessionIndex) {
+		fn start_session(session_index: SessionIndex) {
 			T::SessionHook::session_started(session_index).expect("session hook ran successfully");
 		}
 
-		fn new_session(session_index: sp_staking::SessionIndex) -> Option<Vec<T::ValidatorId>> {
+		fn new_session(session_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
 			T::SessionHook::session_planned(session_index).expect("session hook ran successfully");
 
 			let selected_subset = Self::select_subset(T::ValidatorSuperset::validators());

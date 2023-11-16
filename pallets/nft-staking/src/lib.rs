@@ -34,7 +34,10 @@ use sp_runtime::{
 	DispatchError, FixedPointOperand, PerThing, Perbill, Rounding, Saturating,
 };
 
-use utils::traits::{NftDelegation, NftStaking};
+use utils::{
+	traits::{NftDelegation, NftStaking},
+	SessionIndex,
+};
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -908,7 +911,7 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<<T as pallet_session::Config>::ValidatorId>,
 	{
-		fn session_ended(_: u32) -> DispatchResult {
+		fn session_ended(_: SessionIndex) -> DispatchResult {
 			let total_stake: u128 = TotalStake::<T>::get().into();
 
 			if total_stake == 0 {
@@ -984,7 +987,7 @@ pub mod pallet {
 				pallet_im_online::IdentificationTuple<T>,
 			>],
 			slash_fraction: &[Perbill],
-			_session: sp_staking::SessionIndex,
+			_session: SessionIndex,
 			_disable_strategy: sp_staking::offence::DisableStrategy,
 		) -> frame_support::weights::Weight {
 			for (o, slash) in offenders.iter().zip(slash_fraction.iter()) {

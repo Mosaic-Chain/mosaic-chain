@@ -5166,7 +5166,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-session",
- "sp-staking",
  "sp-std",
  "utils",
 ]
@@ -5241,6 +5240,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-runtime",
  "sp-staking",
  "sp-std",
@@ -5366,7 +5366,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-staking",
  "sp-std",
  "sp-tracing",
  "utils",

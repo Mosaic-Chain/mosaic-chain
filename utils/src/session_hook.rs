@@ -1,5 +1,4 @@
-use frame_support::pallet_prelude::DispatchResult;
-pub use sp_staking::SessionIndex;
+use super::*;
 
 #[allow(unused)]
 pub trait SessionHook {

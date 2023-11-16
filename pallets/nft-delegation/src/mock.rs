@@ -15,7 +15,7 @@ use sp_runtime::{
 };
 
 use crate::{self as nft_delegation, OnDelegationNftExpire};
-use utils::traits::SessionHook;
+use utils::{traits::SessionHook, SessionIndex};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -143,16 +143,16 @@ pub struct DummySessionManager<AccountId, Hook> {
 impl<AccountId, Hook: SessionHook> SessionManager<AccountId>
 	for DummySessionManager<AccountId, Hook>
 {
-	fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
+	fn new_session(new_index: SessionIndex) -> Option<Vec<AccountId>> {
 		Hook::session_planned(new_index).unwrap();
 		None
 	}
 
-	fn end_session(end_index: sp_staking::SessionIndex) {
+	fn end_session(end_index: SessionIndex) {
 		Hook::session_ended(end_index).unwrap();
 	}
 
-	fn start_session(start_index: sp_staking::SessionIndex) {
+	fn start_session(start_index: SessionIndex) {
 		Hook::session_started(start_index).unwrap();
 	}
 }
@@ -171,7 +171,7 @@ impl pallet_session::Config for Test {
 
 parameter_types! {
 	pub const NftPermissionPalletId: PalletId = PalletId(*b"nft_dlgt");
-	pub static ExpiredTokens: BTreeMap<sp_staking::SessionIndex, Vec<u32>> = BTreeMap::default();
+	pub static ExpiredTokens: BTreeMap<SessionIndex, Vec<u32>> = BTreeMap::default();
 }
 
 pub struct ExpirationHandler;
@@ -196,7 +196,7 @@ impl ExpirationHandler {
 		Self::expired_on(session)
 	}
 
-	pub fn expired_on(session: sp_staking::SessionIndex) -> Option<Vec<u32>> {
+	pub fn expired_on(session: SessionIndex) -> Option<Vec<u32>> {
 		ExpiredTokens::get().get(&session).cloned()
 	}
 

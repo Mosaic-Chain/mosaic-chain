@@ -1,7 +1,4 @@
-use frame_support::{
-	pallet_prelude::DispatchResult,
-	sp_runtime::{DispatchError, Perbill},
-};
+use super::*;
 
 pub trait OnDelegationNftExpire<AccountId, ItemId, Balance> {
 	fn on_expire(
@@ -45,7 +42,7 @@ pub trait NftDelegation<AccountId, Balance, ItemId> {
 		delegator_id: &AccountId,
 		validator_id: &AccountId,
 		item_id: &ItemId,
-	) -> Result<(sp_staking::SessionIndex, Balance), DispatchError>;
+	) -> Result<(SessionIndex, Balance), DispatchError>;
 
 	fn unbind(
 		delegator_id: &AccountId,

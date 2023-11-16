@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use mosaic_chain_runtime::{
-	opaque::SessionKeys, AccountId, Balance, BalancesConfig, NftPermissionConfig,
-	RuntimeGenesisConfig, SessionConfig, Signature, NftStakingConfig, SudoConfig, SystemConfig,
+	opaque::SessionKeys, AccountId, Balance, BalancesConfig, NftPermissionConfig, NftStakingConfig,
+	RuntimeGenesisConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
 	ValidatorSubsetSelectionConfig, WASM_BINARY,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
