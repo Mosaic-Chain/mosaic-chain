@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use mosaic_chain_runtime::{
 	opaque::SessionKeys, AccountId, Balance, BalancesConfig, NftPermissionConfig,
-	RuntimeGenesisConfig, SessionConfig, Signature, StakingConfig, SudoConfig, SystemConfig,
+	RuntimeGenesisConfig, SessionConfig, Signature, NftStakingConfig, SudoConfig, SystemConfig,
 	ValidatorSubsetSelectionConfig, WASM_BINARY,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -275,7 +275,7 @@ fn testnet_genesis(
 				.filter_map(|(acc, perm, bound, nominal)| (!bound).then_some((acc, perm, nominal)))
 				.collect(),
 		},
-		staking: StakingConfig {
+		nft_staking: NftStakingConfig {
 			initial_staking_validators: initial_permission_holders
 				.into_iter()
 				.filter_map(|(acc, perm, bound, nominal)| bound.then_some((acc, perm, nominal)))

@@ -408,7 +408,7 @@ impl pallet_validator_subset_selection::Config for Runtime {
 	type Randomness = InsecureRandomnessCollectiveFlip;
 	type ValidatorSuperset = Self;
 	type MinSessionLength = MinSessionLength;
-	type SessionHook = (NftDelegation, Staking);
+	type SessionHook = (NftDelegation, NftStaking);
 }
 
 impl pallet_session::Config for Runtime {
@@ -427,7 +427,7 @@ impl pallet_session::Config for Runtime {
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_im_online::IdentificationTuple<Self>;
-	type OnOffenceHandler = Staking;
+	type OnOffenceHandler = NftStaking;
 }
 
 parameter_types! {
@@ -538,7 +538,7 @@ construct_runtime!(
 		Nfts: pallet_nfts,
 		NftDelegation: pallet_nft_delegation,
 		NftPermission: pallet_nft_permission,
-		Staking: pallet_nft_staking,
+		NftStaking: pallet_nft_staking,
 		ValidatorSubsetSelection: pallet_validator_subset_selection,
 		InsecureRandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 		Session: pallet_session,
