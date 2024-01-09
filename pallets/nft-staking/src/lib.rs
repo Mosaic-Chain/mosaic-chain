@@ -17,6 +17,8 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+mod staging;
+
 use sp_std::{iter::Sum, ops::Add, vec::Vec as SpVec};
 
 use codec::{Codec, HasCompact};
@@ -38,6 +40,8 @@ use utils::{
 	traits::{NftDelegation, NftStaking},
 	SessionIndex,
 };
+
+use staging::Staging;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -172,37 +176,21 @@ pub mod pallet {
 	pub type InverseSlashes<T: Config> = StorageMap<_, Twox64Concat, ValidatorId<T>, Perbill>;
 
 	#[pallet::storage]
-	pub type NextTotalStake<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
+	pub type TotalStake<T: Config> = StorageValue<_, Staging<T::Balance>, ValueQuery>;
 
 	#[pallet::storage]
-	pub type CurrentTotalStake<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
+	pub type Nodes<T: Config> =
+		StorageMap<_, Twox64Concat, ValidatorId<T>, Staging<NodeDetails<T::Balance>>, ValueQuery>;
 
 	#[pallet::storage]
-	pub type NextNodes<T: Config> =
-		StorageMap<_, Twox64Concat, ValidatorId<T>, NodeDetails<T::Balance>, OptionQuery>;
-
-	#[pallet::storage]
-	pub type CurrentNodes<T: Config> =
-		StorageMap<_, Twox64Concat, ValidatorId<T>, NodeDetails<T::Balance>, OptionQuery>;
-
-	#[pallet::storage]
-	pub type NextDelegations<T: Config> = StorageDoubleMap<
+	pub type Delegations<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		ValidatorId<T>,
 		Twox64Concat,
 		DelegatorId<T>,
-		Exposure<T::Balance>,
-	>;
-
-	#[pallet::storage]
-	pub type CurrentDelegations<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		ValidatorId<T>,
-		Twox64Concat,
-		DelegatorId<T>,
-		Exposure<T::Balance>,
+		Staging<Exposure<T::Balance>>,
+		ValueQuery,
 	>;
 
 	// TODO: add slashed event
@@ -244,7 +232,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (validator_id, permission, nominal_value) in &self.initial_staking_validators {
-				assert!(!NextNodes::<T>::contains_key(validator_id));
+				assert!(!Nodes::<T>::get(validator_id).exists_committed());
 
 				let item_id = T::NftStakingHandler::mint(validator_id, permission, nominal_value)
 					.expect("couldn't mint new nft on genesis; this shouldn't happen");
@@ -252,55 +240,61 @@ pub mod pallet {
 				T::NftStakingHandler::bind(validator_id, &item_id)
 					.expect("could't bind permission nft on genesis; this shouldn't happen");
 
-				NextNodes::<T>::insert(
+				Nodes::<T>::insert(
 					validator_id,
-					NodeDetails {
+					Staging::new(NodeDetails {
 						commission: permission.default_commission::<T>(),
 						permission: *permission,
 						own_exposure: Exposure::default(),
-					},
+					}),
 				);
 
 				Pallet::<T>::do_stake_nft(validator_id, validator_id, *nominal_value)
 					.expect("couldn't stake nft on genesis; this shouldn't happen");
 			}
-
-			Pallet::<T>::rotate_storage();
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		// TODO: There must be a way more efficient way to do this.
-		fn rotate_storage() {
-			CurrentTotalStake::<T>::set(NextTotalStake::<T>::get());
+		/// Commits all storage values. Removes values where there is neither a staged nor a commited value.
+		fn commit_storage() {
+			TotalStake::<T>::mutate(Staging::commit);
 
-			// Clear CurrentNodes
-			loop {
-				let mut cursor: Option<SpVec<u8>> = None;
-				cursor = CurrentNodes::<T>::clear(u32::MAX, cursor.as_deref()).maybe_cursor;
+			Nodes::<T>::translate_values(|mut s: Staging<NodeDetails<T::Balance>>| {
+				s.exists().then(|| {
+					s.commit();
+					s
+				})
+			});
 
-				if cursor.is_none() {
-					break;
-				}
+			Delegations::<T>::translate_values(|mut s: Staging<Exposure<T::Balance>>| {
+				s.exists().then(|| {
+					s.commit();
+					s
+				})
+			});
+		}
+
+		fn grow_total_stake_by(value: T::Balance) {
+			if value.is_zero() {
+				return;
 			}
 
-			for (node_id, details) in NextNodes::<T>::iter() {
-				CurrentNodes::<T>::insert(node_id, details);
+			TotalStake::<T>::mutate(|s| {
+				let current = s.current().copied().unwrap_or_default();
+				s.stage(current.saturating_add(value));
+			});
+		}
+
+		fn shrink_total_stake_by(value: T::Balance) {
+			if value.is_zero() {
+				return;
 			}
 
-			// Clear CurrentDelegations
-			loop {
-				let mut cursor: Option<SpVec<u8>> = None;
-				cursor = CurrentDelegations::<T>::clear(u32::MAX, cursor.as_deref()).maybe_cursor;
-
-				if cursor.is_none() {
-					break;
-				}
-			}
-
-			for (node_id, delegator_id, exposure) in NextDelegations::<T>::iter() {
-				CurrentDelegations::<T>::insert(node_id, delegator_id, exposure);
-			}
+			TotalStake::<T>::mutate(|s| {
+				let current = s.current().copied().unwrap_or_default();
+				s.stage(current.saturating_sub(value));
+			});
 		}
 
 		fn do_stake_currency(
@@ -308,30 +302,28 @@ pub mod pallet {
 			staker_id: &DelegatorId<T>,
 			value: T::Balance,
 		) -> DispatchResult {
-			NextTotalStake::<T>::mutate(|balance| {
-				*balance = (*balance).saturating_add(value);
-			});
+			if !Nodes::<T>::get(node_id).exists() {
+				Err(Error::<T>::InvalidTarget)?;
+			}
 
-			NextNodes::<T>::try_mutate(node_id, |x| {
-				let Some(details) = x else {
-					return Err(Error::<T>::InvalidTarget);
-				};
-
-				if node_id == staker_id {
+			if node_id == staker_id {
+				Nodes::<T>::mutate(node_id, |s| {
+					let mut details = s.current().cloned().expect("existant value");
 					details.own_exposure.currency =
 						details.own_exposure.currency.saturating_add(value);
-				} else {
-					NextDelegations::<T>::mutate_exists(node_id, staker_id, |x| {
-						let mut staker_exposure = x.clone().unwrap_or_default();
-						staker_exposure.currency = staker_exposure.currency.saturating_add(value);
-						*x = Some(staker_exposure);
-					});
-				}
 
-				Ok(())
-			})?;
+					s.stage(details);
+				});
+			} else {
+				Delegations::<T>::mutate(node_id, staker_id, |s| {
+					let mut staker_exposure = s.current().cloned().unwrap_or_default();
+					staker_exposure.currency = staker_exposure.currency.saturating_add(value);
+					s.stage(staker_exposure);
+				});
+			}
 
 			Self::lock_currency(staker_id, value);
+			Self::grow_total_stake_by(value);
 
 			Ok(())
 		}
@@ -341,13 +333,13 @@ pub mod pallet {
 			staker_id: &DelegatorId<T>,
 			value: T::Balance,
 		) -> DispatchResult {
-			NextTotalStake::<T>::mutate(|balance| {
-				*balance = (*balance).saturating_sub(value);
-			});
+			Nodes::<T>::mutate(node_id, |s| {
+				if !s.exists() {
+					return Err(Error::<T>::InvalidTarget);
+				};
 
-			NextNodes::<T>::mutate(node_id, |x| {
 				if node_id == staker_id {
-					let Some(details) = x.as_mut() else {
+					let Some(mut details) = s.current().cloned() else {
 						return Err(Error::<T>::InvalidTarget);
 					};
 
@@ -357,25 +349,27 @@ pub mod pallet {
 
 					details.own_exposure.currency =
 						details.own_exposure.currency.saturating_sub(value);
-				} else {
-					if x.is_none() {
-						return Err(Error::<T>::InvalidTarget);
-					};
 
-					if let Some(mut staker_exposure) = NextDelegations::<T>::get(node_id, staker_id)
-					{
+					s.stage(details);
+				} else {
+					Delegations::<T>::mutate(node_id, staker_id, |s| {
+						let Some(mut staker_exposure) = s.current().cloned() else {
+							return Err(Error::<T>::InvalidTarget);
+						};
+
 						if value > staker_exposure.currency {
 							return Err(Error::<T>::NotEnoughFunds);
 						}
 
 						staker_exposure.currency = staker_exposure.currency.saturating_sub(value);
-						NextDelegations::<T>::insert(node_id, staker_id, staker_exposure);
-					} else {
-						return Err(Error::<T>::InvalidTarget);
-					};
+						s.stage(staker_exposure);
+
+						Ok(())
+					})?;
 				}
 
 				Self::release_currency(staker_id, value);
+				Self::shrink_total_stake_by(value);
 
 				Ok(())
 			})?;
@@ -388,27 +382,29 @@ pub mod pallet {
 			staker_id: &DelegatorId<T>,
 			value: T::Balance,
 		) -> DispatchResult {
-			NextTotalStake::<T>::mutate(|balance| {
-				*balance = (*balance).saturating_add(value);
+			TotalStake::<T>::mutate(|s| {
+				let current = s.current().copied().unwrap_or_default();
+				s.stage(current.saturating_add(value));
 			});
 
-			NextNodes::<T>::mutate(node_id, |x| {
-				let Some(details) = x else {
-					return Err(Error::<T>::InvalidTarget);
-				};
+			if !Nodes::<T>::get(node_id).exists() {
+				Err(Error::<T>::InvalidTarget)?;
+			}
 
-				if node_id == staker_id {
+			if node_id == staker_id {
+				Nodes::<T>::mutate(node_id, |s| {
+					let mut details = s.current().cloned().expect("existing details");
+
 					details.own_exposure.nft = details.own_exposure.nft.saturating_add(value);
-				} else {
-					NextDelegations::<T>::mutate_exists(node_id, staker_id, |x| {
-						let mut staker_exposure = x.clone().unwrap_or_default();
-						staker_exposure.nft = staker_exposure.nft.saturating_add(value);
-						*x = Some(staker_exposure);
-					});
-				};
-
-				Ok(())
-			})?;
+					s.stage(details);
+				});
+			} else {
+				Delegations::<T>::mutate(node_id, staker_id, |s| {
+					let mut staker_exposure = s.current().cloned().unwrap_or_default();
+					staker_exposure.nft = staker_exposure.nft.saturating_add(value);
+					s.stage(staker_exposure);
+				});
+			};
 
 			Ok(())
 		}
@@ -418,36 +414,39 @@ pub mod pallet {
 			staker_id: &DelegatorId<T>,
 			value: T::Balance,
 		) -> DispatchResult {
-			NextTotalStake::<T>::mutate(|balance| {
-				*balance = (*balance).saturating_sub(value);
+			TotalStake::<T>::mutate(|s| {
+				let current = s.current().copied().unwrap_or_default();
+				s.stage(current.saturating_sub(value));
 			});
 
-			NextNodes::<T>::mutate_exists(node_id, |x| {
-				let Some(ref mut details) = x else {
-					return Err(Error::<T>::InvalidTarget);
-				};
+			if !Nodes::<T>::get(node_id).exists() {
+				Err(Error::<T>::InvalidTarget)?;
+			}
+			if node_id == staker_id {
+				Nodes::<T>::mutate(node_id, |s| {
+					let mut details = s.current().cloned().expect("existing details");
 
-				if node_id == staker_id {
+					// FIXME: Unbinding the permission NFT should cause removal closer to source
+					// When can this happen besides permission unbinding? I think never!!
 					if value >= details.own_exposure.exposure() {
-						*x = None;
+						s.purge();
 					} else {
 						details.own_exposure.nft = details.own_exposure.nft.saturating_sub(value);
-
-						*x = Some(details.clone());
+						s.stage(details);
 					}
-				} else {
-					NextDelegations::<T>::mutate(node_id, staker_id, |x| {
-						let Some(staker_exposure) = x else {
-							return Err(Error::<T>::InvalidTarget);
-						};
+				});
+			} else {
+				Delegations::<T>::mutate(node_id, staker_id, |s| {
+					let Some(mut staker_exposure) = s.current().cloned() else {
+						return Err(Error::<T>::InvalidTarget);
+					};
 
-						staker_exposure.nft = staker_exposure.nft.saturating_sub(value);
-						Ok(())
-					})?;
-				}
+					staker_exposure.nft = staker_exposure.nft.saturating_sub(value);
+					s.stage(staker_exposure);
 
-				Ok(())
-			})?;
+					Ok(())
+				})?;
+			}
 
 			Ok(())
 		}
@@ -468,7 +467,9 @@ pub mod pallet {
 		}
 
 		fn do_kick(node_id: &ValidatorId<T>, delegator_id: &DelegatorId<T>) -> DispatchResult {
-			let Some(exposure) = NextDelegations::<T>::get(node_id, delegator_id) else {
+			// TODO: Should kick consider changed or commited values? Is kicking immidiate?
+			let Some(exposure) = Delegations::<T>::get(node_id, delegator_id).current().cloned()
+			else {
 				return Err(Error::<T>::InvalidTarget.into());
 			};
 
@@ -477,7 +478,11 @@ pub mod pallet {
 		}
 
 		fn do_kick_all(node_id: &ValidatorId<T>) -> DispatchResult {
-			for (delegator_id, exposure) in NextDelegations::<T>::iter_prefix(node_id) {
+			for (delegator_id, s) in Delegations::<T>::iter_prefix(node_id) {
+				// We can't have an empty delegation actively stored
+				// Note: elsewhere it _can be_ valid because of ValueQuery
+				let exposure = s.current().expect("non empty delegation");
+
 				Self::do_kick_nfts(node_id, &delegator_id)?;
 				Self::do_unstake_currency(node_id, &delegator_id, exposure.currency)?;
 			}
@@ -542,25 +547,36 @@ pub mod pallet {
 			details: &NodeDetails<T::Balance>,
 		) -> T::Balance {
 			let own = details.own_exposure.exposure();
-			let delegated: T::Balance =
-				NextDelegations::<T>::iter_prefix(node_id).map(|(_, x)| x.exposure()).sum();
+			let delegated: T::Balance = Delegations::<T>::iter_prefix(node_id)
+				.filter_map(|(_, x)| x.committed().cloned())
+				.map(|e| e.exposure())
+				.sum();
 
 			own + delegated
 		}
 
 		/// Rewards a node and it's delegators.
 		/// Returns the amount of new currency created.
+		// but we want to add the reward to the staged value.
 		fn reward_node(
 			validator_account_id: &T::AccountId,
-			node_details: &mut NodeDetails<T::Balance>,
+			node_details: &mut Staging<NodeDetails<T::Balance>>,
 			total_stake: u128,
 			session_reward: u128,
 		) -> PositiveImbalanceOf<T> {
+			let committed_details =
+				node_details.committed().expect("rewarded nodes must have commited details");
+			let mut staged_details = node_details
+				.current()
+				.cloned()
+				.expect("ewarded nodes must have commited details");
+
 			let total_node_exposure: u128 =
-				Self::validator_total_exposure(validator_account_id, node_details).into();
-			let own_node_exposure: u128 = node_details.own_exposure.exposure().into();
+				Self::validator_total_exposure(validator_account_id, committed_details).into();
+			let own_node_exposure: u128 = committed_details.own_exposure.exposure().into();
 			let delegated_node_exposure: u128 = total_node_exposure - own_node_exposure;
-			let commission_part_per_billion: u128 = node_details.commission.deconstruct().into();
+			let commission_part_per_billion: u128 =
+				committed_details.commission.deconstruct().into();
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 
 			// validator gets its cut first
@@ -596,8 +612,10 @@ pub mod pallet {
 
 			Self::lock_currency(validator_account_id, imbalance.peek());
 
-			node_details.own_exposure.currency =
-				node_details.own_exposure.currency.saturating_add(imbalance.peek());
+			staged_details.own_exposure.currency =
+				staged_details.own_exposure.currency.saturating_add(imbalance.peek());
+
+			node_details.stage(staged_details);
 
 			Self::deposit_event(Event::<T>::Rewarded {
 				stash: validator_account_id.clone(),
@@ -608,12 +626,17 @@ pub mod pallet {
 
 			let delegator_cut = total_reward - total_validator_cut;
 
-			for (delegator_id, mut delegator_exposure) in
-				NextDelegations::<T>::iter_prefix(validator_account_id)
+			for (delegator_id, delegator_exposure) in
+				Delegations::<T>::iter_prefix(validator_account_id)
 			{
+				let Some(committed_delegator_exposure) = delegator_exposure.committed().cloned()
+				else {
+					continue;
+				};
+
 				let reward_amount = multiply_by_rational_with_rounding(
 					delegator_cut,
-					delegator_exposure.exposure().into(),
+					committed_delegator_exposure.exposure().into(),
 					delegated_node_exposure,
 					Rounding::NearestPrefDown,
 				)
@@ -629,16 +652,17 @@ pub mod pallet {
 
 				Self::lock_currency(&delegator_id, imbalance.peek());
 
-				delegator_exposure.currency =
-					delegator_exposure.currency.saturating_add(imbalance.peek());
+				let mut new_delegator_exposure =
+					delegator_exposure.current().cloned().expect("non empty exposure");
 
-				NextDelegations::<T>::insert(
-					validator_account_id,
-					delegator_id,
-					delegator_exposure,
-				);
+				new_delegator_exposure.currency =
+					new_delegator_exposure.currency.saturating_add(imbalance.peek());
 
 				total_imbalance.subsume(imbalance);
+
+				Delegations::<T>::mutate(validator_account_id, delegator_id, |s| {
+					s.stage(new_delegator_exposure);
+				});
 			}
 
 			total_imbalance
@@ -646,15 +670,23 @@ pub mod pallet {
 
 		/// Slash a node and it's delegators.
 		/// Mutates node details and returns the amount of currency to be removed from total_stake
+		// but we want to remove the imbalance from the staged value.
 		fn slash_node(
 			validator_account_id: &T::AccountId,
-			node_details: &mut NodeDetails<T::Balance>,
+			node_details: &mut Staging<NodeDetails<T::Balance>>,
 			slash_proportion: Perbill,
 		) -> T::Balance {
 			let mut total_stake_slash = T::Balance::zero();
 
+			// TODO: We don't wanna slash validators with no commited details, right?
+			let Some(committed_details) = node_details.committed() else {
+				return Zero::zero();
+			};
+
+			let mut staged_details = node_details.current().cloned().expect("non-empty details");
+
 			// Slash own permission and delegator nfts
-			if !node_details.own_exposure.nft.is_zero() {
+			if !committed_details.own_exposure.nft.is_zero() {
 				let new_perission_stake =
 					T::NftStakingHandler::slash(validator_account_id, slash_proportion)
 						.expect("TODO");
@@ -667,21 +699,23 @@ pub mod pallet {
 
 				let new_nft_stake = new_perission_stake.saturating_add(new_delegator_nft_stake);
 
-				total_stake_slash = total_stake_slash
-					.saturating_add(node_details.own_exposure.nft.saturating_sub(new_nft_stake));
-				node_details.own_exposure.nft = new_nft_stake;
+				total_stake_slash = total_stake_slash.saturating_add(
+					committed_details.own_exposure.nft.saturating_sub(new_nft_stake),
+				);
+
+				staged_details.own_exposure.nft = new_nft_stake;
 			}
 
 			// Slash own currency
-			if !node_details.own_exposure.currency.is_zero() {
-				let slash_amount = slash_proportion * node_details.own_exposure.currency;
+			if !committed_details.own_exposure.currency.is_zero() {
+				let slash_amount = slash_proportion * committed_details.own_exposure.currency;
 
 				if <T as pallet::Config>::Currency::can_slash(validator_account_id, slash_amount) {
 					let (actual_slash, _) =
 						<T as pallet::Config>::Currency::slash(validator_account_id, slash_amount);
 
-					node_details.own_exposure.currency =
-						node_details.own_exposure.currency.saturating_sub(actual_slash.peek());
+					staged_details.own_exposure.currency =
+						staged_details.own_exposure.currency.saturating_sub(actual_slash.peek());
 
 					total_stake_slash = total_stake_slash.saturating_add(actual_slash.peek());
 
@@ -690,11 +724,21 @@ pub mod pallet {
 			}
 
 			// Slash delegators
-			for (delegator_id, mut delegator_exposure) in
-				NextDelegations::<T>::iter_prefix(validator_account_id)
+			for (delegator_id, delegator_exposure) in
+				Delegations::<T>::iter_prefix(validator_account_id)
 			{
+				let Some(committed_delegator_exposure) = delegator_exposure.committed().cloned()
+				else {
+					continue;
+				};
+
+				let mut staged_delegator_exposure =
+					delegator_exposure.current().cloned().unwrap_or_default();
+
 				// Slash delegator nfts
-				if !delegator_exposure.nft.is_zero() {
+				// TODO: How to keep in sync with other pallets that don't use staging?
+				// FIXME: Here we calculate the slash based on the CURRENT values.....
+				if !committed_delegator_exposure.nft.is_zero() {
 					let new_nft_stake = T::NftDelegationHandler::slash(
 						&delegator_id,
 						validator_account_id,
@@ -702,34 +746,36 @@ pub mod pallet {
 					)
 					.expect("TODO");
 
-					total_stake_slash = total_stake_slash
-						.saturating_add(delegator_exposure.nft.saturating_sub(new_nft_stake));
-					delegator_exposure.nft = new_nft_stake;
+					total_stake_slash = total_stake_slash.saturating_add(
+						committed_delegator_exposure.nft.saturating_sub(new_nft_stake),
+					);
+
+					staged_delegator_exposure.nft = new_nft_stake;
 				}
 
 				// Slash delegator currency
-				if !delegator_exposure.currency.is_zero() {
-					let slash_amount = slash_proportion * delegator_exposure.currency;
+				if !committed_delegator_exposure.currency.is_zero() {
+					let slash_amount = slash_proportion * committed_delegator_exposure.currency;
 
 					if <T as pallet::Config>::Currency::can_slash(&delegator_id, slash_amount) {
 						let (actual_slash, _) =
 							<T as pallet::Config>::Currency::slash(&delegator_id, slash_amount);
 
-						delegator_exposure.currency =
-							delegator_exposure.currency.saturating_sub(actual_slash.peek());
+						staged_delegator_exposure.currency =
+							staged_delegator_exposure.currency.saturating_sub(actual_slash.peek());
+
 						total_stake_slash = total_stake_slash.saturating_add(actual_slash.peek());
 
 						Self::release_currency(&delegator_id, actual_slash.peek());
 					}
 				}
 
-				NextDelegations::<T>::insert(
-					validator_account_id,
-					delegator_id,
-					delegator_exposure,
-				);
+				Delegations::<T>::mutate(validator_account_id, delegator_id, |s| {
+					s.stage(staged_delegator_exposure)
+				});
 			}
 
+			node_details.stage(staged_details);
 			total_stake_slash
 		}
 	}
@@ -743,7 +789,7 @@ pub mod pallet {
 			target: ValidatorId<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let target_variant = NextNodes::<T>::get(&target).map(|d| d.permission);
+			let target_variant = Nodes::<T>::get(&target).current().map(|d| d.permission);
 
 			ensure!(target_variant.is_some(), Error::<T>::InvalidTarget);
 			ensure!(target_variant == Some(PermissionType::DPoS), Error::<T>::TargetNotDPoS);
@@ -785,17 +831,17 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(NextNodes::<T>::get(&who).is_none(), Error::<T>::AlreadyBound);
+			ensure!(!Nodes::<T>::get(&who).exists(), Error::<T>::AlreadyBound);
 
 			let (permission, nominal_value) = T::NftStakingHandler::bind(&who, &item_id)?;
 
-			NextNodes::<T>::insert(
+			Nodes::<T>::insert(
 				&who,
-				NodeDetails {
+				Staging::new_staged(NodeDetails {
 					commission: permission.default_commission::<T>(),
 					permission,
 					own_exposure: Exposure::default(),
-				},
+				}),
 			);
 
 			Self::do_stake_nft(&who, &who, nominal_value)?;
@@ -806,11 +852,8 @@ pub mod pallet {
 		#[pallet::call_index(3)]
 		pub fn unbind_nft(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let details = NextNodes::<T>::get(&who).ok_or(Error::<T>::NotBound)?;
-
-			if details.permission == PermissionType::DPoS {
-				Self::do_kick_all(&who)?;
-			}
+			let permission =
+				Nodes::<T>::get(&who).current().ok_or(Error::<T>::NotBound)?.permission;
 
 			// TODO: check for MinimumStakingDuration
 			let active_validators = SessionPallet::<T>::validators();
@@ -828,10 +871,17 @@ pub mod pallet {
 
 			ensure!(!validator_set.contains(&validator_id), Error::<T>::AlreadyInQueue);
 
+			if permission == PermissionType::DPoS {
+				Self::do_kick_all(&who)?;
+			}
+
 			let nominal_value = T::NftStakingHandler::unbind(&who)?;
 
 			Self::do_unstake_nft(&who, &who, nominal_value)?;
-			NextNodes::<T>::remove(&who);
+
+			// We can safely remove, as we kicked everybody, and the validator wouldn't be rewarded this session.
+			// Caveat: slashes in current session? We slash chilled nodes?
+			Nodes::<T>::remove(&who);
 
 			Ok(())
 		}
@@ -870,9 +920,10 @@ pub mod pallet {
 			target: ValidatorId<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let details = NextNodes::<T>::get(&target).ok_or(Error::<T>::InvalidTarget)?;
+			let permission =
+				Nodes::<T>::get(&target).current().ok_or(Error::<T>::InvalidTarget)?.permission;
 
-			ensure!(details.permission == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
+			ensure!(permission == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
 			let stash_balance = <T as pallet::Config>::Currency::free_balance(&who);
 			let value = value.min(stash_balance);
@@ -914,16 +965,18 @@ pub mod pallet {
 			);
 
 			// FIXME: Check for permission type and only allow to set if not bound (or chilled?)
-			NextNodes::<T>::mutate(who, |x| {
-				let Some(details) = x.as_mut() else {
+			Nodes::<T>::mutate(who, |s| {
+				let Some(mut details) = s.current().cloned() else {
 					return Err(Error::<T>::InvalidTarget);
 				};
 
 				if details.permission == PermissionType::DPoS {
 					details.commission = commission;
+					s.stage(details);
 				} else {
 					return Err(Error::<T>::InvalidTarget);
 				}
+
 				Ok(())
 			})?;
 
@@ -954,9 +1007,10 @@ pub mod pallet {
 		ValidatorId<T>: From<<T as pallet_session::Config>::ValidatorId>,
 	{
 		fn session_ended(_: u32) -> DispatchResult {
-			let total_stake: u128 = NextTotalStake::<T>::get().into();
+			let committed_total_stake: u128 =
+				TotalStake::<T>::get().committed().copied().unwrap_or_default().into();
 
-			if total_stake == 0 {
+			if committed_total_stake == 0 {
 				return Ok(());
 			}
 
@@ -969,22 +1023,22 @@ pub mod pallet {
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 
 			for validator_id in active_validators.into_iter().map(ValidatorId::<T>::from) {
-				NextNodes::<T>::mutate_extant(&validator_id, |details| {
+				Nodes::<T>::mutate_extant(&validator_id, |s| {
 					if let Some(inverse_slash) = InverseSlashes::<T>::take(&validator_id) {
 						// Apply slash, skip rewarding this node
 						let slash_proportion = inverse_slash.left_from_one();
 
 						total_stake_slash = total_stake_slash.saturating_add(Self::slash_node(
 							&validator_id,
-							details,
+							s,
 							slash_proportion,
 						));
 					} else {
 						// No need to slash, reward node
 						total_imbalance.subsume(Self::reward_node(
 							&validator_id,
-							details,
-							total_stake,
+							s,
+							committed_total_stake,
 							session_reward,
 						));
 					}
@@ -997,9 +1051,14 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::TotalSlashThisSession { amount: total_stake_slash });
 
-			NextTotalStake::<T>::mutate(|s| {
-				*s = s.saturating_add(total_imbalance.peek());
-				*s -= total_stake_slash;
+			TotalStake::<T>::mutate(|s| {
+				let new = s
+					.current()
+					.copied()
+					.unwrap_or_default()
+					.saturating_add(total_imbalance.peek())
+					.saturating_sub(total_stake_slash);
+				s.stage(new);
 			});
 
 			T::Reward::on_unbalanced(total_imbalance);
@@ -1008,7 +1067,7 @@ pub mod pallet {
 		}
 
 		fn session_started(_: u32) -> DispatchResult {
-			Self::rotate_storage();
+			Self::commit_storage();
 			Ok(())
 		}
 	}

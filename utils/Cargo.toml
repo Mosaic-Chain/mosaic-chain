@@ -9,3 +9,9 @@ edition = "2021"
 frame-support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 impl-trait-for-tuples = "0.2.2"
 sp-staking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+    "derive",
+] }
+scale-info = { version = "2.5.0", default-features = false, features = [
+    "derive",
+] }
