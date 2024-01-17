@@ -654,5 +654,21 @@ pub mod pallet {
 				Err(Error::<T>::NotBound.into())
 			}
 		}
+
+		/// Tell whether an account is chilled.
+		///
+		/// # Errors
+		///
+		/// - Pallet is not initialized.
+		/// - NFT is not bound.
+		fn is_chilled(account_id: &T::AccountId) -> Result<bool, DispatchError> {
+			let mut bound_tokens = Self::bound_tokens();
+
+			if let Entry::Occupied(c) = bound_tokens.entry(account_id.clone()) {
+				Ok(c.get().1 == ChillState::Chilled)
+			} else {
+				Err(Error::<T>::NotBound.into())
+			}
+		}
 	}
 }

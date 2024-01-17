@@ -35,6 +35,8 @@ pub trait NftStaking<AccountId, Balance, Variant, ItemId> {
 	fn chill(account_id: &AccountId) -> DispatchResult;
 
 	fn unchill(account_id: &AccountId) -> DispatchResult;
+
+	fn is_chilled(account_id: &AccountId) -> Result<bool, DispatchError>;
 }
 
 pub trait NftDelegation<AccountId, Balance, ItemId> {
