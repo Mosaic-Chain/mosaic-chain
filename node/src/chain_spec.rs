@@ -261,6 +261,7 @@ fn testnet_genesis(
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		aura: Default::default(),
+		assets: Default::default(),
 		grandpa: Default::default(),
 		im_online: Default::default(),
 		sudo: SudoConfig {

@@ -240,6 +240,53 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+// 1 mosaic 10^18 tile
+const MOSAIC: u128 = 10u128.pow(18);
+
+parameter_types! {
+	// TODO: Review the amount and adjust it to the desired one if necessary
+	pub const AssetDeposit: Balance = 20*MOSAIC;
+	pub const AssetAccountDeposit: Balance = 10*MOSAIC;
+	pub const MetadataDepositBase: Balance = MOSAIC;
+	// 1024 Byte = 1 mosaic
+	// 1 mosaic / 1024 = 9.765625 * 10^14
+	pub const MetadataDepositPerByte: Balance = MOSAIC/1024;
+	pub const ApprovalDeposit: Balance = MOSAIC/10;
+}
+
+impl pallet_assets::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	// Max number of items to destroy per destroy_accounts and destroy_approvals call.
+	type RemoveItemsLimit = ConstU32<32>;
+	type AssetId = u64;
+	type AssetIdParameter = u64;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	// See macros above for the amounts
+	// The basic amount of funds that must be reserved for an asset.
+	// 20 mosaic
+	type AssetDeposit = AssetDeposit;
+	// The amount of funds that must be reserved for a non-provider asset account to be maintained.
+	// 10 mosaic
+	type AssetAccountDeposit = AssetAccountDeposit;
+	// The basic amount of funds that must be reserved when adding metadata to your asset.
+	// 1 mosaic
+	type MetadataDepositBase = MetadataDepositBase;
+	// The additional funds that must be reserved for the number of bytes you store in your metadata.
+	// 1024 byte = 1 mosaic
+	type MetadataDepositPerByte = MetadataDepositPerByte;
+	// The amount of funds that must be reserved when creating a new approval.
+	// 0.1 mosaic
+	type ApprovalDeposit = ApprovalDeposit;
+	type StringLimit = ConstU32<256>;
+	type Freezer = ();
+	type Extra = ();
+	type CallbackHandle = ();
+	type WeightInfo = ();
+}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
@@ -715,6 +762,7 @@ construct_runtime!(
 		Utility: pallet_utility,
 		Recovery: pallet_recovery,
 		Identity: pallet_identity,
+		Assets: pallet_assets,
 	}
 );
 
