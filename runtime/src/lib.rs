@@ -435,30 +435,6 @@ impl pallet_identity::Config for Runtime {
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
-// TODO: Can we not do silly things like this?
-pub struct ValidatorOf;
-
-impl Convert<ValidatorId, Option<ValidatorId>> for ValidatorOf {
-	fn convert(account: ValidatorId) -> Option<ValidatorId> {
-		Some(account)
-	}
-}
-
-impl ValidatorSet<ValidatorId> for Runtime {
-	type ValidatorId = ValidatorId;
-	type ValidatorIdOf = ValidatorOf;
-
-	fn session_index() -> sp_staking::SessionIndex {
-		Session::current_index()
-	}
-
-	fn validators() -> Vec<ValidatorId> {
-		NftPermission::accounts_with_bound_permission()
-			.expect("pallet is initialized properly")
-			.collect()
-	}
-}
-
 parameter_types! {
 	//TODO: Set this to a sensible value after testing
 	pub const MinSessionLength: BlockNumberFor<Runtime> = 10 as BlockNumberFor<Runtime>;
@@ -468,7 +444,7 @@ impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type Randomness = InsecureRandomnessCollectiveFlip;
-	type ValidatorSuperset = Self;
+	type ValidatorSuperset = Staking;
 	type MinSessionLength = MinSessionLength;
 	type SessionHook = (NftDelegation, NftStaking);
 }
@@ -697,16 +673,11 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 
-impl ValidatorSetWithIdentification<ValidatorId> for Runtime {
-	type Identification = ValidatorId;
-	type IdentificationOf = ValidatorOf;
-}
-
 impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
 	type NextSessionRotation = ValidatorSubsetSelection;
-	type ValidatorSet = Self;
+	type ValidatorSet = Staking;
 	type ReportUnresponsiveness = Offences;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;

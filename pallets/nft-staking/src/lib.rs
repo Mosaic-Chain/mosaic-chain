@@ -3,7 +3,6 @@
 /// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.
 /// # Missing features:
 ///   - AutoChill
-///   - AutoUnbind and lost permission (after losing substantial nominal value)
 ///   - Slashing
 ///   - Lesser punishment (we currently use the recommended slash proportions)
 ///   - Limiting DPoS delegations (?)
@@ -11,6 +10,7 @@
 ///   - Tests and benchmarks
 pub use pallet::*;
 mod reward;
+mod slash;
 mod staging;
 
 use core::{num::NonZeroU32, ops::Add};
@@ -18,17 +18,18 @@ use core::{num::NonZeroU32, ops::Add};
 use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Currency, Imbalance, LockableCurrency, OnUnbalanced, ValidatorSet, WithdrawReasons},
+	traits::{Currency, Imbalance, LockableCurrency, OnUnbalanced, ValidatorSet, ValidatorSetWithIdentification, WithdrawReasons},
 	Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
 use pallet_nfts::Config as NftsConfig;
 use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
-use sp_std::{iter::Sum, vec::Vec as SpVec};
+use sp_std::iter::Sum;
+use sp_std::vec::Vec as SpVec;
 
 use sp_runtime::{
-	traits::{Convert, Zero},
-	FixedPointOperand, Perbill, Saturating,
+	traits::{Convert, ConvertInto, Zero},
+	FixedPointOperand, PerThing, Perbill, Saturating,
 };
 
 use utils::{
@@ -87,6 +88,8 @@ pub mod pallet {
 			PermissionType,
 			Self::ItemId,
 		>;
+
+		type SlackingPeriod: Get<u32>; 
 
 		type NftDelegationHandler: NftDelegation<Self::AccountId, Self::Balance, Self::ItemId>;
 
@@ -187,6 +190,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TotalStake<T: Config> = StorageValue<_, Staging<T::Balance>, ValueQuery>;
 
+	// NODES
 	// TODO: after implementing slippage this does not need to be Staging.
 	#[pallet::storage]
 	pub type Validators<T: Config> =
@@ -209,6 +213,22 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type UnlockingCurrency<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::Balance>;
 
+	#[pallet::storage]
+	pub type InverseSlashes<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Perbill>;
+	
+	#[derive(Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+	pub enum ValidatorState {
+		/// No issue with the validator
+		Normal,
+		/// Validator will be or has been slashed
+		Faulted,
+		/// Stores the SessionIndex so we can check if it's slacking
+		Chilled(SessionIndex),
+	}
+
+	#[pallet::storage]
+	pub type ValidatorStates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ValidatorState>;
+
 	// TODO(vismate): Useful events
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -228,6 +248,7 @@ pub mod pallet {
 		AlreadyDeniesDelegations,
 		TargetDeniesDelegations,
 		TargetIsChilled,
+		TargetIsNotChilled,
 		TooSmallStake,
 		InsufficientFunds,
 		NftExpiresEarly,
@@ -277,7 +298,7 @@ pub mod pallet {
 				Validators::<T>::insert(validator_id, Staging::new(validator));
 
 				let self_contract = Contract {
-					stake: Stake { currency: Zero::zero(), nft: *nominal_value },
+					stake: Stake { currency: Zero::zero(), nft: Zero::zero() },
 					commission: Perbill::from_percent(100),
 					min_staking_period_end: T::MinimumStakingPeriod::get().into(),
 				};
@@ -292,6 +313,22 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn is_chilled(account: &T::AccountId) -> bool {
+			let state = ValidatorStates::<T>::get(account).unwrap();
+			matches!(state, ValidatorState::Chilled(_))
+		}
+
+		fn is_slacking(account: &T::AccountId) -> bool {
+			let state = ValidatorStates::<T>::get(account).unwrap();
+			match state {
+				ValidatorState::Chilled(session_index) => { 
+					let now = SessionPallet::<T>::current_index();
+					now - session_index > T::SlackingPeriod::get()
+				},
+				_ => false,
+			}
+		}
+
 		/// Commits all storage values. Removes values where there is neither a staged nor a commited value.
 		/// We also remove contracts where stake became zero
 		fn commit_storage() {
@@ -416,7 +453,7 @@ pub mod pallet {
 			staker: &T::AccountId,
 			amount: T::Balance,
 		) -> DispatchResult {
-			let is_chilled = T::NftStakingHandler::is_chilled(validator)?;
+			let is_chilled = Self::is_chilled(validator);
 			ensure!(!is_chilled, Error::<T>::TargetIsChilled);
 
 			ensure!(amount >= T::MinimumStakingAmount::get(), Error::<T>::TooSmallStake);
@@ -457,7 +494,7 @@ pub mod pallet {
 			staker: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> DispatchResult {
-			let is_chilled = T::NftStakingHandler::is_chilled(validator)?;
+			let is_chilled = Self::is_chilled(validator);
 			ensure!(!is_chilled, Error::<T>::TargetIsChilled);
 
 			let (expiry, nominal_value) =
@@ -505,7 +542,7 @@ pub mod pallet {
 			};
 
 			let session = SessionPallet::<T>::current_index();
-			ensure!(session >= contract.min_staking_period_end, Error::<T>::EarlyUnstake);
+			ensure!(session >= contract.min_staking_period_end || Self::is_slacking(validator), Error::<T>::EarlyUnstake);
 			ensure!(amount >= T::MinimumStakingAmount::get(), Error::<T>::TooSmallUnstake);
 			ensure!(amount <= contract.stake.currency, Error::<T>::InsufficientFunds);
 
@@ -536,7 +573,7 @@ pub mod pallet {
 			};
 
 			let session = SessionPallet::<T>::current_index();
-			ensure!(session >= contract.min_staking_period_end, Error::<T>::EarlyUnstake);
+			ensure!(session >= contract.min_staking_period_end || Self::is_slacking(validator), Error::<T>::EarlyUnstake);
 
 			let nominal_value = T::NftDelegationHandler::unbind(staker, validator, item_id)?;
 
@@ -573,11 +610,12 @@ pub mod pallet {
 				for (staker, mut contract) in Contracts::<T>::iter_prefix(&validator)
 					.filter_map(|(staker, s)| s.committed().cloned().map(|c| (staker, c)))
 				{
-					let reward = reward::calculate_reward::<T>(
-						committed_total_stake,
-						session_reward,
-						&contract,
-					);
+					let reward = todo!(); 
+					// reward::calculate_reward::<T>(
+					//	committed_total_stake,
+					//	session_reward,
+					//	&contract,
+					//);
 
 					let v_imbalance = <T as Config>::Currency::deposit_creating(
 						&validator,
@@ -645,6 +683,7 @@ pub mod pallet {
 			};
 
 			Validators::<T>::insert(&caller, Staging::new_staged(details));
+			ValidatorStates::<T>::insert(&caller, ValidatorState::Normal);
 
 			let self_contract = Contract {
 				stake: Stake { currency: Zero::zero(), nft: nominal_value },
@@ -662,6 +701,7 @@ pub mod pallet {
 		pub fn unbind_validator(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(Validators::<T>::get(&caller).exists(), Error::<T>::NotBound);
+			ensure!(Self::is_chilled(&caller), Error::<T>::TargetIsNotChilled);
 
 			// Note: we can unbind immediately, as the next bind could only take effect in the next session.
 			let _ = T::NftStakingHandler::unbind(&caller)?;
@@ -706,6 +746,7 @@ pub mod pallet {
 			// Note: we can remove immediately as no reward would be given.
 			// Caveat: slashes in current session? We can forgive them, right?
 			Validators::<T>::remove(&caller);
+			ValidatorStates::<T>::remove(&caller);
 
 			Ok(())
 		}
@@ -763,17 +804,32 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		pub fn chill_validator(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			T::NftStakingHandler::chill(&caller)?;
-
-			Ok(())
+			ValidatorStates::<T>::mutate(&caller, |validator_state| {
+				let validator_state = validator_state.as_mut().ok_or(Error::<T>::NotBound)?;
+				match validator_state {
+					ValidatorState::Chilled(_) => Err(Error::<T>::TargetIsChilled.into()), 
+					_ => {
+						*validator_state = ValidatorState::Chilled(SessionPallet::<T>::current_index());
+						Ok(())
+					},
+				}
+			})
 		}
 
 		#[pallet::call_index(5)]
 		pub fn unchill_validator(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			T::NftStakingHandler::unchill(&caller)?;
-
-			Ok(())
+			// TODO: NftPermission need to save the original nominal value so we can query it
+			ValidatorStates::<T>::mutate(&caller, |validator_state| {
+				let validator_state = validator_state.as_mut().ok_or(Error::<T>::NotBound)?;
+				match validator_state {
+					ValidatorState::Chilled(_) => {
+						*validator_state = ValidatorState::Normal;
+						Ok(())
+					},
+					_  => Err(Error::<T>::TargetIsNotChilled.into()), 
+				}
+			})
 		}
 
 		#[pallet::call_index(6)]
@@ -903,7 +959,7 @@ pub mod pallet {
 			let mut details =
 				Validators::<T>::get(&caller).current().cloned().ok_or(Error::<T>::NotBound)?;
 
-			let is_chilled = T::NftStakingHandler::is_chilled(&caller)?;
+			let is_chilled = Self::is_chilled(&caller);
 			ensure!(!is_chilled, Error::<T>::TargetIsChilled);
 
 			let ValidatorDetails::DPoS { min_staking_period, .. } = &mut details else {
@@ -932,7 +988,7 @@ pub mod pallet {
 			let mut details =
 				Validators::<T>::get(&caller).current().cloned().ok_or(Error::<T>::NotBound)?;
 
-			let is_chilled = T::NftStakingHandler::is_chilled(&caller)?;
+			let is_chilled = Self::is_chilled(&caller);
 			ensure!(!is_chilled, Error::<T>::TargetIsChilled);
 
 			let ValidatorDetails::DPoS { commission, .. } = &mut details else {
@@ -962,7 +1018,7 @@ pub mod pallet {
 
 			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
-			let is_chilled = T::NftStakingHandler::is_chilled(&caller)?;
+			let is_chilled = Self::is_chilled(&caller);
 			ensure!(!is_chilled, Error::<T>::TargetIsChilled);
 
 			let mut contract = Contracts::<T>::get(&caller, &target)
@@ -990,6 +1046,40 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
+		type ValidatorId = T::AccountId;
+		type ValidatorIdOf = ConvertInto;
+
+		fn session_index() -> SessionIndex {
+			SessionPallet::<T>::current_index()
+		}
+
+		fn validators() -> Vec<Self::ValidatorId> {
+			ValidatorStates::<T>::iter().filter_map(|(validatorid, validator_state)| { 
+				match validator_state {
+					ValidatorState::Normal |
+					ValidatorState::Faulted => Some(validatorid),
+					_ => None,
+				}
+			}).collect()
+		}
+	}
+
+	// TODO: Can we not do silly things like this?
+	// No UwU
+	pub struct ValidatorOf<T>(PhantomData<T>);
+
+	impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for ValidatorOf<T> {
+		fn convert(account: T::AccountId) -> Option<T::AccountId> {
+			Some(account)
+		}
+	}
+
+	impl<T:Config> ValidatorSetWithIdentification<T::AccountId> for Pallet<T> {
+		type Identification = T::AccountId;
+		type IdentificationOf = ValidatorOf<T>;
+}
 
 	impl<T: Config>
 		utils::traits::OnDelegationNftExpire<T::AccountId, <T as NftsConfig>::ItemId, T::Balance>
@@ -1025,10 +1115,6 @@ pub mod pallet {
 	{
 		fn session_ended(_: u32) -> DispatchResult {
 			Self::do_reward_participants();
-			Ok(())
-		}
-
-		fn session_started(_: u32) -> DispatchResult {
 			Self::commit_storage();
 
 			for (staker, amount) in UnlockingCurrency::<T>::drain() {

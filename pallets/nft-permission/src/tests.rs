@@ -1,7 +1,6 @@
 use frame_support::{assert_err, assert_ok, traits::Incrementable};
 use frame_system::RawOrigin;
 use pallet_nfts::Error as NftsError;
-use sp_runtime::Perbill;
 
 use crate::{mock::*, Error, Event};
 use utils::traits::NftStaking;
@@ -76,9 +75,7 @@ fn unbind_should_work() {
 		assert_err!(NftPermission::unbind(&owner1), Error::<Test>::NotBound);
 
 		NftPermission::bind(&owner1, &item_id).unwrap();
-		assert_err!(NftPermission::unbind(&owner1), Error::<Test>::NotChilled);
 
-		NftPermission::chill(&owner1).unwrap();
 		assert_ok!(NftPermission::unbind(&owner1), nominal_value);
 
 		System::assert_last_event(Event::TokenUnbound { item_id }.into());
@@ -99,47 +96,6 @@ fn unbind_should_work() {
 }
 
 #[test]
-fn chill_should_work() {
-	new_test_ext().execute_with(|| {
-		let permission = "ValidPermission".into();
-		let nominal_value = 42;
-		let owner = account(1);
-		let item_id =
-			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
-
-		assert_err!(NftPermission::chill(&owner), Error::<Test>::NotBound);
-
-		NftPermission::bind(&owner, &item_id).unwrap();
-		assert_ok!(NftPermission::chill(&owner), ());
-
-		System::assert_last_event(Event::TokenChilled { item_id }.into());
-
-		assert_err!(NftPermission::chill(&owner), Error::<Test>::AlreadyChilled);
-	});
-}
-
-#[test]
-fn unchill_should_work() {
-	new_test_ext().execute_with(|| {
-		let permission = "ValidPermission".into();
-		let nominal_value = 42;
-		let owner = account(1);
-		let item_id =
-			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
-
-		assert_err!(NftPermission::unchill(&owner), Error::<Test>::NotBound);
-
-		NftPermission::bind(&owner, &item_id).unwrap();
-		NftPermission::chill(&owner).unwrap();
-		assert_ok!(NftPermission::unchill(&owner), ());
-
-		System::assert_last_event(Event::TokenUnchilled { item_id }.into());
-
-		assert_err!(NftPermission::unchill(&owner), Error::<Test>::NotChilled);
-	});
-}
-
-#[test]
 fn slash_should_work() {
 	new_test_ext().execute_with(|| {
 		let permission = "ValidPermission".into();
@@ -147,14 +103,13 @@ fn slash_should_work() {
 		let owner = account(1);
 		let item_id =
 			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
-		let slash_proportion = Perbill::from_percent(16);
 
-		assert_err!(NftPermission::slash(&owner, slash_proportion), Error::<Test>::NotBound);
+		assert_err!(NftPermission::slash(&owner, 16), Error::<Test>::NotBound);
 
 		NftPermission::bind(&owner, &item_id).unwrap();
-		assert_ok!(NftPermission::slash(&owner, slash_proportion));
+		assert_ok!(NftPermission::slash(&owner, 16));
 
-		let slashed_value = nominal_value - slash_proportion * nominal_value;
+		let slashed_value = nominal_value - 16;
 
 		System::assert_last_event(
 			Event::TokenSlashed { item_id, nominal_value: slashed_value }.into(),

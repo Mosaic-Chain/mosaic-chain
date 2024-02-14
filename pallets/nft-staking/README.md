@@ -286,15 +286,23 @@ TODO what should happen if target renews the contract in the same session? I gue
 ## Mechanisms
 These details are not part of the public callable API, but are behaviours that must be defined well.
 
+### Stake limits
+- we limit the total stake a validator can have
+- the stake can go ower this limit with rewards
+
 ### Reward calcualtion
 Rewards increase stake by default.
+Slashed participants are not rewarded in the current session. 
 
 ### Slashing
 Currency/nft based stake slashed under the minimal staking amount is dusted.
+When it comes to delegator nfts, we slash the one that was staked first.
+We can also slash into unlocking currency.
 
-### Auto-freezing
-
-### Auto unbinding
+### Auto-Chilling
+After a certain amount of time we let delegators to unstake.
+Validators can't unchill if the nominal value is too low.
+Permission NFTs can be topped-up.
 
 ### Delegator NFT expiration
 - NFTS are still valid in the session they are expiring (consistent with staging)

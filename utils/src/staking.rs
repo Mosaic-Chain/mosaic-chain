@@ -1,4 +1,4 @@
-use super::*;
+use frame_support::sp_runtime::{DispatchError, Perbill};
 
 pub trait OnDelegationNftExpire<AccountId, ItemId, Balance> {
 	fn on_expire(
@@ -30,13 +30,11 @@ pub trait NftStaking<AccountId, Balance, Variant, ItemId> {
 
 	fn unbind(account_id: &AccountId) -> Result<Balance, DispatchError>;
 
-	fn slash(account_id: &AccountId, slash_proportion: Perbill) -> Result<Balance, DispatchError>;
+	fn slash(account_id: &AccountId, slash_amount: Balance) -> Result<Balance, DispatchError>;
 
-	fn chill(account_id: &AccountId) -> DispatchResult;
+	fn nominal_value(account_id: &AccountId) -> Result<Balance, DispatchError>;
 
-	fn unchill(account_id: &AccountId) -> DispatchResult;
-
-	fn is_chilled(account_id: &AccountId) -> Result<bool, DispatchError>;
+	fn nominal_factor_of(account_id: &AccountId) -> Result<Perbill, DispatchError>;
 }
 
 pub trait NftDelegation<AccountId, Balance, ItemId> {
@@ -51,7 +49,7 @@ pub trait NftDelegation<AccountId, Balance, ItemId> {
 	fn slash(
 		delegator_id: &AccountId,
 		validator_id: &AccountId,
-		slash_proportion: Perbill,
+		slash_amount: Balance,
 	) -> Result<Balance, DispatchError>;
 
 	fn kick(validator_id: &AccountId, delegator_id: &AccountId) -> Result<Balance, DispatchError>;
