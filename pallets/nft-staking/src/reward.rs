@@ -1,6 +1,6 @@
 use sp_runtime::{helpers_128bit::multiply_by_rational_with_rounding, Rounding};
 
-use crate::{Config, Contract};
+use crate::{Config, Contract, NftsConfig};
 
 #[inline]
 fn rmul(a: u128, b: u128, c: u128) -> u128 {
@@ -16,7 +16,7 @@ pub struct ContractReward<Balance> {
 pub fn calculate_contract_reward<T: Config>(
 	total_stake: u128,
 	session_reward: u128,
-	contract: &Contract<T::Balance>,
+	contract: &Contract<T::Balance, <T as NftsConfig>::ItemId>,
 ) -> ContractReward<T::Balance> {
 	let contract_reward = rmul(session_reward, contract.stake.total().into(), total_stake);
 
@@ -30,12 +30,4 @@ pub fn calculate_contract_reward<T: Config>(
 		validator_reward: validator_reward.into(),
 		staker_reward: staker_reward.into(),
 	}
-}
-
-pub fn calculate_permission_reward<T: Config>(
-	total_stake: u128,
-	session_reward: u128,
-	nominal_value: T::Balance,
-) -> T::Balance {
-	rmul(session_reward, nominal_value.into(), total_stake).into()
 }

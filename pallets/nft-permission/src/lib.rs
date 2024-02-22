@@ -136,9 +136,6 @@ pub mod pallet {
 
 		/// A token has been successfully unbound
 		TokenUnbound { item_id: <T as NftsConfig>::ItemId },
-
-		/// A token has been slashed
-		TokenSlashed { item_id: <T as NftsConfig>::ItemId, nominal_value: T::Balance },
 	}
 
 	#[derive(
@@ -148,7 +145,7 @@ pub mod pallet {
 	pub enum AttributeKey {
 		Permission = 0,
 		NominalValue = 1,
-		MaxNominalValue = 2,
+		IssuedNominalValue = 2,
 	}
 
 	impl From<AttributeKey> for &[u8] {
@@ -156,7 +153,7 @@ pub mod pallet {
 			match value {
 				AttributeKey::Permission => b"PERM",
 				AttributeKey::NominalValue => b"NOMV",
-				AttributeKey::MaxNominalValue => b"MNOV",
+				AttributeKey::IssuedNominalValue => b"INOV",
 			}
 		}
 	}
@@ -172,6 +169,7 @@ pub mod pallet {
 		WrongOwner,
 		AlreadyBound,
 		NotBound,
+		InvalidNominalValue,
 	}
 
 	#[pallet::genesis_config]
@@ -271,13 +269,13 @@ pub mod pallet {
 		///  - Pallet is not initialized
 		///  - NFT is not initialized
 		///  - Failed to decode data
-		pub fn max_nominal_value_of(
+		pub fn issued_nominal_value_of(
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
-			Self::decode_max_nominal_value(&collection_id, item_id)
+			Self::decode_issued_nominal_value(&collection_id, item_id)
 		}
 
 		/// Returns the permission of the provided item
@@ -310,7 +308,7 @@ pub mod pallet {
 			})
 		}
 
-		fn encode_max_nominal_value(
+		fn encode_issued_nominal_value(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
 			nominal_value: &T::Balance,
@@ -319,7 +317,7 @@ pub mod pallet {
 				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 					collection_id,
 					item_id,
-					AttributeKey::MaxNominalValue.into(),
+					AttributeKey::IssuedNominalValue.into(),
 					nominal_value,
 				)
 			})
@@ -358,7 +356,7 @@ pub mod pallet {
 			})
 		}
 
-		fn decode_max_nominal_value(
+		fn decode_issued_nominal_value(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::Balance, DispatchError> {
@@ -366,13 +364,14 @@ pub mod pallet {
 				&mut NftsPallet::<T>::system_attribute(
 					collection_id,
 					item_id,
-					AttributeKey::MaxNominalValue.into(),
+					AttributeKey::IssuedNominalValue.into(),
 				)
 				.ok_or(Error::<T>::ItemNotInitialized)?
 				.as_slice(),
 			)
 			.map_err(|_| {
-				Error::<T>::InvalidAttribute { attribute_key: AttributeKey::MaxNominalValue }.into()
+				Error::<T>::InvalidAttribute { attribute_key: AttributeKey::IssuedNominalValue }
+					.into()
 			})
 		}
 
@@ -417,7 +416,7 @@ pub mod pallet {
 			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
 				collection_id,
 				item_id,
-				AttributeKey::MaxNominalValue.into(),
+				AttributeKey::IssuedNominalValue.into(),
 				nominal_value,
 			)
 		}
@@ -576,47 +575,58 @@ pub mod pallet {
 			})
 		}
 
-		// TODO(vismate): migrate to nft-staking
-		/// Decreases the NFTs nominal value by the given amount
+		/// Modify the NFTs nominal value to the given amount
 		///
 		/// # Errors
 		/// - Pallet is not initialized
-		/// - NFT is not bound
+		/// - `new_value` is greater than issued nominal value for the item
 		/// - New nominal value could not be encoded
-		fn slash(
-			account_id: &T::AccountId,
-			slash_amount: T::Balance,
-		) -> Result<T::Balance, DispatchError> {
-			let item_id = BoundTokens::<T>::get(account_id).ok_or(Error::<T>::NotBound)?;
-
+		fn set_nominal_value(item_id: &T::ItemId, new_value: T::Balance) -> DispatchResult {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
-			let old_nominal_value = Self::decode_nominal_value(&collection_id, &item_id)?;
 
-			let slashed = slash_amount.min(old_nominal_value);
+			ensure!(
+				Self::decode_issued_nominal_value(&collection_id, item_id)? >= new_value,
+				Error::<T>::InvalidNominalValue
+			);
 
-			let new_nominal_value = old_nominal_value - slashed;
-
-			Self::encode_nominal_value(&collection_id, &item_id, &new_nominal_value)?;
-
-			Self::deposit_event(Event::<T>::TokenSlashed {
-				item_id,
-				nominal_value: new_nominal_value,
-			});
-
-			Ok(slashed)
+			Self::encode_nominal_value(&collection_id, item_id, &new_value)
 		}
 
-		/// Nominal value of the bound NFT.
+		fn set_nominal_value_of_bound(
+			account_id: &T::AccountId,
+			new_value: T::Balance,
+		) -> DispatchResult {
+			let item_id = BoundTokens::<T>::get(account_id).ok_or(Error::<T>::NotBound)?;
+			Self::set_nominal_value(&item_id, new_value)
+		}
+
+		/// Nominal value of the given NFT.
 		///
 		/// # Errors
 		///
 		/// - Pallet is not initialized.
-		/// - NFT is not bound.
 		/// - Attribute decode error.
-		fn nominal_value(account_id: &T::AccountId) -> Result<T::Balance, DispatchError> {
-			let item_id = BoundTokens::<T>::get(account_id).ok_or(Error::<T>::NotBound)?;
-			Self::nominal_value_of(&item_id)
+		fn nominal_value(item_id: &T::ItemId) -> Result<T::Balance, DispatchError> {
+			Self::nominal_value_of(item_id)
+		}
+
+		/// Issued nominal value of the given NFT.
+		///
+		/// # Errors
+		///
+		/// - Pallet is not initialized.
+		/// - Attribute decode error.
+		fn issued_nominal_value(item_id: &T::ItemId) -> Result<T::Balance, DispatchError> {
+			Self::issued_nominal_value_of(item_id)
+		}
+
+		fn owner(item_id: &T::ItemId) -> Result<T::AccountId, DispatchError> {
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
+			NftsPallet::<T>::owner(collection_id, *item_id)
+				.ok_or(Error::<T>::ItemNotInitialized.into())
 		}
 
 		fn nominal_factor_of(account_id: &T::AccountId) -> Result<Perbill, DispatchError> {
@@ -626,7 +636,7 @@ pub mod pallet {
 			let item_id = BoundTokens::<T>::get(account_id).ok_or(Error::<T>::NotBound)?;
 
 			let current = Self::decode_nominal_value(&collection_id, &item_id)?;
-			let max = Self::decode_max_nominal_value(&collection_id, &item_id)?;
+			let max = Self::decode_issued_nominal_value(&collection_id, &item_id)?;
 
 			Ok(Perbill::from_rational(current, max))
 		}

@@ -8,6 +8,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use core::num::NonZeroU32;
+
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -389,22 +391,31 @@ impl pallet_nft_permission::Config for Runtime {
 	type Permission = pallet_nft_staking::PermissionType;
 }
 
+// TODO review these
 parameter_types! {
-	pub const MinimumCommissionPpb: Perbill = Perbill::from_percent(1);
+	pub const MinimumCommission: Perbill = Perbill::from_percent(1);
 	pub const StakingPalletId: PalletId = PalletId(*b"mstaking");
+	pub const MinimumStakingAmount: Balance = 10;
+	pub const MinimumStakingPeriod: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(5) };
+	pub const NominalValueThreshold: Perbill = Perbill::from_percent(80);
+	pub const MaximumStakePercentage: Perbill = Perbill::from_percent(15);
 }
 
 impl pallet_nft_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_nft_staking::weights::SubstrateWeight<Runtime>;
 	type Currency = Balances;
 	type NftDelegationHandler = NftDelegation;
 	type NftStakingHandler = NftPermission;
 	type Balance = Balance;
-	type Reward = ();
-	type MinimumCommissionAllowed = MinimumCommissionPpb;
-	type MinimumStakingDuration = ConstU32<256>;
 	type PalletId = StakingPalletId;
+
+	type SlackingPeriod = ConstU32<2>;
+	type NominalValueThreshold = NominalValueThreshold;
+	type MinimumStakingPeriod = MinimumStakingPeriod;
+	type MinimumCommissionRate = MinimumCommission;
+	type MinimumStakingAmount = MinimumStakingAmount;
+	type MaximumStakePercentage = MaximumStakePercentage;
+	type OnReward = ();
 }
 
 parameter_types! {
@@ -700,6 +711,7 @@ impl pallet_nft_delegation::Config for Runtime {
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Balance = Balance;
 	type NftExpirationHandler = ();
+	type BindMetadata = Self::AccountId;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

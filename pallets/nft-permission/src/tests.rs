@@ -94,25 +94,3 @@ fn unbind_should_work() {
 		assert_ok!(NftPermission::bind(&owner2, &item_id), (permission, nominal_value));
 	});
 }
-
-#[test]
-fn slash_should_work() {
-	new_test_ext().execute_with(|| {
-		let permission = "ValidPermission".into();
-		let nominal_value = 100;
-		let owner = account(1);
-		let item_id =
-			NftPermission::do_mint_permission_token(&owner, &permission, &nominal_value).unwrap();
-
-		assert_err!(NftPermission::slash(&owner, 16), Error::<Test>::NotBound);
-
-		NftPermission::bind(&owner, &item_id).unwrap();
-		assert_ok!(NftPermission::slash(&owner, 16));
-
-		let slashed_value = nominal_value - 16;
-
-		System::assert_last_event(
-			Event::TokenSlashed { item_id, nominal_value: slashed_value }.into(),
-		);
-	});
-}

@@ -1,3 +1,7 @@
+OUTDATED
+OUTDATED
+OUTDATED
+
 # Staking API
 ## Design principles:
 
