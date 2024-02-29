@@ -2,7 +2,6 @@
 /// Mosaic's very own staking pallet (TODO: DOCS)
 /// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.
 /// # Missing features:
-///   - Lesser punishment (we currently use the recommended slash proportions)
 ///   - Slippage
 ///   - Events
 ///   - Tests and benchmarks
@@ -254,11 +253,98 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ValidatorStates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ValidatorState>;
 
+	#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+	pub enum ChillReason {
+		Manual,
+		DoubleFault,
+		Disqualified,
+	}
+
+	#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+	pub enum KickReason {
+		Manual,
+		Unbind,
+	}
+
 	// TODO(vismate): Useful events
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		Blank,
+		ContractReward {
+			validator: T::AccountId,
+			staker: T::AccountId,
+			reward: T::Balance,
+			commission: T::Balance,
+		},
+
+		Slash {
+			offender: T::AccountId,
+			staker: T::AccountId,
+			currency: T::Balance,
+			delegator_nfts: SpVec<(T::ItemId, T::Balance)>,
+			permission_nft: Option<T::Balance>,
+		},
+
+		ValidatorChilled {
+			validator: T::AccountId,
+			reason: ChillReason,
+		},
+
+		ValidatorUnchilled(T::AccountId),
+
+		ValidatorBound(T::AccountId),
+
+		ValidatorUnbound(T::AccountId),
+
+		StakerKicked {
+			validator: T::AccountId,
+			staker: T::AccountId,
+			reason: KickReason,
+		},
+
+		DelegationEnabled(T::AccountId),
+
+		DelegationDisabled(T::AccountId),
+
+		CurrencyStaked {
+			validator: T::AccountId,
+			staker: T::AccountId,
+			amount: T::Balance,
+		},
+
+		CurrencyUnstaked {
+			validator: T::AccountId,
+			staker: T::AccountId,
+			amount: T::Balance,
+		},
+
+		NftDelegated {
+			validator: T::AccountId,
+			staker: T::AccountId,
+			item_id: <T as NftsConfig>::ItemId,
+		},
+
+		NftUndelegated {
+			validator: T::AccountId,
+			staker: T::AccountId,
+			item_id: <T as NftsConfig>::ItemId,
+		},
+
+		MinimumStakingPeriodChanged {
+			validator: T::AccountId,
+			new_period: SessionIndex,
+		},
+
+		CommissionChanged {
+			validator: T::AccountId,
+			new_commission: Perbill,
+		},
+
+		PermissionNftTopup {
+			validator: T::AccountId,
+			item: <T as NftsConfig>::ItemId,
+			cost: T::Balance,
+		},
 	}
 
 	// Errors inform users that something went wrong.
@@ -702,7 +788,15 @@ pub mod pallet {
 							s.stage(new);
 						}
 					});
+
 					total_rewarded.subsume(s_imbalance);
+
+					Self::deposit_event(Event::<T>::ContractReward {
+						validator: validator.clone(),
+						staker,
+						reward: reward.staker_reward,
+						commission: reward.validator_reward,
+					});
 				}
 
 				Self::lock_currency(&validator, total_v_imbalance.peek());
@@ -729,6 +823,11 @@ pub mod pallet {
 				*vstate = match *vstate {
 					ValidatorState::Normal => ValidatorState::Faulted,
 					ValidatorState::Faulted => {
+						Self::deposit_event(Event::<T>::ValidatorChilled {
+							validator: validator.clone(),
+							reason: ChillReason::DoubleFault,
+						});
+
 						ValidatorState::Chilled(SessionPallet::<T>::current_index())
 					},
 					s => s,
@@ -783,6 +882,7 @@ pub mod pallet {
 					// TODO: we iterate through delegated nfts quite a lot. Can we make it more efficient?
 					let mut d_nft_slash = slash * committed_contract.stake.delegated_nft();
 
+					let mut slashed_delegator_nfts = SpVec::new();
 					for (nft, value) in committed_contract.stake.delegated_nfts.iter() {
 						if d_nft_slash.is_zero() {
 							break;
@@ -809,32 +909,52 @@ pub mod pallet {
 						// FIXME: dont panic
 						T::NftDelegationHandler::set_nominal_value(nft, new_value)
 							.expect("could set nominal value");
+
+						slashed_delegator_nfts.push((*nft, slashed_from_this));
 					}
 
 					// If it's the self-contract let's slash the permission nft as well.
-					if let Some(p_nominal_value) = committed_contract.stake.permission_nft {
-						let p_slash = slash * p_nominal_value;
-						total_stake_slash = total_stake_slash.saturating_add(p_slash);
-						let new_value =
-							new_contract.stake.permission_nft.unwrap().saturating_sub(p_slash);
-						new_contract.stake.permission_nft = Some(new_value);
-						T::NftStakingHandler::set_nominal_value_of_bound(&validator, new_value)
-							.expect("could set nominal value");
+					let permission_nft_slash =
+						if let Some(p_nominal_value) = committed_contract.stake.permission_nft {
+							let p_slash = slash * p_nominal_value;
+							total_stake_slash = total_stake_slash.saturating_add(p_slash);
+							let new_value =
+								new_contract.stake.permission_nft.unwrap().saturating_sub(p_slash);
+							new_contract.stake.permission_nft = Some(new_value);
+							T::NftStakingHandler::set_nominal_value_of_bound(&validator, new_value)
+								.expect("could set nominal value");
 
-						// If slashed below some% autochill
-						if T::NftStakingHandler::nominal_factor_of(&validator)
-							.expect("could get nominal factor")
-							<= T::NominalValueThreshold::get()
-						{
-							ValidatorStates::<T>::mutate_extant(&validator, |vstate| {
-								*vstate =
-									ValidatorState::Chilled(SessionPallet::<T>::current_index())
-							});
-						}
-					};
+							// If slashed below some% autochill
+							if T::NftStakingHandler::nominal_factor_of(&validator)
+								.expect("could get nominal factor")
+								<= T::NominalValueThreshold::get()
+							{
+								ValidatorStates::<T>::mutate_extant(&validator, |vstate| {
+									*vstate =
+										ValidatorState::Chilled(SessionPallet::<T>::current_index())
+								});
+
+								Self::deposit_event(Event::<T>::ValidatorChilled {
+									validator: validator.clone(),
+									reason: ChillReason::Disqualified,
+								});
+							}
+
+							Some(p_slash)
+						} else {
+							None
+						};
 
 					// End
-					Contracts::<T>::mutate(&validator, delegator, |s| s.stage(new_contract));
+					Contracts::<T>::mutate(&validator, &delegator, |s| s.stage(new_contract));
+
+					Self::deposit_event(Event::<T>::Slash {
+						offender: validator.clone(),
+						staker: delegator,
+						currency: currency_slash,
+						delegator_nfts: slashed_delegator_nfts,
+						permission_nft: permission_nft_slash,
+					});
 				}
 			}
 
@@ -879,6 +999,8 @@ pub mod pallet {
 			};
 
 			Contracts::<T>::insert(&caller, &caller, Staging::new_staged(self_contract));
+
+			Self::deposit_event(Event::<T>::ValidatorBound(caller));
 
 			Ok(())
 		}
@@ -927,6 +1049,12 @@ pub mod pallet {
 
 				// FIXME?: this is a staged action, so in the current session this validator's stake is still included.
 				Self::shrink_total_stake_by(contract.stake.total());
+
+				Self::deposit_event(Event::<T>::StakerKicked {
+					validator: caller.clone(),
+					staker: contractee,
+					reason: KickReason::Unbind,
+				});
 			}
 
 			// Note: we can remove immediately as no reward would be given.
@@ -934,6 +1062,8 @@ pub mod pallet {
 			Validators::<T>::remove(&caller);
 			ValidatorStates::<T>::remove(&caller);
 			InverseSlashes::<T>::remove(&caller); // In theory this should already be empty
+
+			Self::deposit_event(Event::<T>::ValidatorUnbound(caller));
 
 			Ok(())
 		}
@@ -960,6 +1090,8 @@ pub mod pallet {
 				return Err(Error::<T>::TargetNotDPoS.into());
 			};
 
+			Self::deposit_event(Event::<T>::DelegationEnabled(caller));
+
 			Ok(())
 		}
 
@@ -985,6 +1117,8 @@ pub mod pallet {
 				return Err(Error::<T>::TargetNotDPoS.into());
 			};
 
+			Self::deposit_event(Event::<T>::DelegationDisabled(caller));
+
 			Ok(())
 		}
 
@@ -998,6 +1132,11 @@ pub mod pallet {
 					_ => {
 						*validator_state =
 							ValidatorState::Chilled(SessionPallet::<T>::current_index());
+
+						Self::deposit_event(Event::<T>::ValidatorChilled {
+							validator: caller.clone(),
+							reason: ChillReason::Manual,
+						});
 						Ok(())
 					},
 				}
@@ -1017,6 +1156,8 @@ pub mod pallet {
 				match validator_state {
 					ValidatorState::Chilled(_) => {
 						*validator_state = ValidatorState::Normal;
+
+						Self::deposit_event(Event::<T>::ValidatorUnchilled(caller.clone()));
 						Ok(())
 					},
 					_ => Err(Error::<T>::TargetIsNotChilled.into()),
@@ -1031,7 +1172,15 @@ pub mod pallet {
 			let details =
 				Validators::<T>::get(&caller).current().cloned().ok_or(Error::<T>::NotBound)?;
 
-			Self::do_stake_currency(&caller, details, &caller, amount)
+			Self::do_stake_currency(&caller, details, &caller, amount)?;
+
+			Self::deposit_event(Event::<T>::CurrencyStaked {
+				validator: caller.clone(),
+				staker: caller,
+				amount,
+			});
+
+			Ok(())
 		}
 
 		#[pallet::call_index(7)]
@@ -1044,7 +1193,15 @@ pub mod pallet {
 			let details =
 				Validators::<T>::get(&caller).current().cloned().ok_or(Error::<T>::NotBound)?;
 
-			Self::do_stake_nft(&caller, details, &caller, &item_id)
+			Self::do_stake_nft(&caller, details, &caller, &item_id)?;
+
+			Self::deposit_event(Event::<T>::NftDelegated {
+				validator: caller.clone(),
+				staker: caller,
+				item_id,
+			});
+
+			Ok(())
 		}
 
 		#[pallet::call_index(8)]
@@ -1052,7 +1209,15 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			ensure!(Validators::<T>::get(&caller).exists(), Error::<T>::NotBound);
 
-			Self::do_unstake_currency(&caller, &caller, amount)
+			Self::do_unstake_currency(&caller, &caller, amount)?;
+
+			Self::deposit_event(Event::<T>::CurrencyUnstaked {
+				validator: caller.clone(),
+				staker: caller,
+				amount,
+			});
+
+			Ok(())
 		}
 
 		#[pallet::call_index(9)]
@@ -1063,7 +1228,15 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			ensure!(Validators::<T>::get(&caller).exists(), Error::<T>::NotBound);
 
-			Self::do_unstake_nft(&caller, &caller, &item_id)
+			Self::do_unstake_nft(&caller, &caller, &item_id)?;
+
+			Self::deposit_event(Event::<T>::NftUndelegated {
+				validator: caller.clone(),
+				staker: caller,
+				item_id,
+			});
+
+			Ok(())
 		}
 
 		#[pallet::call_index(10)]
@@ -1084,7 +1257,15 @@ pub mod pallet {
 
 			ensure!(accept_delegations, Error::<T>::TargetDeniesDelegations);
 
-			Self::do_stake_currency(&target, details, &caller, amount)
+			Self::do_stake_currency(&target, details, &caller, amount)?;
+
+			Self::deposit_event(Event::<T>::CurrencyStaked {
+				validator: target,
+				staker: caller,
+				amount,
+			});
+
+			Ok(())
 		}
 
 		#[pallet::call_index(11)]
@@ -1105,7 +1286,15 @@ pub mod pallet {
 
 			ensure!(accept_delegations, Error::<T>::TargetDeniesDelegations);
 
-			Self::do_stake_nft(&target, details, &caller, &item_id)
+			Self::do_stake_nft(&target, details, &caller, &item_id)?;
+
+			Self::deposit_event(Event::<T>::NftDelegated {
+				validator: target,
+				staker: caller,
+				item_id,
+			});
+
+			Ok(())
 		}
 
 		#[pallet::call_index(12)]
@@ -1121,7 +1310,15 @@ pub mod pallet {
 				Validators::<T>::get(&target).current().cloned().ok_or(Error::<T>::NotBound)?;
 			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
-			Self::do_unstake_currency(&target, &caller, amount)
+			Self::do_unstake_currency(&target, &caller, amount)?;
+
+			Self::deposit_event(Event::<T>::CurrencyUnstaked {
+				validator: target,
+				staker: caller,
+				amount,
+			});
+
+			Ok(())
 		}
 
 		#[pallet::call_index(13)]
@@ -1140,7 +1337,15 @@ pub mod pallet {
 
 			ensure!(permission == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
-			Self::do_unstake_nft(&target, &caller, &item_id)
+			Self::do_unstake_nft(&target, &caller, &item_id)?;
+
+			Self::deposit_event(Event::<T>::NftUndelegated {
+				validator: target,
+				staker: caller,
+				item_id,
+			});
+
+			Ok(())
 		}
 
 		#[pallet::call_index(14)]
@@ -1172,6 +1377,11 @@ pub mod pallet {
 			// TODO(vismate): after implementing slippage this should be immidiate
 			Validators::<T>::mutate(&caller, |s| s.stage(details));
 
+			Self::deposit_event(Event::<T>::MinimumStakingPeriodChanged {
+				validator: caller,
+				new_period: new_min_period,
+			});
+
 			Ok(())
 		}
 
@@ -1197,6 +1407,11 @@ pub mod pallet {
 
 			// TODO(vismate): after implementing slippage this should be immidiate
 			Validators::<T>::mutate(&caller, |s| s.stage(details));
+
+			Self::deposit_event(Event::<T>::CommissionChanged {
+				validator: caller,
+				new_commission,
+			});
 
 			Ok(())
 		}
@@ -1236,6 +1451,12 @@ pub mod pallet {
 			contract.stake = Default::default();
 
 			Contracts::<T>::mutate(&caller, &target, |s| s.stage(contract));
+
+			Self::deposit_event(Event::<T>::StakerKicked {
+				validator: caller,
+				staker: target,
+				reason: KickReason::Manual,
+			});
 
 			Ok(())
 		}
@@ -1281,6 +1502,12 @@ pub mod pallet {
 				WithdrawReasons::all(),
 				ExistenceRequirement::KeepAlive,
 			)?;
+
+			Self::deposit_event(Event::<T>::PermissionNftTopup {
+				validator: caller,
+				item: item_id,
+				cost: imbalance,
+			});
 
 			T::NftStakingHandler::set_nominal_value(&item_id, issued_nominal_value)
 		}
@@ -1341,18 +1568,23 @@ pub mod pallet {
 				return;
 			};
 
+			// If we don't find the index in the current contract, that means the delegator just manually undelegated the item in the current session.
+			// In which case the nominal value is already deducted from the total stake.
 			if let Some(index) =
 				contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
 			{
 				contract.stake.delegated_nfts.remove(index);
-			} else {
-				return;
-			}
+				// Note: the nft is still considered in the session it expires, the delegator may still receive reward
+				// We have ensured that this nominal value was staked for at least the minimum staking period when staking.
+				Contracts::<T>::mutate(&validator, owner, |s| s.stage(contract));
+				Self::shrink_total_stake_by(*nominal_value);
 
-			// Note: the nft is still considered in the session it expires, the delegator may still receive reward
-			// We have ensured that this nominal value was staked for at least the minimum staking period when staking.
-			Contracts::<T>::mutate(&validator, owner, |s| s.stage(contract));
-			Self::shrink_total_stake_by(*nominal_value);
+				Self::deposit_event(Event::<T>::NftUndelegated {
+					validator,
+					staker: owner.clone(),
+					item_id: *item_id,
+				});
+			}
 		}
 	}
 
