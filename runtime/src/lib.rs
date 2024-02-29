@@ -33,6 +33,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, SaturatedConversion,
 };
+use sp_staking::offence::{Offence, OnOffenceHandler, ReportOffence};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -684,12 +685,66 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 
+type IdTouple = pallet_im_online::IdentificationTuple<Runtime>;
+type ImOnlineOffence = pallet_im_online::UnresponsivenessOffence<IdTouple>;
+
+pub struct ImOnlineOffenceAdapter(ImOnlineOffence);
+
+pub struct ImOnlineReporter;
+
+impl Offence<IdTouple> for ImOnlineOffenceAdapter {
+	const ID: sp_staking::offence::Kind = *b"mos:imon-offline";
+	type TimeSlot = sp_staking::SessionIndex;
+
+	fn offenders(&self) -> Vec<IdTouple> {
+		self.0.offenders()
+	}
+
+	fn session_index(&self) -> sp_staking::SessionIndex {
+		self.0.session_index()
+	}
+
+	fn validator_set_count(&self) -> u32 {
+		self.0.validator_set_count()
+	}
+
+	fn time_slot(&self) -> Self::TimeSlot {
+		self.0.time_slot()
+	}
+
+	fn disable_strategy(&self) -> sp_staking::offence::DisableStrategy {
+		self.0.disable_strategy()
+	}
+
+	fn slash_fraction(&self, _offenders: u32) -> Perbill {
+		Perbill::from_percent(1)
+	}
+}
+
+impl ReportOffence<AccountId, IdTouple, ImOnlineOffence> for ImOnlineReporter {
+	fn report_offence(
+		reporters: Vec<AccountId>,
+		offence: ImOnlineOffence,
+	) -> Result<(), sp_staking::offence::OffenceError> {
+		let offence = ImOnlineOffenceAdapter(offence);
+		<Offences as ReportOffence<AccountId, IdTouple, ImOnlineOffenceAdapter>>::report_offence(
+			reporters, offence,
+		)
+	}
+
+	fn is_known_offence(offenders: &[IdTouple], time_slot: &sp_staking::SessionIndex) -> bool {
+		<Offences as ReportOffence<AccountId, IdTouple, ImOnlineOffenceAdapter>>::is_known_offence(
+			offenders, time_slot,
+		)
+	}
+}
+
 impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
 	type NextSessionRotation = ValidatorSubsetSelection;
 	type ValidatorSet = Staking;
-	type ReportUnresponsiveness = Offences;
+	type ReportUnresponsiveness = ImOnlineReporter;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
 	type MaxKeys = MaxKeys;
