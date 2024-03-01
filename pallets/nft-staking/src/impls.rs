@@ -1,0 +1,159 @@
+use frame_support::{
+	dispatch::DispatchResult,
+	traits::{ValidatorSet, ValidatorSetWithIdentification},
+};
+use sp_runtime::{
+	traits::{Convert, ConvertInto},
+	PerThing, Perbill,
+};
+use sp_staking::SessionIndex;
+use sp_std::{marker::PhantomData, vec::Vec as SpVec};
+
+use utils::traits::NftDelegation;
+
+use super::{
+	Config, Contracts, Event, InverseSlashes, NftsConfig, Pallet, SessionPallet, UnlockingCurrency,
+	UnlockingDelegatorNfts, ValidatorState, ValidatorStates,
+};
+
+impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
+	type ValidatorId = T::AccountId;
+	type ValidatorIdOf = ConvertInto;
+
+	fn session_index() -> SessionIndex {
+		SessionPallet::<T>::current_index()
+	}
+
+	fn validators() -> SpVec<Self::ValidatorId> {
+		ValidatorStates::<T>::iter()
+			.filter_map(|(validator_id, vstate)| match vstate {
+				ValidatorState::Normal | ValidatorState::Faulted => Some(validator_id),
+				_ => None,
+			})
+			.collect()
+	}
+}
+
+// TODO: Can we not do silly things like this?
+pub struct ValidatorOf<T>(PhantomData<T>);
+
+impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for ValidatorOf<T> {
+	fn convert(account: T::AccountId) -> Option<T::AccountId> {
+		Some(account)
+	}
+}
+
+impl<T: Config> ValidatorSetWithIdentification<T::AccountId> for Pallet<T> {
+	type Identification = T::AccountId;
+	type IdentificationOf = ValidatorOf<T>;
+}
+
+impl<T: Config>
+	utils::traits::OnDelegationNftExpire<
+		T::AccountId,
+		<T as NftsConfig>::ItemId,
+		T::Balance,
+		T::AccountId,
+	> for Pallet<T>
+{
+	fn on_expire(
+		owner: &T::AccountId,
+		validator: Option<T::AccountId>,
+		item_id: &<T as NftsConfig>::ItemId,
+		nominal_value: &T::Balance,
+	) {
+		let Some(validator) = validator else {
+			return;
+		};
+
+		// Note: the nft is still considered in the session it expires, the delegator may still receive reward
+		// We have ensured that this nominal value was staked for at least the minimum staking period when staking.
+		Contracts::<T>::mutate(&validator, owner, |s| {
+			let Some(contract) = s.ensure_staging_mut() else {
+				return;
+			};
+
+			// If we don't find the index in the current contract, that means the delegator just manually undelegated the item in the current session.
+			// In which case the nominal value is already deducted from the total stake.
+			if let Some(index) =
+				contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
+			{
+				contract.stake.delegated_nfts.remove(index);
+
+				Self::shrink_total_stake_by(*nominal_value);
+
+				Self::deposit_event(Event::<T>::NftUndelegated {
+					validator: validator.clone(),
+					staker: owner.clone(),
+					item_id: *item_id,
+				});
+			}
+		});
+	}
+}
+
+impl<T: Config> utils::traits::SessionHook for Pallet<T>
+where
+	T::AccountId: From<<T as pallet_session::Config>::ValidatorId>,
+{
+	fn session_ended(_: u32) -> DispatchResult {
+		let active_validators = SessionPallet::<T>::validators();
+		// FIXME: replace active validator len with total number of blocks created in session
+		// TODO: set this to a more sensible value
+		let session_reward = 100 * active_validators.len() as u128;
+
+		let rewarded = active_validators.into_iter().filter_map(|v| {
+			let v = T::AccountId::from(v);
+			(!InverseSlashes::<T>::contains_key(&v)).then_some(v)
+		});
+
+		Self::do_reward_participants(rewarded, session_reward);
+		Self::do_slash_participants();
+
+		Self::commit_storage();
+
+		for (staker, amount) in UnlockingCurrency::<T>::drain() {
+			Self::unlock_currency(&staker, amount);
+		}
+
+		for (item_id, staker) in UnlockingDelegatorNfts::<T>::drain() {
+			T::NftDelegationHandler::unbind(&staker, &item_id).expect("could unbind nft");
+		}
+
+		Ok(())
+	}
+}
+
+// TODO: make id tuple more generic
+// TODO: define weights
+// TODO: This trait seems to not quite fit our use-case perfectly. What should we do?
+impl<T: Config>
+	sp_staking::offence::OnOffenceHandler<
+		<T as frame_system::Config>::AccountId,
+		pallet_im_online::IdentificationTuple<T>,
+		frame_support::weights::Weight,
+	> for Pallet<T>
+where
+	<<T as pallet_im_online::Config>::ValidatorSet as ValidatorSet<
+		<T as frame_system::Config>::AccountId,
+	>>::ValidatorId: codec::EncodeLike<<T as frame_system::Config>::AccountId>,
+{
+	fn on_offence(
+		offenders: &[sp_staking::offence::OffenceDetails<
+			<T as frame_system::Config>::AccountId,
+			pallet_im_online::IdentificationTuple<T>,
+		>],
+		slash_fraction: &[Perbill],
+		_session: sp_staking::SessionIndex,
+		_disable_strategy: sp_staking::offence::DisableStrategy,
+	) -> frame_support::weights::Weight {
+		for (o, slash) in offenders.iter().zip(slash_fraction.iter()) {
+			InverseSlashes::<T>::mutate_exists(o.offender.0.clone(), |s| match *s {
+				None => *s = Some(slash.left_from_one()),
+				Some(ref mut acc) => *acc = *acc * slash.left_from_one(),
+			});
+		}
+
+		frame_support::weights::Weight::default()
+	}
+}
