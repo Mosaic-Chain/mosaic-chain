@@ -1,8 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-/// Mosaic's very own staking pallet (TODO: DOCS)
+/// Mosaic's very own staking pallet
 /// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.
 /// # Missing features:
 ///   - Slippage
+///   - Stake dusting
 ///   - Tests and benchmarks
 pub use pallet::*;
 pub use types::PermissionType;
@@ -86,12 +87,6 @@ pub mod pallet {
 			Self::ItemId,
 		>;
 
-		/// Period after which a chilled validator is considered slacking
-		type SlackingPeriod: Get<u32>;
-
-		/// A percent under which a validator is disqualified
-		type NominalValueThreshold: Get<Perbill>;
-
 		type NftDelegationHandler: NftDelegation<
 			Self::AccountId,
 			Self::Balance,
@@ -99,6 +94,10 @@ pub mod pallet {
 			Self::AccountId,
 		>;
 
+		/// Period after which a chilled validator is considered slacking
+		type SlackingPeriod: Get<u32>;
+		/// A percent under which a validator is disqualified
+		type NominalValueThreshold: Get<Perbill>;
 		type MinimumStakingPeriod: Get<NonZeroU32>;
 		type MinimumCommissionRate: Get<Perbill>;
 		type MinimumStakingAmount: Get<Self::Balance>;
@@ -697,6 +696,8 @@ pub mod pallet {
 				Self::unlock_currency(&contractee, contract.stake.currency);
 				for (item_id, _) in contract.stake.delegated_nfts.iter() {
 					T::NftDelegationHandler::unbind(&contractee, item_id)?;
+					// TODO: nfts in UnlockingDelegatorNfts are only unlocked at the end of this session
+					// this isn't a significant problem as we forgive the slash for this session, but a bit weird from an outside perspective.
 				}
 
 				// FIXME?: this is a staged action, so in the current session this validator's stake is still included.
@@ -713,7 +714,7 @@ pub mod pallet {
 			// Caveat: slashes in current session? We can forgive them, right?
 			Validators::<T>::remove(&caller);
 			ValidatorStates::<T>::remove(&caller);
-			InverseSlashes::<T>::remove(&caller); // In theory this should already be empty
+			InverseSlashes::<T>::remove(&caller);
 
 			Self::deposit_event(Event::<T>::ValidatorUnbound(caller));
 
@@ -1016,7 +1017,6 @@ pub mod pallet {
 					Error::<T>::InvalidStakingPeriod
 				);
 
-				//TODO: should there be an upper limit too?
 				*min_staking_period = new_min_period;
 
 				Self::deposit_event(Event::<T>::MinimumStakingPeriodChanged {
@@ -1080,7 +1080,7 @@ pub mod pallet {
 
 				Self::stage_unlock_currency(&target, contract.stake.currency);
 				for (item_id, _) in contract.stake.delegated_nfts.iter() {
-					T::NftDelegationHandler::unbind(&target, item_id)?;
+					UnlockingDelegatorNfts::<T>::insert(*item_id, target.clone());
 				}
 
 				// FIXME?: this is a staged action, so in the current session this delegator's stake is still included.
