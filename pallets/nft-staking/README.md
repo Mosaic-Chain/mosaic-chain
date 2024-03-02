@@ -1,7 +1,3 @@
-OUTDATED
-OUTDATED
-OUTDATED
-
 # Staking API
 ## Design principles:
 
@@ -15,15 +11,10 @@ OUTDATED
   - We'll provide a frontend with good UX for the end users.
 
 ## Definitions:
-(Here I ommit the basic ones that everybody from the dev team knows about)
-
 - **Staking / delegation**:
   - I'll refer to all amounts as "stake" and the act of modifying stake as "staking" and "unstaking".
   - If the caller and the target accounts differ we can call staking "delegation" and unstaking "undelegation".
   - We wish to treat delegations and "self-staking" similarly, usually the same rules should apply.
-
-_(NOTE: even in the current implementation we have these two cases and have to treat them seperately in almost every function.\
-The goal is to make the two cases more similar so that we can finally abstract these away at some point)_
 
 - **Contract:** a contract encapsulates the terms of a staking agreement between accounts.
   - There is at most **one** contract per validator-staker pair.
@@ -33,24 +24,43 @@ The goal is to make the two cases more similar so that we can finally abstract t
     - These new terms become active at the begginning of the next session.
     - The start of the new staking period is also reset to the upcoming session.
 
-- **Binding / unbinding:** TODO
+- **Binding / unbinding:**
+  - In case of permission NFTs:
+    - By binding the validator commits to being online, producing blocks, and taking part in consensus.
+    - While an nft is bound it cannot be sold, and it's nominal value can be slashed as a punishment for misbehaviour
+    - A validator can undbind if:
+      - the validator chilled first
+      - the validator is not selected for the current or the upcoming active set
+      - doesn't have a binding contract where the minimum staking period is not over
+  - In case of delegator NFTs:
+    - By binding the delegator delegates the NFT to the chosen validator in exchange for reward proportional to it's nominal value
+    - It's nominal value can be slashed if the validator misbehaves
+    - Delegator NFTs can also expire in which case they'll be automatically unbound
+    - After the mininal staking period ends on a contract these nfts can also be manually unbound.
 
-- **Freezing / Unfreezing:** TODO
+- **Chilling / Unchilling:** 
+  - A validator can indicate they wish to be left out of the active set and unbind in the future.
+  - Chilled validators can still be slashed if they go offline before unbinding
+  - If a validator is chilled for a certain amount of time the delegators have the right to undelegate before
+    their minimum staking period ends.
+  - Validator are chilled automatically if they are punished in two consecutive sessions or their permission NFT is slashed below a certain point.
+  - Validators can unchill only if their nft's nominal value is above a certain amount (they are not disqualified).
 
 ## Constants
-- default minimal staking period
-- default minimal staking amount
- - _(Note: we do not guarantee, that all contracts have at least this stake at all times. There are edgecases, like autochilled validators)_ (TODO ?)
-- minimum nominal percent
+- **SlackingPeriod:** number of sessions after which delegators can unstake from a chilled validator
+- **NominalValueThreshold:** a percentage below which a permission NFT gets disqualified.
+- **MinimumStakingPeriod:** the default minimum staking period under which a validator can't set their own term.
+- **MinimumCommissionRate:** the default commission rate (percentage) under which a validator can't set their own term.
+- **MinimumStakingAmount:** the minimum amount one can stake / unstake or keep staked. 
+- **MaximumStakePercentage:** the maximum percentage of total mosaic issuance above which no validator's total stake can go. 
 
 ## Public API:
-We have many distinct cases when staking depending on whether the caller stakes currency or nft or whether they self-stake or delegate.
+There are about four distinct cases of staking:
+  - One can stake **currency** _or_ **nft** on themselves.
+  - One can delegate **currency** _or_ **nft** to others.
 
-We can represent all these cases in our public API, as I suspect many of these would be completely
-seperate functionalities of the front-end. _(I should ask frontend devs about this)_
-
-_(In the actual implementation reducing the number of cases as soon as possible is desired
-so we don't need to handle them separately deeper down in the impl.)_
+We can represent all these cases seperately in our public API, as I suspect many of these would be completely
+distinct functionalities of the front-end. _(I should ask frontend devs about this)_
 
 ### `bind_validator(caller, item)`
 
@@ -65,6 +75,7 @@ Effects:
 - `item`'s nominal value is scheduled to be added to both `caller`'s and the global stake.
 
 ### `unbind_validator(caller)`
+_TODO: revise unbinding. what do we do staged and what immidiately?_
 
 Preconditions:
 - `caller` is a bound, chilled validator
@@ -110,7 +121,7 @@ Preconditions:
 - `caller` is not yet chilled
 
 Effects:
-- a request is sent to subset selection not to select `caller` in the future
+- `caller` is not considered for future selection into the active set
 - `caller` is now considered chilled
 
 ### `unchill(caller)`
@@ -118,10 +129,10 @@ Effects:
 Preconditions:
 - `caller` is bound validator
 - `caller` is (auto)chilled
-- `caller`'s bound permission token is still valid, its nominal value is greater then minimal nominal percent of the original. (TODO will this be possible? )
+- `caller`'s bound permission token is still valid, its nominal value is greater than `NominalValueThreshold`
 
 Effects:
-- a request is sent to subset selecton to start considering `caller` for selection again
+- `caller` is considered for selection again
 - `caller` is now not considered chilled
 
 ### `self_stake_currency(caller, amount)`
@@ -149,7 +160,7 @@ Preconditions:
 - the `item` will not expire before the minimum staking period ends
 
 Effects:
-- the `item` is bound "immediately" to the `caller` (TODO: is this valid currently in nft_delegation?)
+- the `item` is bound "immediately" to the `caller`
 - the nft's nominal value is scheduled to be added to both `caller`'s stake and the global stake in the next session
 - the `caller`'s own contract with themselves is scheduled to be updated: the staking period resets
 
@@ -176,8 +187,7 @@ Preconditions:
 
 Effects:
 - the `item`'s nominal value is scheduled to be removed from both the `caller`'s stake and the global stake
-- the `item` is **immediately** unbound from the `caller`'s account. 
-  - _(Note: we can unbind immediately, as nfts can only be used for staking and consequent binds would only affect rewards in the following sessions)_
+- the `item` is scheduled to be unbound from the `caller`'s account. 
 
 ### `delegate_currency(caller, amount, target)`
 _TODO: slippage_
@@ -197,7 +207,6 @@ Effects:
   - staking period resets (possibly to a new value) and the new commission is applied (if changed)
 
 ### `delegate_nft(caller, item, target)`
-_TODO: There has been discussions about limiting delegator nft / validator_
 _TODO: slippage_
 
 Preconditions:
@@ -223,7 +232,7 @@ Preconditions:
 - `target` is a DPoS validator
 - `target` and `caller` are not the same (use `self_unstake_currency` instead)
 - `target` has a staking contract with `caller`
-- the minimal staking period is over on the contract
+- the minimal staking period is over on the contract or `target` is considered slacking
 - `amount` is greater or equal to the minimum staking amount
 - the `amount` is available as **currency based** stake on the contract
 - the remaining currency based stake would be more than or equal to the minimal staking amount OR be exactly 0
@@ -240,23 +249,21 @@ Preconditions:
 - `target` and `caller` are not the same (use `self_unstake_nft` instead)
 - `item` is a delegator nft owned by `caller`
 - `item` is bound to `target`
-- the minimum staking period has already ended for this contract
+- the minimum staking period has already ended for this contract or `target` is considered slacking
 
 Effects:
-- `item` is unbound from `target`
+- `item` is scheduled to be unbound from `target`
 - `item`'s nominal value is scheduled to be removed from both `target`'s stake and the global stake
 
-### `set_minimum_staking_period(caller, new_min_period)` (TODO should we let them set this? also TODO should we let them set their own min stake as well?)
-
+### `set_minimum_staking_period(caller, new_min_period)` 
 Preconditions:
 - `caller` is a bound, not chilled validator
 - `caller` is a DPoS validator
-- `new_min_period` is longer or equal to the default staking period
-- `new_min_period` is not unreasonably long (TODO what's unreasonable?)
+- `new_min_period` is longer or equal to the `MinimumStakingPeriod`
 
 Effects:
-- `caller`'s new contract term is updated immediately.
-  - _(Note: we should only do this immidiately after implementing slippage)_
+- `caller`'s new contract term is scheduled to beupdated.
+  - _(Note: we should do this immidiately after implementing slippage)_
   - _(Note: Existing contracts don't get updated)_
 
 
@@ -265,11 +272,11 @@ Effects:
 Preconditions:
 - `caller` is a bound, not chilled validator
 - `caller` is a DPoS validator
-- `new_commission` is larger or equal to minimum commission
+- `new_commission` is larger or equal to `MinimumCommissionRate`
 
 Effects:
-- `caller`'s new contract term is immediately updated
-- _(Note: we should only do this after implementing slippage)_
+- `caller`'s new contract term is scheduled to be updated
+- _(Note: we should update immidiatelys after implementing slippage)_
 
 ### `kick(caller, target)`
 
@@ -277,48 +284,64 @@ Preconditions:
 - `caller` is a bound, not chilled validator
 - `caller` is a DPoS validator
 - `caller` is not `target` (use `self_unstake_nft` instead)
-- `caller` has a contract with `target`
+- `caller` has a contract with `target` and `caller` is not `target`
 - the minimal staking period has passed on this contract
 
 Effects:
 - `target`'s currency based delegation scheduled to be freed 
-- `target`'s delegated nfts are unbound "immediately"
+- `target`'s delegated nfts are **scheduled** to be unbound
 - `target`'s stake is **scheduled** to be removed both from `caller`'s stake and the global stake
 
-TODO what should happen if target renews the contract in the same session? I guess "first come, first served, second come not served".
+### `topup(caller, item_id, allowed_amount)`
+let `imbalance` be `issued_nominal_value - current_nominal_value`
+
+Preconditions:
+- `caller` is the owner of the item identified by `item_id`
+- `imbalance` <= `allowed_amount`
+- `caller` has enough free balance to pay fir topup
+
+Effects:
+- `imbalance` is withdrawn from `caller`'s free balance
+- `imbalance` is added to `item_id`'s nominal value
+- if `item_id` is currently bound `imbalance` is scheduled to be added to both `caller`'s stake and the global stake.
+- if validator state is `Faluted` it's changes back to `Normal`
 
 ## Mechanisms
 These details are not part of the public callable API, but are behaviours that must be defined well.
 
 ### Stake limits
-- we limit the total stake a validator can have
+- we limit the total stake a single validator can have to a portion of total mosaic issuance
+   _(`MaximumStakePercentage`)_
 - the stake can go ower this limit with rewards
 
 ### Reward calcualtion
-Rewards increase stake by default.
-Slashed participants are not rewarded in the current session. 
+- Rewards increase stake.
+- Slashed participants are not rewarded in the current session. 
 
 ### Slashing
-Currency/nft based stake slashed under the minimal staking amount is dusted.
-When it comes to delegator nfts, we slash the one that was staked first.
-We can also slash into unlocking currency.
+- We slash all bound validators and their delegators.
+- Currency/nft based stake slashed under the minimal staking amount is dusted. // TODO
+- When it comes to delegator nfts, the convention is to slash them in the order they were staked.
+- We can also slash into unlocking currency.
 
 ### Auto-Chilling
-After a certain amount of time we let delegators to unstake.
-Validators can't unchill if the nominal value is too low.
-Permission NFTs can be topped-up.
+- We autochill a validator in two cases:
+  1. They were slashed in two consecutive sessions
+  2. After slashing their nft's nominal value went under `NominalValueThreshold`
+- After a certain amount of time _(`SlackingPeriod`)_ we let delegators unstake.
+- Validators can't unchill if the nominal value is too low _(below `NominalValueThreshold`)_.
+- Permission NFTs can be topped-up.
 
 ### Delegator NFT expiration
-- NFTS are still valid in the session they are expiring (consistent with staging)
+- NFTs are still valid in the session they are expiring in (consistent with staging)
+- We ensure no one can delegate an nft that would expire before the minimum staking period ends.
+- Caveat: if the contract is updated and thus the minimum staking period extends it is possible for an NFT to expire before the period ends. Expiration simply takes precedence.
 
 ## Implementation guide
 - All additions and subtractions should be saturating
 - Be careful with schduled (staged) and commited values.
   - Which one should be checked?
   - Be sure to stage modifications!
-- What "scheduling contract with 0 stake for deletion" could mean in practice:
-  - when committing changes at the beggininng of a session if you see a staged contract with 0 stake the contract should be deleted
-  - _after scheduling for deletion the user can stake more in the same session. this case needs no special logic this way_
 - Implementing the core logic using side effect free functions is encouraged (testability)
 - We don't need to test each every addition, so don't write messy, confusing code just to satisfy the above guideline.
 - Try to encode as much of the preconditions in the type system ~~as possible~~ as it makes sense.
