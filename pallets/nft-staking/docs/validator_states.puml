@@ -1,0 +1,36 @@
+!theme blueprint
+@startuml
+hide empty description
+
+[*] -right-> Unbound
+Unbound -> Bound: bind
+
+state Bound {
+  [*] -down-> Passive
+  Passive --> Active: subset_selection
+  Active --> Passive: reward, slash
+
+  ||
+
+  [*] -down-> Unchilled
+
+  state Unchilled {
+    [*] -down-> Normal
+    Normal -down-> Faulted: [nominal_value > some%] slash
+    Faulted -up-> Normal: reward
+  }
+
+  state Chilled {
+    [*] -down-> Pardonable
+    Pardonable -down-> Slacking: [after x sessions]
+    Normal -down-> Pardonable: [nominal_value <= some%] slash
+    Faulted -down-> Pardonable: slash
+  }
+
+  Chilled -left-> Unchilled: [nominal_value > some%] unchill
+  Unchilled -right-> Chilled: chill
+
+  Chilled --> Unbound_: unbind
+}
+
+@enduml

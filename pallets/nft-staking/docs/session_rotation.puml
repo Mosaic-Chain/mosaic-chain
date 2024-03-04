@@ -1,0 +1,32 @@
+!theme blueprint
+@startuml
+
+System -> Session: Hooks::on_initialize
+activate Session
+
+Session -> SessionManager: end_session(i)
+activate SessionManager
+
+SessionManager -> Staking: SessionHook::session_ended
+
+note left of Staking: reward calculation, applying slash, state change, 
+deactivate SessionManager
+
+Session -> SessionManager: start_session(i+1)
+activate SessionManager
+
+SessionManager -> NftDelegation: SessionHook::session_started
+loop for expired tokens
+NftDelegation -> NftDelegation: unbind, BindCache::take
+NftDelegation -> Staking: NftExpirationHandler::on_expire
+end
+deactivate SessionManager
+
+
+Session -> SessionManager: new_session(i+2)
+activate SessionManager
+SessionManager -> Staking: ValidatorSet::validators
+deactivate SessionManager
+
+Staking -> NftPermission: bind, unbind, attribute querries
+@enduml

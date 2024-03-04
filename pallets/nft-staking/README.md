@@ -346,3 +346,11 @@ These details are not part of the public callable API, but are behaviours that m
 - We don't need to test each every addition, so don't write messy, confusing code just to satisfy the above guideline.
 - Try to encode as much of the preconditions in the type system ~~as possible~~ as it makes sense.
 - Try to define such a model where as many cases can be handled by the same code as possible.
+
+## Diagrams
+
+### Session rotation
+![Session rotation](docs/session_rotation.svg)
+
+### Validator states (conceptually)
+![Validator states (conceptually)](docs/validator_states.svg)
