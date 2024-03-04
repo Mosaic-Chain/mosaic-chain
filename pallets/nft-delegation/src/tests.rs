@@ -4,7 +4,6 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_nfts::Error as NftsError;
-use sp_runtime::Perbill;
 
 use crate::{mock::*, Error, Event};
 use utils::traits::NftDelegation as TNftDelegation; // This alias is needed to distingish between the runtime definition and the utils trait
@@ -47,18 +46,18 @@ fn bind_should_work() {
 			NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value).unwrap();
 
 		assert_err!(
-			NftDelegation::bind(&account(2), &validator, &item_id),
+			NftDelegation::bind(&account(2), &item_id, validator.clone()),
 			Error::<Test>::WrongOwner
 		);
-		assert_ok!(NftDelegation::bind(&owner, &validator, &item_id), (expiration, nominal_value));
+		assert_ok!(
+			NftDelegation::bind(&owner, &item_id, validator.clone()),
+			(expiration, nominal_value)
+		);
 
 		System::assert_last_event(Event::TokenBound { item_id }.into());
 
-		assert_err!(NftDelegation::bind(&owner, &validator, &item_id), Error::<Test>::AlreadyBound);
-		assert_err!(
-			NftDelegation::bind(&owner, &account(3), &item_id),
-			Error::<Test>::AlreadyBound
-		);
+		assert_err!(NftDelegation::bind(&owner, &item_id, validator), Error::<Test>::AlreadyBound);
+		assert_err!(NftDelegation::bind(&owner, &item_id, account(3)), Error::<Test>::AlreadyBound);
 		assert_err!(
 			Nfts::transfer(
 				RawOrigin::Signed(owner.clone()).into(),
@@ -67,21 +66,6 @@ fn bind_should_work() {
 				account(4),
 			),
 			NftsError::<Test>::ItemLocked
-		);
-
-		for _ in 0..255 {
-			let item =
-				NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value).unwrap();
-
-			NftDelegation::bind(&owner, &validator, &item).unwrap();
-		}
-
-		let item =
-			NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value).unwrap();
-
-		assert_err!(
-			NftDelegation::bind(&owner, &validator, &item),
-			Error::<Test>::ExceededMaxCapacity
 		);
 	});
 }
@@ -97,13 +81,13 @@ fn unbind_should_work() {
 		let item_id =
 			NftDelegation::do_mint_delegator_token(&owner1, expiration, &nominal_value).unwrap();
 
-		assert_err!(NftDelegation::unbind(&owner2, &item_id), Error::<Test>::WrongOwner);
+		assert_err!(NftDelegation::unbind(&validator, &item_id), Error::<Test>::WrongOwner);
 
 		assert_err!(NftDelegation::unbind(&owner1, &item_id), Error::<Test>::NotBound);
 
-		NftDelegation::bind(&owner1, &validator, &item_id).unwrap();
+		NftDelegation::bind(&owner1, &item_id, validator.clone()).unwrap();
 
-		assert_ok!(NftDelegation::unbind(&owner1, &item_id), nominal_value);
+		assert_ok!(NftDelegation::unbind(&owner1, &item_id), (nominal_value, validator.clone()));
 
 		System::assert_last_event(Event::TokenUnbound { item_id }.into());
 
@@ -118,67 +102,7 @@ fn unbind_should_work() {
 		);
 
 		// Check whether unbind cleaned up everything correctly for a rebind
-		assert_ok!(NftDelegation::bind(&owner2, &validator, &item_id), (expiration, nominal_value));
-	});
-}
-
-#[test]
-fn slash_should_work() {
-	new_test_ext().execute_with(|| {
-		let owner = account(1);
-		let validator = account(2);
-		let expiration = 4;
-		let nominal_value = 100;
-		let slash_proportion = Perbill::from_percent(16);
-		let amount = 42;
-
-		assert_err!(
-			NftDelegation::slash(&validator, &owner, slash_proportion),
-			Error::<Test>::NotBound
-		);
-
-		let items = (0..amount)
-			.map(|_| {
-				let item =
-					NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value)
-						.unwrap();
-
-				NftDelegation::bind(&owner, &validator, &item).unwrap();
-
-				item
-			})
-			.collect::<Vec<_>>();
-
-		let slashed_value_per_nft = nominal_value - slash_proportion * nominal_value;
-
-		assert_ok!(
-			NftDelegation::slash(&validator, &owner, slash_proportion),
-			amount * slashed_value_per_nft
-		);
-
-		for item in items {
-			System::assert_has_event(
-				Event::TokenSlashed { item_id: item, nominal_value: slashed_value_per_nft }.into(),
-			);
-		}
-	});
-}
-
-#[test]
-fn kick_should_work() {
-	new_test_ext().execute_with(|| {
-		let owner = account(1);
-		let validator = account(2);
-		let expiration = 4;
-		let nominal_value = 42;
-		let item_id =
-			NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value).unwrap();
-
-		assert_err!(NftDelegation::kick(&validator, &owner), Error::<Test>::NotBound);
-
-		NftDelegation::bind(&owner, &validator, &item_id).unwrap();
-
-		assert_ok!(NftDelegation::kick(&validator, &owner), nominal_value);
+		assert_ok!(NftDelegation::bind(&owner2, &item_id, validator), (expiration, nominal_value));
 	});
 }
 

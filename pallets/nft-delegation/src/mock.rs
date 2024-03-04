@@ -176,10 +176,12 @@ parameter_types! {
 
 pub struct ExpirationHandler;
 
-impl<AccountId, Balance> OnDelegationNftExpire<AccountId, u32, Balance, ()> for ExpirationHandler {
+impl<AccountId, Balance> OnDelegationNftExpire<AccountId, u32, Balance, AccountId>
+	for ExpirationHandler
+{
 	fn on_expire(
 		_owner: &AccountId,
-		_validator: Option<()>,
+		_validator: Option<AccountId>,
 		item_id: &u32,
 		_nominal_value: &Balance,
 	) {
@@ -211,7 +213,7 @@ impl nft_delegation::Config for Test {
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type NftExpirationHandler = ExpirationHandler;
 	type Balance = u64;
-	type BindMetadata = ();
+	type BindMetadata = AccountId;
 }
 
 // Build genesis storage according to the mock runtime.
