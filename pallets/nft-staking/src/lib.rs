@@ -3,7 +3,7 @@
 /// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.
 /// # Missing features:
 ///   - Slippage
-///   - Stake dusting
+///   - Fix total stakes
 ///   - Tests and benchmarks
 pub use pallet::*;
 pub use types::PermissionType;
@@ -250,6 +250,7 @@ pub mod pallet {
 		TopupWrongOwner,
 		SlippageExceeded,
 		OverdominantStake,
+		TooManyNftDelegatedToContract,
 	}
 
 	#[pallet::genesis_config]
@@ -523,15 +524,21 @@ pub mod pallet {
 				let stake = match s.current() {
 					Some(Contract { stake: old, .. }) => {
 						let mut new = old.clone();
-						new.delegated_nfts.push((*item_id, nominal_value));
-						new
+						new.delegated_nfts
+							.try_push((*item_id, nominal_value))
+							.map(|_| new)
+							.map_err(|_| Error::<T>::TooManyNftDelegatedToContract)
 					},
 
-					None => Stake {
-						delegated_nfts: SpVec::from([(*item_id, nominal_value)]),
-						..Default::default()
+					None => {
+						let mut delegated_nfts = BoundedVec::new();
+						// Force push is safe, as (1) its truncating and does not panic,
+						// (2) we just created the vec and the bound is non-zero
+						delegated_nfts.force_push((*item_id, nominal_value));
+
+						Ok(Stake { delegated_nfts, ..Default::default() })
 					},
-				};
+				}?;
 
 				Self::ensure_stake_limit(&stake)?;
 

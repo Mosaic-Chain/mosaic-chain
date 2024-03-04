@@ -6,9 +6,12 @@ use frame_support::{
 	sp_runtime::RuntimeDebug,
 	traits::{Currency, Get},
 };
-use sp_runtime::{traits::Zero, Perbill};
+
+use sp_runtime::{
+	traits::{ConstU32, Zero},
+	BoundedVec, Perbill,
+};
 use sp_staking::SessionIndex;
-use sp_std::vec::Vec as SpVec;
 
 use super::Config;
 
@@ -118,7 +121,7 @@ pub enum PermissionType {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct Stake<Balance, ItemId> {
 	pub currency: Balance,
-	pub delegated_nfts: SpVec<(ItemId, Balance)>,
+	pub delegated_nfts: BoundedVec<(ItemId, Balance), ConstU32<5>>,
 	pub permission_nft: Option<Balance>,
 }
 
