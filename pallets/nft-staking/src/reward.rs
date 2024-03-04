@@ -1,9 +1,11 @@
 use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
-use sp_runtime::{helpers_128bit::multiply_by_rational_with_rounding, Rounding, Saturating};
+use sp_runtime::{
+	helpers_128bit::multiply_by_rational_with_rounding, traits::Zero, Rounding, Saturating,
+};
 
 use super::{
-	Config, Contract, Contracts, Event, NftsConfig, Pallet, PositiveImbalanceOf, TotalStake,
-	ValidatorState, ValidatorStates,
+	Config, Contract, Contracts, Event, NftsConfig, Pallet, PositiveImbalanceOf,
+	TotalValidatorStakes, ValidatorState, ValidatorStates,
 };
 
 #[inline]
@@ -36,13 +38,18 @@ fn calculate_contract_reward<T: Config>(
 	}
 }
 
+fn total_committed_stake<T: Config>() -> T::Balance {
+	TotalValidatorStakes::<T>::iter()
+		.filter_map(|(_, s)| s.committed().map(|tvs| tvs.total_stake))
+		.fold(T::Balance::zero(), |acc, total_stake| acc.saturating_add(total_stake))
+}
+
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_reward_participants(
 		rewarded_validators: impl Iterator<Item = T::AccountId>,
 		session_reward: u128,
 	) {
-		let committed_total_stake: u128 =
-			TotalStake::<T>::get().committed().copied().unwrap_or_default().into();
+		let committed_total_stake: u128 = total_committed_stake::<T>().into();
 
 		if committed_total_stake == 0 {
 			return;
@@ -83,6 +90,7 @@ impl<T: Config> Pallet<T> {
 					}
 				});
 
+				Self::grow_total_validator_stake_by(&validator, s_imbalance.peek());
 				total_rewarded.subsume(s_imbalance);
 
 				Self::deposit_event(Event::<T>::ContractReward {
@@ -102,10 +110,9 @@ impl<T: Config> Pallet<T> {
 				}
 			});
 
+			Self::grow_total_validator_stake_by(&validator, total_v_imbalance.peek());
 			total_rewarded.subsume(total_v_imbalance);
 		}
-
-		Self::grow_total_stake_by(total_rewarded.peek());
 
 		T::OnReward::on_unbalanced(total_rewarded);
 	}

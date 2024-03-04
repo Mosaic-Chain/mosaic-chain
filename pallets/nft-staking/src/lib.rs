@@ -102,6 +102,7 @@ pub mod pallet {
 		type MinimumCommissionRate: Get<Perbill>;
 		type MinimumStakingAmount: Get<Self::Balance>;
 		type MaximumStakePercentage: Get<Perbill>;
+		type MaximumContractsPerValidator: Get<u32>;
 
 		type OnReward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
@@ -110,7 +111,13 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type TotalStake<T: Config> = StorageValue<_, Staging<T::Balance>, ValueQuery>;
+	pub type TotalValidatorStakes<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Staging<TotalValidatorStake<T::Balance>>,
+		ValueQuery,
+	>;
 
 	// TODO: after implementing slippage this does not need to be Staging.
 	#[pallet::storage]
@@ -251,6 +258,7 @@ pub mod pallet {
 		SlippageExceeded,
 		OverdominantStake,
 		TooManyNftDelegatedToContract,
+		ContractLimitReached,
 	}
 
 	#[pallet::genesis_config]
@@ -267,7 +275,6 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			let mut total_stake = Zero::zero();
 			for (validator_id, permission, nominal_value) in &self.initial_staking_validators {
 				assert!(!Validators::<T>::get(validator_id).exists());
 
@@ -297,19 +304,26 @@ pub mod pallet {
 
 				Contracts::<T>::insert(validator_id, validator_id, Staging::new(self_contract));
 
-				total_stake += *nominal_value;
+				TotalValidatorStakes::<T>::insert(
+					validator_id,
+					Staging::new(TotalValidatorStake {
+						total_stake: *nominal_value,
+						contract_count: 1,
+					}),
+				);
 			}
-
-			TotalStake::<T>::put(Staging::new(total_stake));
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn ensure_stake_limit(
-			stake: &Stake<T::Balance, <T as NftsConfig>::ItemId>,
-		) -> DispatchResult {
+		fn ensure_stake_limit(validator: &T::AccountId) -> DispatchResult {
+			let total_stake = TotalValidatorStakes::<T>::get(validator)
+				.current()
+				.ok_or(Error::<T>::NotBound)?
+				.total_stake;
+
 			let ratio = Perbill::from_rational(
-				stake.total(),
+				total_stake,
 				<T as pallet::Config>::Currency::total_issuance(),
 			);
 
@@ -336,8 +350,6 @@ pub mod pallet {
 		/// Commits all storage values. Removes values where there is neither a staged nor a committed value.
 		/// We also remove contracts where stake became zero
 		pub(crate) fn commit_storage() {
-			TotalStake::<T>::mutate(Staging::commit);
-
 			Validators::<T>::translate_values(|mut s: Staging<ValidatorDetails>| {
 				s.exists().then(|| {
 					s.commit();
@@ -345,9 +357,25 @@ pub mod pallet {
 				})
 			});
 
-			Contracts::<T>::translate_values(
-				|mut s: Staging<Contract<T::Balance, <T as NftsConfig>::ItemId>>| {
-					s.current().is_some_and(|contract| !contract.stake.is_zero()).then(|| {
+			Contracts::<T>::translate(
+				|validator, _, mut s: Staging<Contract<T::Balance, <T as NftsConfig>::ItemId>>| {
+					if let Some(contract) = s.current() {
+						if contract.stake.is_empty() {
+							Self::relinquish_contract(&validator);
+							None
+						} else {
+							s.commit();
+							Some(s)
+						}
+					} else {
+						None
+					}
+				},
+			);
+
+			TotalValidatorStakes::<T>::translate_values(
+				|mut s: Staging<TotalValidatorStake<_>>| {
+					s.exists().then(|| {
 						s.commit();
 						s
 					})
@@ -357,32 +385,68 @@ pub mod pallet {
 
 		/// Grows total stake by amount
 		/// (staged)
-		pub(crate) fn grow_total_stake_by(value: T::Balance) {
+		pub(crate) fn grow_total_validator_stake_by(validator: &T::AccountId, value: T::Balance) {
 			if value.is_zero() {
 				return;
 			}
 
-			TotalStake::<T>::mutate(|s| {
-				if let Some(current) = s.ensure_staging_mut() {
+			TotalValidatorStakes::<T>::mutate(validator, |s| {
+				if let Some(TotalValidatorStake { total_stake: current, .. }) =
+					s.ensure_staging_mut()
+				{
 					*current = current.saturating_add(value);
 				} else {
-					s.stage(value);
+					s.stage(TotalValidatorStake { total_stake: value, ..Default::default() });
 				}
 			});
 		}
 
 		/// Shrinks total stake by amount
 		/// (staged)
-		pub(crate) fn shrink_total_stake_by(value: T::Balance) {
+		pub(crate) fn shrink_total_validator_stake_by(validator: &T::AccountId, value: T::Balance) {
 			if value.is_zero() {
 				return;
 			}
 
-			TotalStake::<T>::mutate(|s| {
-				if let Some(current) = s.ensure_staging_mut() {
+			TotalValidatorStakes::<T>::mutate(validator, |s| {
+				if let Some(TotalValidatorStake { total_stake: current, .. }) =
+					s.ensure_staging_mut()
+				{
 					*current = current.saturating_sub(value);
 				}
 			});
+		}
+
+		// Requests the creation of a new contract for a given validator
+		// Fails if contract limit is already reached for the validator
+		fn request_new_contract(validator: &T::AccountId) -> DispatchResult {
+			TotalValidatorStakes::<T>::mutate(validator, |s| {
+				if let Some(TotalValidatorStake { contract_count: current, .. }) =
+					s.ensure_staging_mut()
+				{
+					if *current < T::MaximumContractsPerValidator::get() {
+						*current += 1;
+					} else {
+						return Err(Error::<T>::ContractLimitReached.into());
+					}
+				} else {
+					s.stage(TotalValidatorStake { contract_count: 1, ..Default::default() });
+				}
+
+				Ok(())
+			})
+		}
+
+		// Make a promise to destroy a contract for the given validator
+		// This decreases the number of contracts associated with the validator
+		fn relinquish_contract(validator: &T::AccountId) {
+			TotalValidatorStakes::<T>::mutate(validator, |s| {
+				if let Some(TotalValidatorStake { contract_count: current, .. }) =
+					s.ensure_staging_mut()
+				{
+					*current = current.saturating_sub(1);
+				}
+			})
 		}
 
 		/// Updates currency lock to a new value
@@ -471,7 +535,8 @@ pub mod pallet {
 			ensure!(balance >= amount, Error::<T>::InsufficientFunds);
 
 			Self::lock_currency(staker, amount);
-			Self::grow_total_stake_by(amount);
+			Self::grow_total_validator_stake_by(validator, amount);
+			Self::ensure_stake_limit(validator)?;
 
 			let min_staking_period_end =
 				SessionPallet::<T>::current_index() + validator_details.min_staking_period::<T>();
@@ -482,10 +547,11 @@ pub mod pallet {
 						Stake { currency: old.currency.saturating_add(amount), ..old.clone() }
 					},
 
-					None => Stake { currency: amount, ..Default::default() },
+					None => {
+						Self::request_new_contract(validator)?;
+						Stake { currency: amount, ..Default::default() }
+					},
 				};
-
-				Self::ensure_stake_limit(&stake)?;
 
 				let contract = Contract {
 					stake,
@@ -518,7 +584,8 @@ pub mod pallet {
 			// Note: nft is still considered valid until the end of the session it expires on.
 			ensure!(expiry >= min_staking_period_end, Error::<T>::NftExpiresEarly);
 
-			Self::grow_total_stake_by(nominal_value);
+			Self::grow_total_validator_stake_by(validator, nominal_value);
+			Self::ensure_stake_limit(validator)?;
 
 			Contracts::<T>::mutate(validator, staker, |s| {
 				let stake = match s.current() {
@@ -531,6 +598,7 @@ pub mod pallet {
 					},
 
 					None => {
+						Self::request_new_contract(validator)?;
 						let mut delegated_nfts = BoundedVec::new();
 						// Force push is safe, as (1) its truncating and does not panic,
 						// (2) we just created the vec and the bound is non-zero
@@ -539,8 +607,6 @@ pub mod pallet {
 						Ok(Stake { delegated_nfts, ..Default::default() })
 					},
 				}?;
-
-				Self::ensure_stake_limit(&stake)?;
 
 				let contract = Contract {
 					stake,
@@ -579,7 +645,7 @@ pub mod pallet {
 					Error::<T>::TooSmallUnstake
 				);
 
-				Self::shrink_total_stake_by(amount);
+				Self::shrink_total_validator_stake_by(validator, amount);
 				Self::stage_unlock_currency(staker, amount);
 
 				Ok(())
@@ -613,7 +679,7 @@ pub mod pallet {
 					return Err(Error::<T>::NotBound.into());
 				}
 
-				Self::shrink_total_stake_by(nominal_value);
+				Self::shrink_total_validator_stake_by(validator, nominal_value);
 
 				Ok(())
 			})
@@ -649,6 +715,7 @@ pub mod pallet {
 			Validators::<T>::insert(&caller, Staging::new_staged(details));
 			ValidatorStates::<T>::insert(&caller, ValidatorState::Normal);
 
+			Self::request_new_contract(&caller)?;
 			let self_contract = Contract {
 				stake: Stake { permission_nft: Some(nominal_value), ..Default::default() },
 				commission: Perbill::from_percent(100),
@@ -707,9 +774,6 @@ pub mod pallet {
 					// this isn't a significant problem as we forgive the slash for this session, but a bit weird from an outside perspective.
 				}
 
-				// FIXME?: this is a staged action, so in the current session this validator's stake is still included.
-				Self::shrink_total_stake_by(contract.stake.total());
-
 				Self::deposit_event(Event::<T>::StakerKicked {
 					validator: caller.clone(),
 					staker: contractee,
@@ -721,6 +785,7 @@ pub mod pallet {
 			// Caveat: slashes in current session? We can forgive them, right?
 			Validators::<T>::remove(&caller);
 			ValidatorStates::<T>::remove(&caller);
+			TotalValidatorStakes::<T>::remove(&caller);
 			InverseSlashes::<T>::remove(&caller);
 
 			Self::deposit_event(Event::<T>::ValidatorUnbound(caller));
@@ -1091,9 +1156,9 @@ pub mod pallet {
 				}
 
 				// FIXME?: this is a staged action, so in the current session this delegator's stake is still included.
-				Self::shrink_total_stake_by(contract.stake.total());
+				Self::shrink_total_validator_stake_by(&caller, contract.stake.total());
 
-				// Note: contracts with zero total stake are removed in next session,
+				// Note: contracts with empty stake are removed in next session,
 				// but the delegator can always just restake even in this session
 				contract.stake = Default::default();
 
@@ -1129,7 +1194,7 @@ pub mod pallet {
 
 				contract.stake.permission_nft = Some(issued_nominal_value);
 
-				Self::grow_total_stake_by(imbalance);
+				Self::grow_total_validator_stake_by(&caller, imbalance);
 
 				ValidatorStates::<T>::mutate_extant(&caller, |vstate| {
 					*vstate = match *vstate {

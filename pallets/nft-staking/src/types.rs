@@ -129,10 +129,11 @@ impl<Balance, ItemId> Stake<Balance, ItemId>
 where
 	Balance: Add<Balance, Output = Balance> + Copy + Zero,
 {
-	pub fn is_zero(&self) -> bool {
-		self.currency.is_zero()
-			&& self.permission_value().is_zero()
-			&& self.delegated_nfts.iter().all(|(_, b)| b.is_zero())
+	// An empty stake is a stake that can safely be removed from any context
+	// WRANING: empty => total() = 0, BUT total() = 0 !=> empty
+	// For example: total() = 0, but an nft with zero nominal value is still present
+	pub fn is_empty(&self) -> bool {
+		self.currency.is_zero() && self.permission_nft.is_none() && self.delegated_nfts.is_empty()
 	}
 
 	pub fn total(&self) -> Balance {
@@ -156,6 +157,12 @@ impl<Balance: Default + Codec, ItemId: Codec> Default for Stake<Balance, ItemId>
 			permission_nft: Default::default(),
 		}
 	}
+}
+
+#[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct TotalValidatorStake<Balance> {
+	pub total_stake: Balance,
+	pub contract_count: u32,
 }
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -197,6 +204,16 @@ pub struct Contract<Balance, ItemId> {
 	/// If using staged operations, we can now unstake
 	/// otherwise we must wait for the session after.
 	pub min_staking_period_end: SessionIndex,
+}
+
+impl<Balance: Default + Codec, ItemId: Codec> Default for Contract<Balance, ItemId> {
+	fn default() -> Self {
+		Self {
+			stake: Default::default(),
+			commission: Default::default(),
+			min_staking_period_end: Default::default(),
+		}
+	}
 }
 
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]

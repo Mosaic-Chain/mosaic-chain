@@ -80,7 +80,7 @@ impl<T: Config>
 			{
 				contract.stake.delegated_nfts.remove(index);
 
-				Self::shrink_total_stake_by(*nominal_value);
+				Self::shrink_total_validator_stake_by(&validator, *nominal_value);
 
 				Self::deposit_event(Event::<T>::NftUndelegated {
 					validator: validator.clone(),

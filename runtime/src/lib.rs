@@ -400,6 +400,7 @@ parameter_types! {
 	pub const MinimumStakingPeriod: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(5) };
 	pub const NominalValueThreshold: Perbill = Perbill::from_percent(80);
 	pub const MaximumStakePercentage: Perbill = Perbill::from_percent(15);
+	pub const MaximumContractsPerValidator: u32 = 1000;
 }
 
 impl pallet_nft_staking::Config for Runtime {
@@ -416,6 +417,7 @@ impl pallet_nft_staking::Config for Runtime {
 	type MinimumCommissionRate = MinimumCommission;
 	type MinimumStakingAmount = MinimumStakingAmount;
 	type MaximumStakePercentage = MaximumStakePercentage;
+	type MaximumContractsPerValidator = MaximumContractsPerValidator;
 	type OnReward = ();
 }
 

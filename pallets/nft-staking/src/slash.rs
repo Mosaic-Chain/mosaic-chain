@@ -45,8 +45,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_slash_participants() {
-		let mut total_stake_slash = T::Balance::zero();
-
 		for (validator, slash) in
 			InverseSlashes::<T>::drain().map(|(v, is)| (v, is.left_from_one()))
 		{
@@ -62,6 +60,8 @@ impl<T: Config> Pallet<T> {
 					// Theoretically impossible
 					return;
 				};
+
+				let mut total_stake_slash = T::Balance::zero();
 
 				// Currency slash
 				let currency_slash = slash * committed_contract.stake.currency;
@@ -148,9 +148,9 @@ impl<T: Config> Pallet<T> {
 					delegator_nfts: slashed_delegator_nfts,
 					permission_nft: permission_nft_slash,
 				});
+
+				Self::shrink_total_validator_stake_by(&validator, total_stake_slash);
 			}
 		}
-
-		Self::shrink_total_stake_by(total_stake_slash);
 	}
 }
