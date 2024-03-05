@@ -30,10 +30,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any())]
+#[cfg(test)]
 mod mock;
 
-#[cfg(any())]
+#[cfg(test)]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -48,8 +48,6 @@ use sp_runtime::{
 	FixedI64, PerThing,
 };
 
-use utils::SessionIndex;
-
 pub use pallet::*;
 
 #[frame_support::pallet(dev_mode)] //TODO: remove dev mode
@@ -58,8 +56,7 @@ pub mod pallet {
 	use frame_support::traits::{BuildGenesisConfig, Randomness};
 	use frame_system::pallet_prelude::{ensure_root, BlockNumberFor, OriginFor};
 	use pallet_session::ShouldEndSession;
-	use utils::traits::SessionHook;
-
+	use utils::{traits::SessionHook, SessionIndex};
 	// If a validator's bucket is full, then the bucket value is decreased with decrease_ratio
 	// and the other disperse_ratio=(1-decrease_ratio) is divided among all buckets
 	const DECREASE_RATIO: FixedI64 = FixedI64::from_rational(1, 2);
@@ -121,7 +118,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn avg_session_length)]
-	type AvgSessionLenght<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	type AvgSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -144,7 +141,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Select a subset of the validators for the next session with the two buckets algorithm
-		fn select_subset(validators: Vec<T::ValidatorId>) -> Vec<T::ValidatorId> {
+		pub(super) fn select_subset(validators: Vec<T::ValidatorId>) -> Vec<T::ValidatorId> {
 			let subset_size = Self::subset_size();
 
 			if (validators.len() as u64) < subset_size {
@@ -161,7 +158,6 @@ pub mod pallet {
 			for v in &validators {
 				let mut buckets =
 					Self::buckets(v).unwrap_or_else(|| (Self::random(), Self::random()));
-
 				buckets.0 = buckets.0 + mean;
 				buckets.1 = buckets.1 + mean;
 
@@ -254,6 +250,17 @@ pub mod pallet {
 				}
 			}
 		}
+
+		/// Calculates the new average session length based on new session details and the current average.
+		/// This function is used for updating the rolling average.
+		fn new_avg_session_length(
+			session_index: SessionIndex,
+			session_length: BlockNumberFor<T>,
+			avg: BlockNumberFor<T>,
+		) -> BlockNumberFor<T> {
+			let session_index = BlockNumberFor::<T>::from(session_index);
+			(avg * session_index + session_length) / (session_index + One::one())
+		}
 	}
 
 	#[pallet::call]
@@ -333,9 +340,8 @@ pub mod pallet {
 
 			NextSessionEnd::<T>::put(new_session_end);
 
-			AvgSessionLenght::<T>::mutate(|v| {
-				let session_index = BlockNumberFor::<T>::from(session_index);
-				*v = (*v * session_index + new_session_length) / (session_index + One::one());
+			AvgSessionLength::<T>::mutate(|v| {
+				*v = Self::new_avg_session_length(session_index, new_session_length, *v);
 			});
 
 			Self::deposit_event(Event::SubsetSelected {

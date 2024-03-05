@@ -1,22 +1,26 @@
+// construct_runtime! macro creates some non-camel-case type names.
+#![allow(non_camel_case_types)]
+
 use core::marker::PhantomData;
 
-use frame_support::{
-	pallet_prelude::*,
-	traits::{ConstU16, ConstU64},
-};
+use frame_support::traits::{ConstU16, ConstU64, Randomness, ValidatorSet};
+use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{Hasher, H256};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify, Zero},
 	BuildStorage, MultiSignature,
 };
 
-use crate::{self as pallet_validator_subset_selection, RandomU128};
+use utils::SessionIndex;
+
+use crate::{self as pallet_validator_subset_selection};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
+		Session: pallet_session,
 		ValidatorSubsetSelection: pallet_validator_subset_selection,
 	}
 );
@@ -51,17 +55,51 @@ impl frame_system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+pub struct MockSessionHandler;
+impl pallet_session::SessionHandler<AccountId> for MockSessionHandler {
+	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] =
+		&[sp_runtime::testing::UintAuthorityId::ID];
+	fn on_genesis_session<T: sp_runtime::traits::OpaqueKeys>(
+		_validators: &[(sp_runtime::AccountId32, T)],
+	) {
+	}
+	fn on_new_session<T: sp_runtime::traits::OpaqueKeys>(
+		_changed: bool,
+		_validators: &[(sp_runtime::AccountId32, T)],
+		_queued_validators: &[(sp_runtime::AccountId32, T)],
+	) {
+	}
+	fn on_disabled(_validator_index: u32) {}
+	fn on_before_session_ending() {}
+}
+
+impl sp_runtime::BoundToRuntimeAppPublic for MockSessionHandler {
+	type Public = sp_runtime::testing::UintAuthorityId;
+}
+
+sp_runtime::impl_opaque_keys! {
+	pub struct MockSessionKeys {
+		pub dummy: sp_runtime::testing::UintAuthorityId,
+	}
+}
+
+impl pallet_session::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = ConvertInto;
+	type ShouldEndSession = ValidatorSubsetSelection;
+	type NextSessionRotation = ValidatorSubsetSelection;
+	type SessionManager = ValidatorSubsetSelection;
+	type SessionHandler = MockSessionHandler;
+	type Keys = MockSessionKeys;
+	type WeightInfo = ();
+}
+
 pub struct MockRandomGenerator;
 
-impl RandomU128 for MockRandomGenerator {
-	fn random(subject: &[u8]) -> u128 {
-		let hash_of_nonce = BlakeTwo256::hash(subject);
-
-		u128::from_le_bytes(
-			hash_of_nonce.as_ref()[0..16]
-				.try_into()
-				.expect("Can't convert first part of random hash to u128!"),
-		)
+impl<BlockNumber: Zero> Randomness<sp_core::H256, BlockNumber> for MockRandomGenerator {
+	fn random(subject: &[u8]) -> (sp_core::H256, BlockNumber) {
+		(BlakeTwo256::hash(subject), Zero::zero())
 	}
 }
 
@@ -73,36 +111,31 @@ fn account(id: u64) -> AccountId {
 	ret.into()
 }
 
-struct SupersetSizeStorageInstance;
+const SUPERSET_SIZE: u64 = 1000;
 
-impl frame_support::traits::StorageInstance for SupersetSizeStorageInstance {
-	fn pallet_prefix() -> &'static str {
-		"NoPallet"
+impl ValidatorSet<AccountId> for Test {
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = ConvertInto;
+
+	fn session_index() -> SessionIndex {
+		Session::current_index()
 	}
 
-	const STORAGE_PREFIX: &'static str = "SupersetSize";
-}
-
-type SupersetSize = StorageValue<SupersetSizeStorageInstance, u64, ValueQuery>;
-
-impl pallet_validator_subset_selection::ValidatorSuperset<AccountId> for Test {
-	fn get_superset() -> Vec<AccountId> {
-		let superset_size = SupersetSize::get();
-
-		(0..superset_size).map(|n| account(n)).collect()
+	fn validators() -> Vec<Self::ValidatorId> {
+		(0..SUPERSET_SIZE).map(account).collect()
 	}
 }
 
 impl pallet_validator_subset_selection::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type RandomGenerator = MockRandomGenerator;
-	type InitialRandomGenerator = MockRandomGenerator;
 	type ValidatorSuperset = Self;
 	type SessionHook = ();
+	type Randomness = MockRandomGenerator;
+	type MinSessionLength = ConstU64<1>;
 }
 
-pub fn new_test_ext(superset_size: Option<u64>) -> sp_io::TestExternalities {
+pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_validator_subset_selection::GenesisConfig::<Test> {
@@ -112,11 +145,20 @@ pub fn new_test_ext(superset_size: Option<u64>) -> sp_io::TestExternalities {
 	.assimilate_storage(&mut t)
 	.unwrap();
 
+	pallet_session::GenesisConfig::<Test> {
+		keys: Test::validators()
+			.into_iter()
+			.enumerate()
+			.map(|(idx, id)| (id.clone(), id, MockSessionKeys { dummy: (idx as u64).into() }))
+			.collect(),
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
 	let mut ext = sp_io::TestExternalities::new(t);
 
 	ext.execute_with(|| {
 		System::set_block_number(1);
-		SupersetSize::set(superset_size.unwrap_or_else(|| 1000));
 	});
 
 	ext

@@ -1,4 +1,5 @@
-#![allow(unused_imports)]
+// construct_runtime procmacro creates a __hidden_use_of_unchecked_extrinsic type name that rustc frowns upon:
+#![allow(non_camel_case_types)]
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -11,17 +12,14 @@ use sp_std::prelude::*;
 
 use codec::Encode;
 use frame_support::{
-	traits::{
-		AsEnsureOriginWithArg, EstimateNextSessionRotation, ValidatorSet,
-		ValidatorSetWithIdentification,
-	},
+	traits::{AsEnsureOriginWithArg, ValidatorSet, ValidatorSetWithIdentification},
 	PalletId,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, ConstBool, Hasher, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, ConstBool, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
 	generic::{self, Era},
@@ -33,7 +31,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, SaturatedConversion,
 };
-use sp_staking::offence::OnOffenceHandler;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
