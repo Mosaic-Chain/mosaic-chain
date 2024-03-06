@@ -418,6 +418,8 @@ impl pallet_nft_staking::Config for Runtime {
 	type MinimumStakingAmount = MinimumStakingAmount;
 	type MaximumStakePercentage = MaximumStakePercentage;
 	type MaximumContractsPerValidator = MaximumContractsPerValidator;
+
+	type SessionReward = ConstU128<1000>; // TODO: substitue with mechanism based on "eras/sections". (ever-decreasing rewards)
 	type OnReward = ();
 }
 

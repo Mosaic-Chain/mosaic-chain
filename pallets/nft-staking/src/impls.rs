@@ -1,6 +1,6 @@
 use frame_support::{
 	dispatch::DispatchResult,
-	traits::{ValidatorSet, ValidatorSetWithIdentification},
+	traits::{Get, ValidatorSet, ValidatorSetWithIdentification},
 };
 use sp_runtime::{
 	traits::{Convert, ConvertInto},
@@ -128,7 +128,7 @@ where
 		let active_validators = SessionPallet::<T>::validators();
 		// FIXME: replace active validator len with total number of blocks created in session
 		// TODO: set this to a more sensible value
-		let session_reward = 100 * active_validators.len() as u128;
+		let session_reward = T::SessionReward::get();
 
 		let rewarded = active_validators.into_iter().filter_map(|v| {
 			let v = T::AccountId::from(v);

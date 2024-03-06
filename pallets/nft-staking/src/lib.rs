@@ -103,6 +103,8 @@ pub mod pallet {
 		type MaximumStakePercentage: Get<Perbill>;
 		type MaximumContractsPerValidator: Get<u32>;
 
+		// Amount of **Tiles** to be rewarded in a given session.
+		type SessionReward: Get<u128>;
 		type OnReward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
 		#[pallet::constant]
