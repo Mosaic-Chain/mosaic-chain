@@ -16,7 +16,10 @@ use super::{
 	UnlockingDelegatorNfts, ValidatorState, ValidatorStates,
 };
 
-impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
+pub struct SelectableValidators<T>(sp_std::marker::PhantomData<T>);
+pub struct SlashableValidators<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> ValidatorSet<T::AccountId> for SelectableValidators<T> {
 	type ValidatorId = T::AccountId;
 	type ValidatorIdOf = ConvertInto;
 
@@ -34,6 +37,26 @@ impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
 	}
 }
 
+impl<T: Config> ValidatorSet<T::AccountId> for SlashableValidators<T> {
+	type ValidatorId = T::AccountId;
+	type ValidatorIdOf = ConvertInto;
+
+	fn session_index() -> SessionIndex {
+		SessionPallet::<T>::current_index()
+	}
+
+	// We only slash validators with commited self-contract
+	fn validators() -> SpVec<Self::ValidatorId> {
+		ValidatorStates::<T>::iter()
+			.filter_map(|(validator_id, _)| {
+				Contracts::<T>::get(&validator_id, &validator_id)
+					.exists_committed()
+					.then_some(validator_id)
+			})
+			.collect()
+	}
+}
+
 // TODO: Can we not do silly things like this?
 pub struct ValidatorOf<T>(PhantomData<T>);
 
@@ -43,7 +66,12 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for ValidatorOf<T> {
 	}
 }
 
-impl<T: Config> ValidatorSetWithIdentification<T::AccountId> for Pallet<T> {
+impl<T: Config> ValidatorSetWithIdentification<T::AccountId> for SelectableValidators<T> {
+	type Identification = T::AccountId;
+	type IdentificationOf = ValidatorOf<T>;
+}
+
+impl<T: Config> ValidatorSetWithIdentification<T::AccountId> for SlashableValidators<T> {
 	type Identification = T::AccountId;
 	type IdentificationOf = ValidatorOf<T>;
 }

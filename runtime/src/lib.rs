@@ -458,7 +458,7 @@ impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type Randomness = InsecureRandomnessCollectiveFlip;
-	type ValidatorSuperset = Staking;
+	type ValidatorSuperset = pallet_nft_staking::SelectableValidators<Runtime>;
 	type MinSessionLength = MinSessionLength;
 	type SessionHook = (NftDelegation, NftStaking);
 }
@@ -745,7 +745,7 @@ impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
 	type NextSessionRotation = ValidatorSubsetSelection;
-	type ValidatorSet = Staking;
+	type ValidatorSet = pallet_nft_staking::SlashableValidators<Runtime>;
 	type ReportUnresponsiveness = ImOnlineReporter;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
