@@ -15,8 +15,6 @@ use sp_staking::SessionIndex;
 
 use super::Config;
 
-//TODO: consider using `Compact`
-//TODO: consider making committed not optional
 /// Adds a "staging" overlay to a value.
 /// Useful when managing the transition between a last "stable" or "active" state
 /// and a potential new state applied in the next period, providing incremental updates.

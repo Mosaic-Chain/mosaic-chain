@@ -52,7 +52,9 @@ impl<T: Config> Pallet<T> {
 
 			for (delegator, contract) in Contracts::<T>::iter_prefix(&validator) {
 				let Some(committed_contract) = contract.committed().cloned() else {
-					// Slashed validators must have a committed self-contract
+					// We can only slash commited contracts
+					// There is a small chance the validators who just bound themselves this session are slashed (but their self-contract is not yet commited)
+					// But this slash can be forgiven as rewards are not received either (they can't yet be active)
 					return;
 				};
 
@@ -105,7 +107,6 @@ impl<T: Config> Pallet<T> {
 
 					for (s_nft, s_value) in new_contract.stake.delegated_nfts.iter_mut() {
 						if *s_nft == *nft {
-							// TODO: unbind if value is lower then minimal staking amount?
 							*s_value = new_value;
 							total_stake_slash = total_stake_slash.saturating_add(slashed_from_this);
 							break;

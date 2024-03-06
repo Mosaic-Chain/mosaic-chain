@@ -190,7 +190,7 @@ Effects:
 - the `item` is scheduled to be unbound from the `caller`'s account. 
 
 ### `delegate_currency(caller, amount, target)`
-_TODO: slippage_
+
 
 Preconditions:
 - `target` is a bound, not chilled validator

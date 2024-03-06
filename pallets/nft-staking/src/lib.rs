@@ -2,8 +2,6 @@
 /// Mosaic's very own staking pallet
 /// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.
 /// # Missing features:
-///   - Slippage
-///   - Fix total stakes
 ///   - Tests and benchmarks
 pub use pallet::*;
 pub use types::PermissionType;
@@ -119,10 +117,9 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	// TODO: after implementing slippage this does not need to be Staging.
 	#[pallet::storage]
 	pub type Validators<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, Staging<ValidatorDetails>, ValueQuery>;
+		StorageMap<_, Twox64Concat, T::AccountId, ValidatorDetails, OptionQuery>;
 
 	#[pallet::storage]
 	pub type Contracts<T: Config> = StorageDoubleMap<
@@ -276,7 +273,7 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (validator_id, permission, nominal_value) in &self.initial_staking_validators {
-				assert!(!Validators::<T>::get(validator_id).exists());
+				assert!(!Validators::<T>::contains_key(validator_id));
 
 				let item_id = T::NftStakingHandler::mint(validator_id, permission, nominal_value)
 					.expect("couldn't mint new nft on genesis; this shouldn't happen");
@@ -293,7 +290,7 @@ pub mod pallet {
 					},
 				};
 
-				Validators::<T>::insert(validator_id, Staging::new(validator));
+				Validators::<T>::insert(validator_id, validator);
 				ValidatorStates::<T>::insert(validator_id, ValidatorState::Normal);
 
 				let self_contract = Contract {
@@ -348,15 +345,8 @@ pub mod pallet {
 		}
 
 		/// Commits all storage values. Removes values where there is neither a staged nor a committed value.
-		/// We also remove contracts where stake became zero
+		/// We also remove empty contracts
 		pub(crate) fn commit_storage() {
-			Validators::<T>::translate_values(|mut s: Staging<ValidatorDetails>| {
-				s.exists().then(|| {
-					s.commit();
-					s
-				})
-			});
-
 			Contracts::<T>::translate(
 				|validator, _, mut s: Staging<Contract<T::Balance, <T as NftsConfig>::ItemId>>| {
 					if let Some(contract) = s.current() {
@@ -694,7 +684,7 @@ pub mod pallet {
 			item_id: <T as NftsConfig>::ItemId,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(!Validators::<T>::get(&caller).exists(), Error::<T>::AlreadyBound);
+			ensure!(!Validators::<T>::contains_key(&caller), Error::<T>::AlreadyBound);
 
 			let (permission, nominal_value) = T::NftStakingHandler::bind(&caller, &item_id)?;
 
@@ -712,8 +702,9 @@ pub mod pallet {
 				},
 			};
 
-			Validators::<T>::insert(&caller, Staging::new_staged(details));
+			Validators::<T>::insert(&caller, details);
 			ValidatorStates::<T>::insert(&caller, ValidatorState::Normal);
+			Self::grow_total_validator_stake_by(&caller, nominal_value);
 
 			Self::request_new_contract(&caller)?;
 			let self_contract = Contract {
@@ -733,7 +724,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn unbind_validator(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(Validators::<T>::get(&caller).exists(), Error::<T>::NotBound);
+			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
 			ensure!(Self::is_chilled(&caller), Error::<T>::TargetIsNotChilled);
 
 			// Note: we can unbind immediately, as the next bind could only take effect in the next session.
@@ -797,11 +788,8 @@ pub mod pallet {
 		pub fn enable_delegations(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			// Note: we check the current value, as enabling/disabling delegations must be immediate
-			// After implementing slippage this can be cleaned up.
-
-			Validators::<T>::mutate(&caller, |s| {
-				let details = s.ensure_staging_mut().ok_or(Error::<T>::NotBound)?;
+			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
+				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
 
 				if let ValidatorDetails::DPoS { accept_delegations, .. } = details {
 					ensure!(!*accept_delegations, Error::<T>::AlreadyAcceptsDelegations);
@@ -821,11 +809,8 @@ pub mod pallet {
 		pub fn disable_delegations(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			// Note: we check the current value, as enabling/disabling delegations must be immediate
-			// After implementing slippage this can be cleaned up.
-
-			Validators::<T>::mutate(&caller, |s| {
-				let details = s.ensure_staging_mut().ok_or(Error::<T>::NotBound)?;
+			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
+				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
 
 				if let ValidatorDetails::DPoS { accept_delegations, .. } = details {
 					ensure!(*accept_delegations, Error::<T>::AlreadyDeniesDelegations);
@@ -888,8 +873,7 @@ pub mod pallet {
 		pub fn self_stake_currency(origin: OriginFor<T>, amount: T::Balance) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			let details =
-				Validators::<T>::get(&caller).current().cloned().ok_or(Error::<T>::NotBound)?;
+			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
 
 			Self::do_stake_currency(&caller, details, &caller, amount)?;
 
@@ -909,8 +893,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			let details =
-				Validators::<T>::get(&caller).current().cloned().ok_or(Error::<T>::NotBound)?;
+			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
 
 			Self::do_stake_nft(&caller, details, &caller, &item_id)?;
 
@@ -926,7 +909,7 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		pub fn self_unstake_currency(origin: OriginFor<T>, amount: T::Balance) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(Validators::<T>::get(&caller).exists(), Error::<T>::NotBound);
+			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
 
 			Self::do_unstake_currency(&caller, &caller, amount)?;
 
@@ -945,7 +928,7 @@ pub mod pallet {
 			item_id: <T as NftsConfig>::ItemId,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(Validators::<T>::get(&caller).exists(), Error::<T>::NotBound);
+			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
 
 			Self::do_unstake_nft(&caller, &caller, &item_id)?;
 
@@ -963,18 +946,25 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			amount: T::Balance,
 			target: T::AccountId,
+			observed_staking_period: u32,
+			observed_commission: Perbill,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(caller != target, Error::<T>::InvalidTarget);
 
-			let details =
-				Validators::<T>::get(&target).current().cloned().ok_or(Error::<T>::NotBound)?;
+			let details = Validators::<T>::get(&target).ok_or(Error::<T>::NotBound)?;
 
-			let ValidatorDetails::DPoS { accept_delegations, .. } = details else {
+			let ValidatorDetails::DPoS { accept_delegations, min_staking_period, commission } =
+				details
+			else {
 				return Err(Error::<T>::TargetNotDPoS.into());
 			};
 
 			ensure!(accept_delegations, Error::<T>::TargetDeniesDelegations);
+			ensure!(
+				min_staking_period == observed_staking_period && commission == observed_commission,
+				Error::<T>::SlippageExceeded
+			);
 
 			Self::do_stake_currency(&target, details, &caller, amount)?;
 
@@ -992,18 +982,25 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			item_id: <T as NftsConfig>::ItemId,
 			target: T::AccountId,
+			observed_staking_period: u32,
+			observed_commission: Perbill,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(caller != target, Error::<T>::InvalidTarget);
 
-			let details =
-				Validators::<T>::get(&target).current().cloned().ok_or(Error::<T>::NotBound)?;
+			let details = Validators::<T>::get(&target).ok_or(Error::<T>::NotBound)?;
 
-			let ValidatorDetails::DPoS { accept_delegations, .. } = details else {
+			let ValidatorDetails::DPoS { accept_delegations, min_staking_period, commission } =
+				details
+			else {
 				return Err(Error::<T>::TargetNotDPoS.into());
 			};
 
 			ensure!(accept_delegations, Error::<T>::TargetDeniesDelegations);
+			ensure!(
+				min_staking_period == observed_staking_period && commission == observed_commission,
+				Error::<T>::SlippageExceeded
+			);
 
 			Self::do_stake_nft(&target, details, &caller, &item_id)?;
 
@@ -1025,8 +1022,7 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			ensure!(caller != target, Error::<T>::InvalidTarget);
 
-			let details =
-				Validators::<T>::get(&target).current().cloned().ok_or(Error::<T>::NotBound)?;
+			let details = Validators::<T>::get(&target).ok_or(Error::<T>::NotBound)?;
 			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
 			Self::do_unstake_currency(&target, &caller, amount)?;
@@ -1050,7 +1046,6 @@ pub mod pallet {
 			ensure!(caller != target, Error::<T>::InvalidTarget);
 
 			let permission = Validators::<T>::get(&target)
-				.current()
 				.map(|details| details.permission())
 				.ok_or(Error::<T>::NotBound)?;
 
@@ -1074,9 +1069,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			// TODO(vismate): after implementing slippage this should be immidiate
-			Validators::<T>::mutate(&caller, |s| {
-				let details = s.ensure_staging_mut().ok_or(Error::<T>::NotBound)?;
+			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
+				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
 
 				ensure!(!Self::is_chilled(&caller), Error::<T>::TargetIsChilled);
 
@@ -1104,9 +1098,8 @@ pub mod pallet {
 		pub fn set_commission(origin: OriginFor<T>, new_commission: Perbill) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			// TODO(vismate): after implementing slippage this should be immidiate
-			Validators::<T>::mutate(&caller, |s| {
-				let details = s.ensure_staging_mut().ok_or(Error::<T>::NotBound)?;
+			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
+				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
 
 				ensure!(!Self::is_chilled(&caller), Error::<T>::TargetIsChilled);
 
@@ -1136,8 +1129,7 @@ pub mod pallet {
 			//FIXME: InvalidTarget and TargetNotDPos refer to the caller but can be misconstrued
 			ensure!(caller != target, Error::<T>::InvalidTarget);
 
-			let details =
-				Validators::<T>::get(&caller).current().cloned().ok_or(Error::<T>::NotBound)?;
+			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
 
 			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
