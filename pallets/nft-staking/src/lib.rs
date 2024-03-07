@@ -316,6 +316,15 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub(crate) fn drafted_validators() -> impl Iterator<Item = <T as SessionConfig>::ValidatorId>
+		{
+			// Currently active + queued validators
+			SessionPallet::<T>::queued_keys()
+				.into_iter()
+				.map(|(v, _)| v)
+				.chain(SessionPallet::<T>::validators().into_iter())
+		}
+
 		fn ensure_stake_limit(validator: &T::AccountId) -> DispatchResult {
 			let total_stake = TotalValidatorStakes::<T>::get(validator)
 				.current()
@@ -736,14 +745,10 @@ pub mod pallet {
 			let validator_id = T::ValidatorIdOf::convert(caller.clone())
 				.expect("caller address can be converted to validator id");
 
-			// Currently active + queued validators
-			// TODO(vismate): factor this out for testability
-			let mut already_selected = SessionPallet::<T>::queued_keys()
-				.into_iter()
-				.map(|(v, _)| v)
-				.chain(SessionPallet::<T>::validators().into_iter());
-
-			ensure!(already_selected.all(|id| id != validator_id), Error::<T>::BlockedUnbind);
+			ensure!(
+				Self::drafted_validators().all(|id| id != validator_id),
+				Error::<T>::BlockedUnbind
+			);
 
 			let session = SessionPallet::<T>::current_index();
 

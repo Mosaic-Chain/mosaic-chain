@@ -45,13 +45,30 @@ impl<T: Config> ValidatorSet<T::AccountId> for SlashableValidators<T> {
 		SessionPallet::<T>::current_index()
 	}
 
-	// We only slash validators with commited self-contract
+	// A validator can be slashed if:
+	// - has commited self-contract
+	// - not chilled
+	// - currently in active set or is selected to be in the next one (even if chilled)
 	fn validators() -> SpVec<Self::ValidatorId> {
+		let drafted_validators: SpVec<_> = Pallet::<T>::drafted_validators().collect(); // I'd like to use some sort of set so much...
+
 		ValidatorStates::<T>::iter()
-			.filter_map(|(validator_id, _)| {
-				Contracts::<T>::get(&validator_id, &validator_id)
-					.exists_committed()
-					.then_some(validator_id)
+			.filter_map(|(validator_id, vstate)| {
+				let chilled = matches!(vstate, ValidatorState::Chilled(_));
+
+				let converted_id = T::ValidatorIdOf::convert(validator_id.clone())
+					.expect("caller address can be converted to validator id");
+
+				let drafted = drafted_validators.iter().any(|id| converted_id == *id);
+
+				let has_commited_self_contract =
+					Contracts::<T>::get(&validator_id, &validator_id).exists_committed();
+
+				if (drafted || !chilled) && has_commited_self_contract {
+					Some(validator_id)
+				} else {
+					None
+				}
 			})
 			.collect()
 	}
