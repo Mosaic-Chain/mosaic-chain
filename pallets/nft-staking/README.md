@@ -53,6 +53,7 @@
 - **MinimumCommissionRate:** the default commission rate (percentage) under which a validator can't set their own term.
 - **MinimumStakingAmount:** the minimum amount one can stake / unstake or keep staked. 
 - **MaximumStakePercentage:** the maximum percentage of total mosaic issuance above which no validator's total stake can go. 
+- **MaximumContractsPerValidator:** the maximum number of contracts we wish to keep track of per validator. (incl. self-contract)
 
 ## Public API:
 There are about four distinct cases of staking:
@@ -72,7 +73,7 @@ _(Note: parters might have tokens with 0 nominal value, this should not cause an
 
 Effects:
 - `item` is "immediately" bound.
-- `item`'s nominal value is scheduled to be added to both `caller`'s and the global stake.
+- `item`'s nominal value is scheduled to be added to `caller`'s stake.
 
 ### `unbind_validator(caller)`
 _TODO: revise unbinding. what do we do staged and what immidiately?_
@@ -89,11 +90,11 @@ Effects:
 - `caller`'s permission nft is unbound
 - `caller`'s currency based self-stake is unlocked
 - `caller`'s self-bound delegator nfts are unbound
-- `caller`'s stake is **scheduled** to be removed from global stake (TODO: should we do it immediately? if preconditions are met we owe nothing to the validator this session)
+- `caller`'s stake is **scheduled** to be removed.
 - If `caller` is DPoS:
   - all delegators' currency based stake is unlocked (these can happen "immediately")
   - all delegators' bound delegator nft is unbound
-  - all delegators' delegation to `caller` is **scheduled** to be removed from global stake
+  - all delegators' delegation to `caller` is **scheduled** to be removed.
 
 ### `disable_delegations(caller)`
 
@@ -144,7 +145,7 @@ Preconditions:
 
 Effects:
 - the `amount` is locked "immediately" on the `caller`'s account
-- the `amount` is scheduled to be added to both `caller`'s stake and the global stake in the next session
+- the `amount` is scheduled to be added to `caller`'s stake in the next session
 - the `caller`'s staking period is scheduled to be reset in the next session
 
 _(Note: subsequent operations within a session are not always commutable as operations often check staged (scheduled) values instead of committed ones._
@@ -161,7 +162,7 @@ Preconditions:
 
 Effects:
 - the `item` is bound "immediately" to the `caller`
-- the nft's nominal value is scheduled to be added to both `caller`'s stake and the global stake in the next session
+- the nft's nominal value is scheduled to be added to `caller`'s stake in the next session
 - the `caller`'s own contract with themselves is scheduled to be updated: the staking period resets
 
 ### `self_unstake_currency(caller, amount)`
@@ -175,7 +176,7 @@ Preconditions:
 
 Effects:
 - the `amount` is **scheduled** to be unlocked on _(or added to)_ the `caller`'s account
-- the `amount` is schduled to be removed from both the `caller`'s stake and the global stake
+- the `amount` is schduled to be removed from the `caller`'s stake
 
 ### `self_unstake_nft(caller, item)`
 
@@ -186,33 +187,33 @@ Preconditions:
 - the `caller`'s staking period is greater or equal to the minimum staking period
 
 Effects:
-- the `item`'s nominal value is scheduled to be removed from both the `caller`'s stake and the global stake
+- the `item`'s nominal value is scheduled to be removed from the `caller`'s stake
 - the `item` is scheduled to be unbound from the `caller`'s account. 
 
-### `delegate_currency(caller, amount, target)`
-
+### `delegate_currency(caller, amount, target, observed_staking_period, observed_commission)`
 
 Preconditions:
 - `target` is a bound, not chilled validator
 - `target` is a DPoS validator
 - `target` accpets delegations
+- `observed_staking_period` and `observed_commission` match the current terms
 - `caller` and `target` are not the same (use `self_stake_currency` instead)
 - `amount` is more than or equal to the minimum staking amount
 - `caller` has at least `amount` lockable, free currency
 
 Effects:
 - `amount` is locked "immediately" on `caller`'s account
-- `amount` is scheduled to be added to both `target`'s stake and global stake
+- `amount` is scheduled to be added to `target`'s stake
 - terms of the contract between `caller` and `target` are scheduled to be updated:
   - staking period resets (possibly to a new value) and the new commission is applied (if changed)
 
-### `delegate_nft(caller, item, target)`
-_TODO: slippage_
+### `delegate_nft(caller, item, target, observed_staking_period, observed_commission)`
 
 Preconditions:
 - `target` is a bound, not chilled validator
 - `target` is a DPoS validator
 - `target` accepts delegations
+- `observed_staking_period` and `observed_commission` match the current terms
 - `target` and `caller` are not the same (use `self_stake_nft` instead)
 - `item` is a delegator nft owned by `caller`
 - `item` is not bound to any other validator
@@ -221,7 +222,7 @@ Preconditions:
 
 Effects:
 - `item` is bound to `target` "immediately"
-- `item`'s nominal value is scheduled to be added to both `target`'s stake and the global stake.
+- `item`'s nominal value is scheduled to be added to `target`'s stake.
 - terms of the contract between `caller` and `target` are scheduled to be updated:
   -  staking period resets (possibly to a new value), commision changes (if it's changed)
 
@@ -239,7 +240,7 @@ Preconditions:
 
 Effects:
 - `amount` currency is scheduled to be unlocked on _(or added to)_ the `caller`'s account
-- `amount` currency is scheduled to be removed from both the `target`'s stake and global stake
+- `amount` currency is scheduled to be removed from the `target`'s stake
 
 ### `undelegate_nft(caller, item, target)`
 
@@ -253,7 +254,7 @@ Preconditions:
 
 Effects:
 - `item` is scheduled to be unbound from `target`
-- `item`'s nominal value is scheduled to be removed from both `target`'s stake and the global stake
+- `item`'s nominal value is scheduled to be removed from `target`'s stake
 
 ### `set_minimum_staking_period(caller, new_min_period)` 
 Preconditions:
@@ -262,8 +263,7 @@ Preconditions:
 - `new_min_period` is longer or equal to the `MinimumStakingPeriod`
 
 Effects:
-- `caller`'s new contract term is scheduled to beupdated.
-  - _(Note: we should do this immidiately after implementing slippage)_
+- `caller`'s new contract term is updated immediately.
   - _(Note: Existing contracts don't get updated)_
 
 
@@ -275,8 +275,7 @@ Preconditions:
 - `new_commission` is larger or equal to `MinimumCommissionRate`
 
 Effects:
-- `caller`'s new contract term is scheduled to be updated
-- _(Note: we should update immidiatelys after implementing slippage)_
+- `caller`'s new contract term is updated immediately
 
 ### `kick(caller, target)`
 
@@ -290,7 +289,7 @@ Preconditions:
 Effects:
 - `target`'s currency based delegation scheduled to be freed 
 - `target`'s delegated nfts are **scheduled** to be unbound
-- `target`'s stake is **scheduled** to be removed both from `caller`'s stake and the global stake
+- `target`'s stake is **scheduled** to be removed from `caller`'s stake
 
 ### `topup(caller, item_id, allowed_amount)`
 let `imbalance` be `issued_nominal_value - current_nominal_value`
@@ -303,7 +302,7 @@ Preconditions:
 Effects:
 - `imbalance` is withdrawn from `caller`'s free balance
 - `imbalance` is added to `item_id`'s nominal value
-- if `item_id` is currently bound `imbalance` is scheduled to be added to both `caller`'s stake and the global stake.
+- if `item_id` is currently bound `imbalance` is scheduled to be added to `caller`'s stake.
 - if validator state is `Faluted` it's changes back to `Normal`
 
 ## Mechanisms
@@ -312,15 +311,22 @@ These details are not part of the public callable API, but are behaviours that m
 ### Stake limits
 - we limit the total stake a single validator can have to a portion of total mosaic issuance
    _(`MaximumStakePercentage`)_
-- the stake can go ower this limit with rewards
+- the stake can go over this limit with rewards
+- we also limit the number of contracts a validator can have
+- the number of delegated nfts are also limited per contract
 
 ### Reward calcualtion
 - Rewards increase stake.
 - Slashed participants are not rewarded in the current session. 
+- This pallet queries for the reward to be given out in a session.
+- The session reward is distributed amongst the participants proportionally to their stake.
+- The delegators "pay" the commission to the validators from this reward.
 
 ### Slashing
-- We slash all bound validators and their delegators.
-- Currency/nft based stake slashed under the minimal staking amount is dusted. // TODO
+- We slash bound validators who:
+  - have commited self-contract
+  - not chilled
+	- currently in active set or is selected to be in the next one (even if chilled)
 - When it comes to delegator nfts, the convention is to slash them in the order they were staked.
 - We can also slash into unlocking currency.
 
