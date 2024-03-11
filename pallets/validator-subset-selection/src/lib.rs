@@ -97,28 +97,28 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn subset_size)]
-	type SubsetSize<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type SubsetSize<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn buckets)]
-	type DoubleBucketMap<T: Config> =
+	pub type DoubleBucketMap<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::ValidatorId, (FixedI64, FixedI64)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn current_session_end)]
-	type CurrentSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type CurrentSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn next_session_end)]
-	type NextSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type NextSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn current_session_length)]
-	type CurrentSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type CurrentSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn avg_session_length)]
-	type AvgSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type AvgSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -189,6 +189,17 @@ pub mod pallet {
 			(buckets.0.sub(first_decrease), buckets.1.sub(second_decrease))
 		}
 
+		/// Calculates the new average session length based on new session details and the current average.
+		/// This function is used for updating the rolling average.
+		pub(crate) fn new_avg_session_length(
+			session_index: SessionIndex,
+			session_length: BlockNumberFor<T>,
+			avg: BlockNumberFor<T>,
+		) -> BlockNumberFor<T> {
+			let session_index = BlockNumberFor::<T>::from(session_index);
+			(avg * session_index + session_length) / (session_index + One::one())
+		}
+
 		///Helper function for the two bucket algorithm
 		///Determine if a validator is selected and return new bucket values
 		fn select(buckets: (FixedI64, FixedI64)) -> Option<(FixedI64, FixedI64)> {
@@ -235,7 +246,7 @@ pub mod pallet {
 			T::Hashing::hash(&s)
 		}
 
-		fn session_length(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
+		pub(crate) fn session_length(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
 			let min_session_length = T::MinSessionLength::get();
 
 			if subset_size >= min_session_length {
@@ -249,17 +260,6 @@ pub mod pallet {
 					min_session_length + (subset_size - remainder)
 				}
 			}
-		}
-
-		/// Calculates the new average session length based on new session details and the current average.
-		/// This function is used for updating the rolling average.
-		fn new_avg_session_length(
-			session_index: SessionIndex,
-			session_length: BlockNumberFor<T>,
-			avg: BlockNumberFor<T>,
-		) -> BlockNumberFor<T> {
-			let session_index = BlockNumberFor::<T>::from(session_index);
-			(avg * session_index + session_length) / (session_index + One::one())
 		}
 	}
 

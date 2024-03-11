@@ -103,7 +103,7 @@ impl<BlockNumber: Zero> Randomness<sp_core::H256, BlockNumber> for MockRandomGen
 	}
 }
 
-fn account(id: u64) -> AccountId {
+pub fn account(id: u64) -> AccountId {
 	let id_as_bytes = id.to_ne_bytes();
 	let zeros: [u8; 24] = [0; 24];
 	let ret: [u8; 32] = [&id_as_bytes[..], &zeros[..]].concat().try_into().unwrap();
@@ -141,16 +141,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_validator_subset_selection::GenesisConfig::<Test> {
 		initial_subset_size: 250,
 		_phantom: PhantomData,
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-
-	pallet_session::GenesisConfig::<Test> {
-		keys: Test::validators()
-			.into_iter()
-			.enumerate()
-			.map(|(idx, id)| (id.clone(), id, MockSessionKeys { dummy: (idx as u64).into() }))
-			.collect(),
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
