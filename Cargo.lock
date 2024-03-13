@@ -4794,6 +4794,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances",
  "pallet-im-online",
  "pallet-nfts",

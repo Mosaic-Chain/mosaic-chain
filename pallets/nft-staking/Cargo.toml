@@ -25,6 +25,7 @@ sp-staking = { version = "4.0.0-dev", default-features = false, git = "https://g
 sp-std = { version = "8.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 
 utils = { version = "0.1.0", path = "../../utils" }
+log = "0.4.21"
 
 [dev-dependencies]
 pallet-balances = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }

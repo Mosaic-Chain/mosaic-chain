@@ -356,6 +356,12 @@ pub mod pallet {
 			}
 		}
 
+		/// Returns a chilled validator state and publishes an event of the chill.
+		pub(crate) fn chill_state(validator: T::AccountId, reason: ChillReason) -> ValidatorState {
+			Self::deposit_event(Event::<T>::ValidatorChilled { validator, reason });
+			ValidatorState::Chilled(SessionPallet::<T>::current_index())
+		}
+
 		/// Commits all storage values. Removes values where there is neither a staged nor a committed value.
 		/// We also remove empty contracts
 		pub(crate) fn commit_storage() {
@@ -375,6 +381,7 @@ pub mod pallet {
 				},
 			);
 
+			// Must be after relinquish_contract calls
 			TotalValidatorStakes::<T>::translate_values(
 				|mut s: Staging<TotalValidatorStake<_>>| {
 					s.exists().then(|| {
@@ -383,6 +390,16 @@ pub mod pallet {
 					})
 				},
 			);
+
+			for (staker, amount) in UnlockingCurrency::<T>::drain() {
+				Self::unlock_currency(&staker, amount);
+			}
+
+			for (item_id, staker) in UnlockingDelegatorNfts::<T>::drain() {
+				if let Err(e) = T::NftDelegationHandler::unbind(&staker, &item_id) {
+					log::error!("failed to unbind delegator nft({item_id}) of {staker:x}: {e}");
+				}
+			}
 		}
 
 		/// Grows total stake by amount
@@ -842,13 +859,7 @@ pub mod pallet {
 				match validator_state {
 					ValidatorState::Chilled(_) => Err(Error::<T>::TargetIsChilled.into()),
 					_ => {
-						*validator_state =
-							ValidatorState::Chilled(SessionPallet::<T>::current_index());
-
-						Self::deposit_event(Event::<T>::ValidatorChilled {
-							validator: caller.clone(),
-							reason: ChillReason::Manual,
-						});
+						*validator_state = Self::chill_state(caller.clone(), ChillReason::Manual);
 						Ok(())
 					},
 				}

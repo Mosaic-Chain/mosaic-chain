@@ -5,8 +5,8 @@ use sp_std::vec::Vec as SpVec;
 use utils::traits::{NftDelegation, NftStaking};
 
 use super::{
-	ChillReason, Config, Contracts, Event, InverseSlashes, Pallet, SessionPallet,
-	UnlockingCurrency, ValidatorState, ValidatorStates,
+	ChillReason, Config, Contracts, Event, InverseSlashes, Pallet, UnlockingCurrency,
+	ValidatorState, ValidatorStates,
 };
 
 impl<T: Config> Pallet<T> {
@@ -16,12 +16,7 @@ impl<T: Config> Pallet<T> {
 			*vstate = match *vstate {
 				ValidatorState::Normal => ValidatorState::Faulted,
 				ValidatorState::Faulted => {
-					Self::deposit_event(Event::<T>::ValidatorChilled {
-						validator: validator.clone(),
-						reason: ChillReason::DoubleFault,
-					});
-
-					ValidatorState::Chilled(SessionPallet::<T>::current_index())
+					Self::chill_state(validator.clone(), ChillReason::DoubleFault)
 				},
 				s => s,
 			}
@@ -34,12 +29,7 @@ impl<T: Config> Pallet<T> {
 			<= T::NominalValueThreshold::get()
 		{
 			ValidatorStates::<T>::mutate_extant(validator, |vstate| {
-				*vstate = ValidatorState::Chilled(SessionPallet::<T>::current_index())
-			});
-
-			Self::deposit_event(Event::<T>::ValidatorChilled {
-				validator: validator.clone(),
-				reason: ChillReason::Disqualified,
+				*vstate = Self::chill_state(validator.clone(), ChillReason::Disqualified);
 			});
 		}
 	}

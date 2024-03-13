@@ -392,13 +392,13 @@ impl pallet_nft_permission::Config for Runtime {
 	type Permission = pallet_nft_staking::PermissionType;
 }
 
-// TODO review these
 parameter_types! {
 	pub const MinimumCommission: Perbill = Perbill::from_percent(1);
 	pub const StakingPalletId: PalletId = PalletId(*b"mstaking");
 	pub const MinimumStakingAmount: Balance = 10;
-	pub const MinimumStakingPeriod: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(5) };
+	pub const MinimumStakingPeriod: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(200) }; // approx. 1 week
 	pub const NominalValueThreshold: Perbill = Perbill::from_percent(80);
+	// TODO: revise this value
 	pub const MaximumStakePercentage: Perbill = Perbill::from_percent(15);
 	pub const MaximumContractsPerValidator: u32 = 1000;
 }
@@ -411,7 +411,7 @@ impl pallet_nft_staking::Config for Runtime {
 	type Balance = Balance;
 	type PalletId = StakingPalletId;
 
-	type SlackingPeriod = ConstU32<2>;
+	type SlackingPeriod = ConstU32<10>; // approx. 8hrs
 	type NominalValueThreshold = NominalValueThreshold;
 	type MinimumStakingPeriod = MinimumStakingPeriod;
 	type MinimumCommissionRate = MinimumCommission;

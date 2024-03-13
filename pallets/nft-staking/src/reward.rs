@@ -1,6 +1,7 @@
 use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
 use sp_runtime::{
-	helpers_128bit::multiply_by_rational_with_rounding, traits::Zero, Rounding, Saturating,
+	helpers_128bit::multiply_by_rational_with_rounding, traits::Zero, PerThing, Perbill, Rounding,
+	Saturating,
 };
 
 use super::{
@@ -9,9 +10,8 @@ use super::{
 };
 
 #[inline]
-fn rmul(a: u128, b: u128, c: u128) -> u128 {
+fn rmul(a: u128, b: u128, c: u128) -> Option<u128> {
 	multiply_by_rational_with_rounding(a, b, c, Rounding::NearestPrefDown)
-		.expect("no arithmical overflow")
 }
 
 struct ContractReward<Balance> {
@@ -24,12 +24,13 @@ fn calculate_contract_reward<T: Config>(
 	session_reward: u128,
 	contract: &Contract<T::Balance, <T as NftsConfig>::ItemId>,
 ) -> ContractReward<T::Balance> {
-	let contract_reward = rmul(session_reward, contract.stake.total().into(), total_stake);
+	let contract_reward = rmul(session_reward, contract.stake.total().into(), total_stake)
+		.expect("contract.stake <= total_stake ==> contract_reward <= session_reward");
 
-	let commission: u128 = contract.commission.deconstruct().into();
+	let (nominator, denominator) = (contract.commission.deconstruct(), Perbill::ACCURACY);
 
-	// 10^9 Tile is a Mosaic
-	let validator_reward = rmul(contract_reward, commission, u128::pow(10, 9));
+	let validator_reward =
+		rmul(contract_reward, nominator.into(), denominator.into()).expect("commission <= 1");
 	let staker_reward = contract_reward.saturating_sub(validator_reward);
 
 	ContractReward {

@@ -143,8 +143,6 @@ where
 {
 	fn session_ended(_: u32) -> DispatchResult {
 		let active_validators = SessionPallet::<T>::validators();
-		// FIXME: replace active validator len with total number of blocks created in session
-		// TODO: set this to a more sensible value
 		let session_reward = T::SessionReward::get();
 
 		let rewarded = active_validators.into_iter().filter_map(|v| {
@@ -156,14 +154,6 @@ where
 		Self::do_slash_participants();
 
 		Self::commit_storage();
-
-		for (staker, amount) in UnlockingCurrency::<T>::drain() {
-			Self::unlock_currency(&staker, amount);
-		}
-
-		for (item_id, staker) in UnlockingDelegatorNfts::<T>::drain() {
-			T::NftDelegationHandler::unbind(&staker, &item_id).expect("could unbind nft");
-		}
 
 		Ok(())
 	}
