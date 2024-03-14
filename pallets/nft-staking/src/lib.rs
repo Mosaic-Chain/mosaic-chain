@@ -340,11 +340,13 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// PANIC: account does not exist in ValidatorStates
 		fn is_chilled(account: &T::AccountId) -> bool {
 			let state = ValidatorStates::<T>::get(account).unwrap();
 			matches!(state, ValidatorState::Chilled(_))
 		}
 
+		/// PANIC: account does not exist in ValidatorStates
 		fn is_slacking(account: &T::AccountId) -> bool {
 			let state = ValidatorStates::<T>::get(account).unwrap();
 			match state {
@@ -756,11 +758,10 @@ pub mod pallet {
 			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
 			ensure!(Self::is_chilled(&caller), Error::<T>::TargetIsNotChilled);
 
-			// Note: we can unbind immediately, as the next bind could only take effect in the next session.
 			let _ = T::NftStakingHandler::unbind(&caller)?;
 
 			let validator_id = T::ValidatorIdOf::convert(caller.clone())
-				.expect("caller address can be converted to validator id");
+				.expect("caller address can always be converted to validator id");
 
 			ensure!(
 				Self::drafted_validators().all(|id| id != validator_id),
