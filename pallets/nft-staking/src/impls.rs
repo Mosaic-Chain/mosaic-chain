@@ -9,11 +9,9 @@ use sp_runtime::{
 use sp_staking::SessionIndex;
 use sp_std::{marker::PhantomData, vec::Vec as SpVec};
 
-use utils::traits::NftDelegation;
-
 use super::{
-	Config, Contracts, Event, InverseSlashes, NftsConfig, Pallet, SessionPallet, UnlockingCurrency,
-	UnlockingDelegatorNfts, ValidatorState, ValidatorStates,
+	Config, Contracts, Event, InverseSlashes, NftsConfig, Pallet, SessionPallet, ValidatorState,
+	ValidatorStates,
 };
 
 pub struct SelectableValidators<T>(sp_std::marker::PhantomData<T>);

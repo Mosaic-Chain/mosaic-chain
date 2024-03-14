@@ -322,7 +322,7 @@ pub mod pallet {
 			SessionPallet::<T>::queued_keys()
 				.into_iter()
 				.map(|(v, _)| v)
-				.chain(SessionPallet::<T>::validators().into_iter())
+				.chain(SessionPallet::<T>::validators())
 		}
 
 		fn ensure_stake_limit(validator: &T::AccountId) -> DispatchResult {
@@ -397,7 +397,7 @@ pub mod pallet {
 
 			for (item_id, staker) in UnlockingDelegatorNfts::<T>::drain() {
 				if let Err(e) = T::NftDelegationHandler::unbind(&staker, &item_id) {
-					log::error!("failed to unbind delegator nft({item_id}) of {staker:x}: {e}");
+					log::error!("failed to unbind delegator nft({item_id:?}) of {staker:?}: {e:?}");
 				}
 			}
 		}
@@ -1215,7 +1215,7 @@ pub mod pallet {
 				});
 			});
 
-			<T as pallet::Config>::Currency::withdraw(
+			let _withdrawn = <T as pallet::Config>::Currency::withdraw(
 				&caller,
 				imbalance,
 				//TODO: Is `all` okay for us? In this entire pallet...
