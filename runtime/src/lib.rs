@@ -403,6 +403,14 @@ parameter_types! {
 	pub const MaximumContractsPerValidator: u32 = 1000;
 }
 
+pub struct IdTupleToValidatorId;
+
+impl Convert<IdTuple, AccountId> for IdTupleToValidatorId {
+	fn convert(id_tuple: IdTuple) -> AccountId {
+		id_tuple.0
+	}
+}
+
 impl pallet_nft_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -421,6 +429,8 @@ impl pallet_nft_staking::Config for Runtime {
 
 	type SessionReward = ConstU128<1000>; // TODO: substitue with mechanism based on "eras/sections". (ever-decreasing rewards)
 	type OnReward = ();
+
+	type OffenderToValidatorId = IdTupleToValidatorId;
 }
 
 parameter_types! {
@@ -689,18 +699,18 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 
-type IdTouple = pallet_im_online::IdentificationTuple<Runtime>;
-type ImOnlineOffence = pallet_im_online::UnresponsivenessOffence<IdTouple>;
+type IdTuple = pallet_im_online::IdentificationTuple<Runtime>;
+type ImOnlineOffence = pallet_im_online::UnresponsivenessOffence<IdTuple>;
 
 pub struct ImOnlineOffenceAdapter(ImOnlineOffence);
 
 pub struct ImOnlineReporter;
 
-impl Offence<IdTouple> for ImOnlineOffenceAdapter {
+impl Offence<IdTuple> for ImOnlineOffenceAdapter {
 	const ID: sp_staking::offence::Kind = *b"mos:imon-offline";
 	type TimeSlot = sp_staking::SessionIndex;
 
-	fn offenders(&self) -> Vec<IdTouple> {
+	fn offenders(&self) -> Vec<IdTuple> {
 		self.0.offenders()
 	}
 
@@ -725,19 +735,19 @@ impl Offence<IdTouple> for ImOnlineOffenceAdapter {
 	}
 }
 
-impl ReportOffence<AccountId, IdTouple, ImOnlineOffence> for ImOnlineReporter {
+impl ReportOffence<AccountId, IdTuple, ImOnlineOffence> for ImOnlineReporter {
 	fn report_offence(
 		reporters: Vec<AccountId>,
 		offence: ImOnlineOffence,
 	) -> Result<(), sp_staking::offence::OffenceError> {
 		let offence = ImOnlineOffenceAdapter(offence);
-		<Offences as ReportOffence<AccountId, IdTouple, ImOnlineOffenceAdapter>>::report_offence(
+		<Offences as ReportOffence<AccountId, IdTuple, ImOnlineOffenceAdapter>>::report_offence(
 			reporters, offence,
 		)
 	}
 
-	fn is_known_offence(offenders: &[IdTouple], time_slot: &sp_staking::SessionIndex) -> bool {
-		<Offences as ReportOffence<AccountId, IdTouple, ImOnlineOffenceAdapter>>::is_known_offence(
+	fn is_known_offence(offenders: &[IdTuple], time_slot: &sp_staking::SessionIndex) -> bool {
+		<Offences as ReportOffence<AccountId, IdTuple, ImOnlineOffenceAdapter>>::is_known_offence(
 			offenders, time_slot,
 		)
 	}

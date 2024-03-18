@@ -50,13 +50,8 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	// TODO: remove direct im-online dependency
 	pub trait Config:
-		frame_system::Config
-		+ NftsConfig
-		+ SessionConfig
-		+ pallet_offences::Config
-		+ pallet_im_online::Config
+		frame_system::Config + NftsConfig + SessionConfig + pallet_offences::Config
 	{
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -95,6 +90,8 @@ pub mod pallet {
 			Self::ItemId,
 			Self::AccountId,
 		>;
+
+		type OffenderToValidatorId: Convert<Self::IdentificationTuple, Self::AccountId>;
 
 		/// Period after which a chilled validator is considered slacking
 		type SlackingPeriod: Get<u32>;

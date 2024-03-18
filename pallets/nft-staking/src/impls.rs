@@ -155,33 +155,31 @@ where
 	}
 }
 
-// TODO: make id tuple more generic
 // TODO: define weights
 impl<T: Config>
 	sp_staking::offence::OnOffenceHandler<
 		<T as frame_system::Config>::AccountId,
-		pallet_im_online::IdentificationTuple<T>,
+		<T as pallet_offences::Config>::IdentificationTuple,
 		frame_support::weights::Weight,
 	> for Pallet<T>
-where
-	<<T as pallet_im_online::Config>::ValidatorSet as ValidatorSet<
-		<T as frame_system::Config>::AccountId,
-	>>::ValidatorId: codec::EncodeLike<<T as frame_system::Config>::AccountId>,
 {
 	fn on_offence(
 		offenders: &[sp_staking::offence::OffenceDetails<
 			<T as frame_system::Config>::AccountId,
-			pallet_im_online::IdentificationTuple<T>,
+			<T as pallet_offences::Config>::IdentificationTuple,
 		>],
 		slash_fraction: &[Perbill],
 		_session: sp_staking::SessionIndex,
 		_disable_strategy: sp_staking::offence::DisableStrategy,
 	) -> frame_support::weights::Weight {
 		for (o, slash) in offenders.iter().zip(slash_fraction.iter()) {
-			InverseSlashes::<T>::mutate_exists(o.offender.0.clone(), |s| match *s {
-				None => *s = Some(slash.left_from_one()),
-				Some(ref mut acc) => *acc = *acc * slash.left_from_one(),
-			});
+			InverseSlashes::<T>::mutate_exists(
+				T::OffenderToValidatorId::convert(o.offender.clone()),
+				|s| match *s {
+					None => *s = Some(slash.left_from_one()),
+					Some(ref mut acc) => *acc = *acc * slash.left_from_one(),
+				},
+			);
 		}
 
 		frame_support::weights::Weight::default()
