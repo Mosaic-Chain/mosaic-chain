@@ -35,7 +35,10 @@ use utils::{
 	SessionIndex,
 };
 
-use types::*;
+use types::{
+	ChillReason, Contract, KickReason, PositiveImbalanceOf, Staging, Stake, TotalValidatorStake,
+	ValidatorDetails, ValidatorState,
+};
 use utils::traits::{NftDelegation, NftStaking};
 
 #[frame_support::pallet(dev_mode)]
@@ -468,7 +471,7 @@ pub mod pallet {
 				{
 					*current = current.saturating_sub(1);
 				}
-			})
+			});
 		}
 
 		/// Updates currency lock to a new value
@@ -786,7 +789,7 @@ pub mod pallet {
 				// We immediately release currency and NFTs so delegators needn't wait until the end of session.
 				// Note: they would not receive rewards for this contract this session.
 				Self::unlock_currency(&contractee, contract.stake.currency);
-				for (item_id, _) in contract.stake.delegated_nfts.iter() {
+				for (item_id, _) in &contract.stake.delegated_nfts {
 					T::NftDelegationHandler::unbind(&contractee, item_id)?;
 					// TODO: nfts in UnlockingDelegatorNfts are only unlocked at the end of this session
 					// this isn't a significant problem as we forgive the slash for this session, but a bit weird from an outside perspective.
@@ -858,12 +861,11 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			ValidatorStates::<T>::mutate(&caller, |validator_state| {
 				let validator_state = validator_state.as_mut().ok_or(Error::<T>::NotBound)?;
-				match validator_state {
-					ValidatorState::Chilled(_) => Err(Error::<T>::TargetIsChilled.into()),
-					_ => {
-						*validator_state = Self::chill_state(caller.clone(), ChillReason::Manual);
-						Ok(())
-					},
+				if let ValidatorState::Chilled(_) = validator_state {
+					Err(Error::<T>::TargetIsChilled.into())
+				} else {
+					*validator_state = Self::chill_state(caller.clone(), ChillReason::Manual);
+					Ok(())
 				}
 			})
 		}
@@ -1164,7 +1166,7 @@ pub mod pallet {
 				}
 
 				Self::stage_unlock_currency(&target, contract.stake.currency);
-				for (item_id, _) in contract.stake.delegated_nfts.iter() {
+				for (item_id, _) in &contract.stake.delegated_nfts {
 					UnlockingDelegatorNfts::<T>::insert(*item_id, target.clone());
 				}
 
@@ -1173,7 +1175,7 @@ pub mod pallet {
 
 				// Note: contracts with empty stake are removed in next session,
 				// but the delegator can always just restake even in this session
-				contract.stake = Default::default();
+				contract.stake = Stake::default();
 
 				Self::deposit_event(Event::<T>::StakerKicked {
 					validator: caller.clone(),

@@ -151,8 +151,8 @@ impl<Balance: Default + Codec, ItemId: Codec> Default for Stake<Balance, ItemId>
 	fn default() -> Self {
 		Self {
 			currency: Default::default(),
-			delegated_nfts: Default::default(),
-			permission_nft: Default::default(),
+			delegated_nfts: BoundedVec::default(),
+			permission_nft: None,
 		}
 	}
 }
@@ -185,7 +185,7 @@ impl ValidatorDetails {
 		}
 	}
 
-	/// Helper function to return min_staking_period regardless the permission type
+	/// Helper function to return `min_staking_period` regardless the permission type
 	pub fn min_staking_period<T: Config>(&self) -> u32 {
 		match self {
 			Self::PoS => T::MinimumStakingPeriod::get().into(),
@@ -207,8 +207,8 @@ pub struct Contract<Balance, ItemId> {
 impl<Balance: Default + Codec, ItemId: Codec> Default for Contract<Balance, ItemId> {
 	fn default() -> Self {
 		Self {
-			stake: Default::default(),
-			commission: Default::default(),
+			stake: Stake::default(),
+			commission: Perbill::default(),
 			min_staking_period_end: Default::default(),
 		}
 	}

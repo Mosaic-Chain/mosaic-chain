@@ -83,7 +83,7 @@ impl<T: Config> Pallet<T> {
 				let mut d_nft_slash = slash * committed_contract.stake.delegated_nft();
 
 				let mut slashed_delegator_nfts = SpVec::new();
-				for (nft, value) in committed_contract.stake.delegated_nfts.iter() {
+				for (nft, value) in &committed_contract.stake.delegated_nfts {
 					if d_nft_slash.is_zero() {
 						break;
 					}
@@ -95,7 +95,7 @@ impl<T: Config> Pallet<T> {
 					// find nft in new_contract and deduct the slash both from it and the total stake.
 					// if it's not found it means it just being unbound in which case it's whole value is already deducted.
 
-					for (s_nft, s_value) in new_contract.stake.delegated_nfts.iter_mut() {
+					for (s_nft, s_value) in &mut new_contract.stake.delegated_nfts {
 						if *s_nft == *nft {
 							*s_value = new_value;
 							total_stake_slash = total_stake_slash.saturating_add(slashed_from_this);

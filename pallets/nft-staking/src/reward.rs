@@ -42,7 +42,7 @@ fn calculate_contract_reward<T: Config>(
 fn total_committed_stake<T: Config>() -> T::Balance {
 	TotalValidatorStakes::<T>::iter()
 		.filter_map(|(_, s)| s.committed().map(|tvs| tvs.total_stake))
-		.fold(T::Balance::zero(), |acc, total_stake| acc.saturating_add(total_stake))
+		.fold(T::Balance::zero(), Saturating::saturating_add)
 }
 
 impl<T: Config> Pallet<T> {
