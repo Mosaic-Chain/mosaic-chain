@@ -235,7 +235,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		AlreadyBound,
 		NotBound,
-		BlockedUnbind,
+		ValidatorAlreadySelected,
+		BindingContractExists,
 		TargetNotDPoS,
 		InvalidTarget,
 		AlreadyAcceptsDelegations,
@@ -765,7 +766,7 @@ pub mod pallet {
 
 			ensure!(
 				Self::drafted_validators().all(|id| id != validator_id),
-				Error::<T>::BlockedUnbind
+				Error::<T>::ValidatorAlreadySelected
 			);
 
 			let session = SessionPallet::<T>::current_index();
@@ -779,7 +780,7 @@ pub mod pallet {
 			for (contractee, contract) in contracts {
 				// Note: since we are terminating the contract immediately we have to check for equality too
 				if contract.min_staking_period_end >= session {
-					return Err(Error::<T>::BlockedUnbind.into());
+					return Err(Error::<T>::BindingContractExists.into());
 				}
 
 				// We immediately release currency and NFTs so delegators needn't wait until the end of session.
