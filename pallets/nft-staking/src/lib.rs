@@ -50,7 +50,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	// TODO: remove im-online dependency
+	// TODO: remove direct im-online dependency
 	pub trait Config:
 		frame_system::Config
 		+ NftsConfig
@@ -241,6 +241,8 @@ pub mod pallet {
 		ValidatorAlreadySelected,
 		BindingContractExists,
 		TargetNotDPoS,
+		CallerNotDPoS,
+		InvalidCaller,
 		InvalidTarget,
 		AlreadyAcceptsDelegations,
 		AlreadyDeniesDelegations,
@@ -791,8 +793,6 @@ pub mod pallet {
 				Self::unlock_currency(&contractee, contract.stake.currency);
 				for (item_id, _) in &contract.stake.delegated_nfts {
 					T::NftDelegationHandler::unbind(&contractee, item_id)?;
-					// TODO: nfts in UnlockingDelegatorNfts are only unlocked at the end of this session
-					// this isn't a significant problem as we forgive the slash for this session, but a bit weird from an outside perspective.
 				}
 
 				Self::deposit_event(Event::<T>::StakerKicked {
@@ -1149,12 +1149,11 @@ pub mod pallet {
 		#[pallet::call_index(16)]
 		pub fn kick(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			//FIXME: InvalidTarget and TargetNotDPos refer to the caller but can be misconstrued
-			ensure!(caller != target, Error::<T>::InvalidTarget);
+			ensure!(caller != target, Error::<T>::InvalidCaller);
 
 			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
 
-			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
+			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::CallerNotDPoS);
 
 			ensure!(!Self::is_chilled(&caller), Error::<T>::TargetIsChilled);
 

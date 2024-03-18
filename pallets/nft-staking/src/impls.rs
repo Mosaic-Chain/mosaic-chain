@@ -71,8 +71,6 @@ impl<T: Config> ValidatorSet<T::AccountId> for SlashableValidators<T> {
 			.collect()
 	}
 }
-
-// TODO: Can we not do silly things like this?
 pub struct ValidatorOf<T>(PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for ValidatorOf<T> {
@@ -159,7 +157,6 @@ where
 
 // TODO: make id tuple more generic
 // TODO: define weights
-// TODO: This trait seems to not quite fit our use-case perfectly. What should we do?
 impl<T: Config>
 	sp_staking::offence::OnOffenceHandler<
 		<T as frame_system::Config>::AccountId,

@@ -72,8 +72,11 @@ impl<T: Config> Pallet<T> {
 
 				Self::unlock_currency(&delegator, currency_slash);
 
-				// TODO: trace if actual_slash != currency_slash
 				let (actual_slash, _) = <T as Config>::Currency::slash(&delegator, currency_slash);
+
+				if actual_slash.peek() != currency_slash {
+					log::debug!("actual slash did not match calculated currency slash");
+				}
 
 				new_contract.stake.currency =
 					new_contract.stake.currency.saturating_sub(actual_slash.peek());
@@ -104,9 +107,11 @@ impl<T: Config> Pallet<T> {
 					}
 
 					// set nft nominal value
-					// FIXME: dont panic
-					T::NftDelegationHandler::set_nominal_value(nft, new_value)
-						.expect("could set nominal value");
+					if let Err(err) = T::NftDelegationHandler::set_nominal_value(nft, new_value) {
+						log::error!(
+							"Could not set delegator nft nominal value during slashing: {err:?}"
+						);
+					}
 
 					slashed_delegator_nfts.push((*nft, slashed_from_this));
 				}
