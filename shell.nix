@@ -1,7 +1,4 @@
 let
-  toolchainTomlPath = ./toolchain.toml;
-  toolchainToml = (builtins.fromTOML (builtins.readFile toolchainTomlPath)).toolchain;
-
   rust_overlay =
     import (builtins.fetchGit {
       url = "https://github.com/oxalica/rust-overlay";
@@ -10,16 +7,12 @@ let
 
   pinned = builtins.fetchGit {
     url = "https://github.com/nixos/nixpkgs/";
-    ref = "refs/tags/23.05";
+    ref = "refs/tags/23.11";
   };
 
   pkgs = import pinned { overlays = [ rust_overlay ]; };
 
-  rust = pkgs.rust-bin.stable.${toolchainToml.channel}.default.override {
-    extensions = toolchainToml.components;
-    targets = toolchainToml.targets;
-  };
-
+  rust = pkgs.rust-bin.fromRustupToolchainFile ./toolchain.toml;
 in
 pkgs.mkShell {
 buildInputs = [
@@ -28,6 +21,8 @@ buildInputs = [
     clang
     pkg-config
     bacon
+    just
+    cargo-nextest
   ]);
 
   LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";

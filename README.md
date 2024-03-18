@@ -1,18 +1,36 @@
-# Substrate Node Template
-
-A fresh [Substrate](https://substrate.io/) node, ready for hacking :rocket:
-
-A standalone version of this template is available for each release of Polkadot in the [Substrate Developer Hub Parachain Template](https://github.com/substrate-developer-hub/substrate-parachain-template/) repository.
-The parachain template is generated directly at each Polkadot release branch from the [Node Template in Substrate](https://github.com/paritytech/substrate/tree/master/bin/node-template) upstream
-
-It is usually best to use the standalone version to start a new project.
-All bugs, suggestions, and feature requests should be made upstream in the [Substrate](https://github.com/paritytech/substrate/tree/master/bin/node-template) repository.
+# Mosaic Chain
 
 ## Getting Started
 
-Depending on your operating system and Rust version, there might be additional packages required to compile this template.
+Depending on your operating system and Rust version, there might be additional packages required to compile the project.
 Check the [installation](https://docs.substrate.io/install/) instructions for your platform for the most common dependencies.
 Alternatively, you can use one of the [alternative installation](#alternative-installations) options.
+
+A `shell.nix` file is also included using which a complete development environment can be spawned.
+It also serves as a complete list of dependencies together with `toolchain.toml`
+
+### justfile
+The project provides a `justfile` which contains regurarly used actions.
+After installing [just](https://github.com/casey/just) these actions can be easily ran.
+
+For example:
+```bash
+just test-all
+```
+
+```bash
+Available recipes:
+    build         # build debug version of mosaic-chain
+    build-release # build release version of mosaic-chain
+    clippy        # run clippy for lints
+    format        # format the code
+    install-nix   # install the nix package manager to make your life easier*
+    run-network   # run a temporary test network with alice, bob and the others (6 nodes)
+    test $PACKAGE # test a specified package (eg.: a pallet)
+    test-all      # test every package
+```
+
+In case `just` isn't being used the commands in the `justfile` are recommended to be issued manually.
 
 ### Build
 
@@ -30,7 +48,7 @@ After you build the project, you can use the following command to explore its pa
 ./target/release/mosaic-chain -h
 ```
 
-You can generate and view the [Rust Docs](https://doc.rust-lang.org/cargo/commands/cargo-doc.html) for this template with this command:
+You can generate and view the [Rust Docs](https://doc.rust-lang.org/cargo/commands/cargo-doc.html) for this project with this command:
 
 ```sh
 cargo +nightly doc --open
@@ -66,13 +84,13 @@ Development chains:
 To persist chain state between runs, specify a base path by running a command similar to the following:
 
 ```sh
-// Create a folder to use as the db base path
+# Create a folder to use as the db base path
 $ mkdir my-chain-state
 
-// Use of that folder to store the chain state
+# Use of that folder to store the chain state
 $ ./target/release/mosaic-chain --dev --base-path ./my-chain-state/
 
-// Check the folder structure created inside the base path after running the chain
+# Check the folder structure created inside the base path after running the chain
 $ ls ./my-chain-state
 chains
 $ ls ./my-chain-state/chains/
@@ -83,15 +101,48 @@ db keystore network
 
 ### Connect with Polkadot-JS Apps Front-End
 
-After you start the node template locally, you can interact with it using the hosted version of the [Polkadot/Substrate Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944) front-end by connecting to the local node endpoint.
+After you start the node locally, you can interact with it using the hosted version of the [Polkadot/Substrate Portal](https://polkadot.js.org/apps/#/explorer?rpc=ws://localhost:9944) front-end by connecting to the local node endpoint.
 A hosted version is also available on [IPFS (redirect) here](https://dotapps.io/) or [IPNS (direct) here](ipns://dotapps.io/?rpc=ws%3A%2F%2F127.0.0.1%3A9944#/explorer).
 You can also find the source code and instructions for hosting your own instance on the [polkadot-js/apps](https://github.com/polkadot-js/apps) repository.
 
 ### Multi-Node Local Testnet
 
-If you want to see the multi-node consensus algorithm in action, see [Simulate a network](https://docs.substrate.io/tutorials/get-started/simulate-network/).
+```bash
+just run-network
+```
 
-## Template Structure
+The above command runs this script:
+
+```bash
+#!/usr/bin/env bash
+ids=(alice bob charlie dave eve ferdie)
+
+max=6
+for (( i=0; i < $max; i++ ))
+  do
+    ./target/release/mosaic-chain purge-chain \
+    --base-path /tmp/${ids[i]} \
+    --chain local -y \
+
+    ./target/release/mosaic-chain \
+    --base-path /tmp/${ids[i]} \
+    --chain local \
+    --${ids[i]} \
+    --port $((30333 + i)) \
+    --unsafe-rpc-external \
+    --rpc-port $((9945 +i)) \
+    --node-key 000000000000000000000000000000000000000000000000000000000000000$((1 + i)) \
+    --validator \
+    --rpc-methods=Unsafe \
+    --rpc-cors=all \
+   &
+done
+
+trap "trap - SIGTERM && kill -9 -- $$" SIGINT SIGTERM EXIT
+while true; do read; done
+```
+
+## Project Structure
 
 A Substrate project such as this consists of a number of components that are spread across a few directories.
 
@@ -103,7 +154,7 @@ Substrate-based blockchain nodes expose a number of capabilities:
 - Networking: Substrate nodes use the [`libp2p`](https://libp2p.io/) networking stack to allow the
   nodes in the network to communicate with one another.
 - Consensus: Blockchains must have a way to come to [consensus](https://docs.substrate.io/fundamentals/consensus/) on the state of the network.
-  Substrate makes it possible to supply custom consensus engines and also ships with several consensus mechanisms that have been built on top of [Web3 Foundation research](https://research.web3.foundation/en/latest/polkadot/NPoS/index.html).
+  Substrate makes it possible to supply custom consensus engines and also ships with several consensus mechanisms that have been built on top of Web3 Foundation research.
 - RPC Server: A remote procedure call (RPC) server is used to interact with Substrate nodes.
 
 There are several files in the `node` directory.
@@ -134,7 +185,7 @@ Review the [FRAME runtime implementation](./runtime/src/lib.rs) included in this
 
 ### Pallets
 
-The runtime in this project is constructed using many FRAME pallets that ship with the [core Substrate repository](https://github.com/paritytech/substrate/tree/master/frame) and a template pallet that is [defined in the `pallets`](./pallets/template/src/lib.rs) directory.
+The runtime in this project is constructed using many FRAME pallets that ship with the [core Substrate repository](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame) and a template pallet that is [defined in the `pallets`](./pallets/template/src/lib.rs) directory.
 
 A FRAME pallet is compromised of a number of blockchain primitives:
 
@@ -144,39 +195,16 @@ A FRAME pallet is compromised of a number of blockchain primitives:
 - Errors: When a dispatchable fails, it returns an error.
 - Config: The `Config` configuration interface is used to define the types and parameters upon which a FRAME pallet depends.
 
-## Alternative Installations
+#### Custom pallets
+Mosaic Chain implements it's business logic in custom built pallets:
 
-Instead of installing dependencies and building this source directly, consider the following alternatives.
-
-### CI
-
-#### Binary
-
-Check the [CI release workflow](./.github/workflows/release.yml) to see how the binary is built on CI.
-You can modify the compilation targets depending on your needs.
-
-Allow GitHub actions in your forked repository to build the binary for you.
-
-Push a tag. For example, `v0.1.1`. Based on [Semantic Versioning](https://semver.org/), the supported tag format is `v?MAJOR.MINOR.PATCH(-PRERELEASE)?(+BUILD_METADATA)?` (the leading "v", pre-release version, and build metadata are optional and the optional prefix is also supported).
-
-After the pipeline is finished, you can download the binary from the releases page.
-
-#### Container
-
-Check the [CI release workflow](./.github/workflows/release.yml) to see how the Docker image is built on CI.
-
-Add your `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets or other organization settings to your forked repository.
-Change the `DOCKER_REPO` variable in the workflow to `[your DockerHub registry name]/[image name]`.
-
-Push a tag.
-
-After the image is built and pushed, you can pull it with `docker pull <DOCKER_REPO>:<tag>`.
-
-### Nix
-
-Install [nix](https://nixos.org/), and optionally [direnv](https://github.com/direnv/direnv) and [lorri](https://github.com/nix-community/lorri) for a fully plug-and-play experience for setting up the development environment.
-To get all the correct dependencies, activate direnv `direnv allow` and lorri `lorri shell`.
-
-### Docker
-
-Please follow the [Substrate Docker instructions here](https://github.com/paritytech/substrate/blob/master/docker/README.md) to build the Docker container with the Substrate Node Template binary.
+- [`pallet-nft-staking`](./pallets/nft-staking/README.md) ties staking and validation logic together, it's responsible for:
+  - validator binding/unbinding
+  - accepting nft and currency based delegation
+  - reward calculation
+  - slashing
+  - providing the list of selectable validators to `validator-subset-selection`
+- [`pallet-validator-subset-selection`](./pallets/validator-subset-selection/README.md) selects the active subset of validators who produce the block in the current session and drives session progression.
+- [`pallet-nft-permission`](./pallets/nft-permission/README.md) owns permission NFTs and handles it's attributes.
+- [`pallet-nft-delegation`](./pallets/nft-delegation/README.md) owns delegator NFTs and handles it's attributes. 
+  

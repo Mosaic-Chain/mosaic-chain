@@ -1,9 +1,6 @@
 [package]
 name = "mosaic-chain"
-version = "4.0.0-dev"
-description = "A fresh FRAME-based Substrate node, ready for hacking."
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
-homepage = "https://substrate.io/"
+version = "0.1.0"
 edition = "2021"
 license = "MIT-0"
 publish = false
