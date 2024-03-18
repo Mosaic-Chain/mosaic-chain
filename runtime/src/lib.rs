@@ -779,7 +779,7 @@ impl pallet_nft_delegation::Config for Runtime {
 	type PalletId = NftDelegationPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Balance = Balance;
-	type NftExpirationHandler = ();
+	type NftExpirationHandler = Staking;
 	type BindMetadata = Self::AccountId;
 }
 
