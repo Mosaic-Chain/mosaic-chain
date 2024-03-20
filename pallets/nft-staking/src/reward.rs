@@ -5,8 +5,8 @@ use sp_runtime::{
 };
 
 use super::{
-	Config, Contract, Contracts, Event, NftsConfig, Pallet, PositiveImbalanceOf,
-	TotalValidatorStakes, ValidatorState, ValidatorStates,
+	Config, Contract, Contracts, Event, Pallet, PositiveImbalanceOf, TotalValidatorStakes,
+	ValidatorState, ValidatorStates,
 };
 
 #[inline]
@@ -22,7 +22,7 @@ struct ContractReward<Balance> {
 fn calculate_contract_reward<T: Config>(
 	total_stake: u128,
 	session_reward: u128,
-	contract: &Contract<T::Balance, <T as NftsConfig>::ItemId>,
+	contract: &Contract<T::Balance, T::ItemId>,
 ) -> ContractReward<T::Balance> {
 	let contract_reward = rmul(session_reward, contract.stake.total().into(), total_stake)
 		.expect("contract.stake <= total_stake ==> contract_reward <= session_reward");

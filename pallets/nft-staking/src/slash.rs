@@ -113,7 +113,7 @@ impl<T: Config> Pallet<T> {
 						);
 					}
 
-					slashed_delegator_nfts.push((*nft, slashed_from_this));
+					slashed_delegator_nfts.push((nft.clone(), slashed_from_this));
 				}
 
 				// If it's the self-contract let's slash the permission nft as well.

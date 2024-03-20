@@ -417,6 +417,7 @@ impl pallet_nft_staking::Config for Runtime {
 	type NftDelegationHandler = NftDelegation;
 	type NftStakingHandler = NftPermission;
 	type Balance = Balance;
+	type ItemId = <Self as pallet_nfts::Config>::ItemId;
 	type PalletId = StakingPalletId;
 
 	type SlackingPeriod = ConstU32<10>; // approx. 8hrs

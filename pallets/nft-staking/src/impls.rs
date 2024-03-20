@@ -10,7 +10,7 @@ use sp_staking::SessionIndex;
 use sp_std::{marker::PhantomData, vec::Vec as SpVec};
 
 use super::{
-	Config, Contracts, Event, InverseSlashes, NftsConfig, Pallet, SessionPallet, ValidatorState,
+	Config, Contracts, Event, InverseSlashes, Pallet, SessionPallet, ValidatorState,
 	ValidatorStates,
 };
 
@@ -90,17 +90,13 @@ impl<T: Config> ValidatorSetWithIdentification<T::AccountId> for SlashableValida
 }
 
 impl<T: Config>
-	utils::traits::OnDelegationNftExpire<
-		T::AccountId,
-		<T as NftsConfig>::ItemId,
-		T::Balance,
-		T::AccountId,
-	> for Pallet<T>
+	utils::traits::OnDelegationNftExpire<T::AccountId, T::ItemId, T::Balance, T::AccountId>
+	for Pallet<T>
 {
 	fn on_expire(
 		owner: &T::AccountId,
 		validator: Option<T::AccountId>,
-		item_id: &<T as NftsConfig>::ItemId,
+		item_id: &T::ItemId,
 		nominal_value: &T::Balance,
 	) {
 		let Some(validator) = validator else {
@@ -126,7 +122,7 @@ impl<T: Config>
 				Self::deposit_event(Event::<T>::NftUndelegated {
 					validator: validator.clone(),
 					staker: owner.clone(),
-					item_id: *item_id,
+					item_id: item_id.clone(),
 				});
 			}
 		});

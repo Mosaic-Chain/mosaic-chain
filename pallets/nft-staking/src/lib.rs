@@ -21,7 +21,6 @@ use frame_support::{
 	Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
-use pallet_nfts::Config as NftsConfig;
 use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
 use sp_std::vec::Vec as SpVec;
 
@@ -50,9 +49,7 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config + NftsConfig + SessionConfig + pallet_offences::Config
-	{
+	pub trait Config: frame_system::Config + SessionConfig + pallet_offences::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -70,6 +67,8 @@ pub mod pallet {
 			+ Into<u128>
 			+ From<u128>
 			+ Saturating;
+
+		type ItemId: Parameter;
 
 		type Currency: frame_support::traits::LockableCurrency<
 			Self::AccountId,
@@ -131,7 +130,7 @@ pub mod pallet {
 		T::AccountId,
 		Twox64Concat,
 		T::AccountId,
-		Staging<Contract<T::Balance, <T as NftsConfig>::ItemId>>,
+		Staging<Contract<T::Balance, T::ItemId>>,
 		ValueQuery,
 	>;
 
@@ -143,7 +142,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type UnlockingDelegatorNfts<T: Config> =
-		StorageMap<_, Twox64Concat, <T as NftsConfig>::ItemId, T::AccountId>;
+		StorageMap<_, Twox64Concat, T::ItemId, T::AccountId>;
 
 	#[pallet::storage]
 	pub type InverseSlashes<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Perbill>;
@@ -205,13 +204,13 @@ pub mod pallet {
 		NftDelegated {
 			validator: T::AccountId,
 			staker: T::AccountId,
-			item_id: <T as NftsConfig>::ItemId,
+			item_id: T::ItemId,
 		},
 
 		NftUndelegated {
 			validator: T::AccountId,
 			staker: T::AccountId,
-			item_id: <T as NftsConfig>::ItemId,
+			item_id: T::ItemId,
 		},
 
 		MinimumStakingPeriodChanged {
@@ -226,7 +225,7 @@ pub mod pallet {
 
 		PermissionNftTopup {
 			validator: T::AccountId,
-			item: <T as NftsConfig>::ItemId,
+			item: T::ItemId,
 			cost: T::Balance,
 		},
 	}
@@ -371,7 +370,7 @@ pub mod pallet {
 		/// We also remove empty contracts
 		pub(crate) fn commit_storage() {
 			Contracts::<T>::translate(
-				|validator, _, mut s: Staging<Contract<T::Balance, <T as NftsConfig>::ItemId>>| {
+				|validator, _, mut s: Staging<Contract<T::Balance, T::ItemId>>| {
 					if let Some(contract) = s.current() {
 						if contract.stake.is_empty() {
 							Self::relinquish_contract(&validator);
@@ -593,7 +592,7 @@ pub mod pallet {
 			validator: &T::AccountId,
 			validator_details: ValidatorDetails,
 			staker: &T::AccountId,
-			item_id: &<T as NftsConfig>::ItemId,
+			item_id: &T::ItemId,
 		) -> DispatchResult {
 			ensure!(!Self::is_chilled(validator), Error::<T>::TargetIsChilled);
 
@@ -616,7 +615,7 @@ pub mod pallet {
 					Some(Contract { stake: old, .. }) => {
 						let mut new = old.clone();
 						new.delegated_nfts
-							.try_push((*item_id, nominal_value))
+							.try_push((item_id.clone(), nominal_value))
 							.map(|_| new)
 							.map_err(|_| Error::<T>::TooManyNftDelegatedToContract)
 					},
@@ -626,7 +625,7 @@ pub mod pallet {
 						let mut delegated_nfts = BoundedVec::new();
 						// Force push is safe, as (1) its truncating and does not panic,
 						// (2) we just created the vec and the bound is non-zero
-						delegated_nfts.force_push((*item_id, nominal_value));
+						delegated_nfts.force_push((item_id.clone(), nominal_value));
 
 						Ok(Stake { delegated_nfts, ..Default::default() })
 					},
@@ -679,7 +678,7 @@ pub mod pallet {
 		fn do_unstake_nft(
 			validator: &T::AccountId,
 			staker: &T::AccountId,
-			item_id: &<T as NftsConfig>::ItemId,
+			item_id: &T::ItemId,
 		) -> DispatchResult {
 			Contracts::<T>::mutate(validator, staker, |s| {
 				let Some(contract) = s.ensure_staging_mut() else {
@@ -693,7 +692,7 @@ pub mod pallet {
 				);
 
 				let nominal_value = T::NftDelegationHandler::nominal_value(item_id)?;
-				UnlockingDelegatorNfts::<T>::insert(*item_id, staker.clone());
+				UnlockingDelegatorNfts::<T>::insert(item_id.clone(), staker.clone());
 
 				if let Some(index) =
 					contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
@@ -713,10 +712,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		pub fn bind_validator(
-			origin: OriginFor<T>,
-			item_id: <T as NftsConfig>::ItemId,
-		) -> DispatchResult {
+		pub fn bind_validator(origin: OriginFor<T>, item_id: T::ItemId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(!Validators::<T>::contains_key(&caller), Error::<T>::AlreadyBound);
 
@@ -907,10 +903,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(7)]
-		pub fn self_stake_nft(
-			origin: OriginFor<T>,
-			item_id: <T as NftsConfig>::ItemId,
-		) -> DispatchResult {
+		pub fn self_stake_nft(origin: OriginFor<T>, item_id: T::ItemId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
 			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
@@ -943,10 +936,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
-		pub fn self_unstake_nft(
-			origin: OriginFor<T>,
-			item_id: <T as NftsConfig>::ItemId,
-		) -> DispatchResult {
+		pub fn self_unstake_nft(origin: OriginFor<T>, item_id: T::ItemId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
 
@@ -1000,7 +990,7 @@ pub mod pallet {
 		#[pallet::call_index(11)]
 		pub fn delegate_nft(
 			origin: OriginFor<T>,
-			item_id: <T as NftsConfig>::ItemId,
+			item_id: T::ItemId,
 			target: T::AccountId,
 			observed_staking_period: u32,
 			observed_commission: Perbill,
@@ -1059,7 +1049,7 @@ pub mod pallet {
 		#[pallet::call_index(13)]
 		pub fn undelegate_nft(
 			origin: OriginFor<T>,
-			item_id: <T as NftsConfig>::ItemId,
+			item_id: T::ItemId,
 			target: T::AccountId,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
@@ -1163,7 +1153,7 @@ pub mod pallet {
 
 				Self::stage_unlock_currency(&target, contract.stake.currency);
 				for (item_id, _) in &contract.stake.delegated_nfts {
-					UnlockingDelegatorNfts::<T>::insert(*item_id, target.clone());
+					UnlockingDelegatorNfts::<T>::insert(item_id.clone(), target.clone());
 				}
 
 				// FIXME?: this is a staged action, so in the current session this delegator's stake is still included.
@@ -1186,7 +1176,7 @@ pub mod pallet {
 		#[pallet::call_index(17)]
 		pub fn topup(
 			origin: OriginFor<T>,
-			item_id: <T as NftsConfig>::ItemId,
+			item_id: T::ItemId,
 			allowed_amount: T::Balance,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
@@ -1223,13 +1213,15 @@ pub mod pallet {
 				ExistenceRequirement::KeepAlive,
 			)?;
 
+			T::NftStakingHandler::set_nominal_value(&item_id, issued_nominal_value)?;
+
 			Self::deposit_event(Event::<T>::PermissionNftTopup {
 				validator: caller,
 				item: item_id,
 				cost: imbalance,
 			});
 
-			T::NftStakingHandler::set_nominal_value(&item_id, issued_nominal_value)
+			Ok(())
 		}
 	}
 }
