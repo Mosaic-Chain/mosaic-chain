@@ -565,12 +565,11 @@ pub mod pallet {
 					let owner = NftsPallet::<T>::owner(collection_id, *item)
 						.ok_or(Error::<T>::ItemNotInitialized)?;
 
-					let nominal_value = Pallet::<T>::decode_nominal_value(&collection_id, item)?;
-					let metadata = BoundItems::<T>::take(item);
-
-					if metadata.is_some() {
-						Pallet::<T>::unbind(&owner, item)?;
-					}
+					let (nominal_value, metadata) = if BoundItems::<T>::contains_key(item) {
+						Pallet::<T>::unbind(&owner, item).map(|(nom, met)| (nom, Some(met)))?
+					} else {
+						(Pallet::<T>::decode_nominal_value(&collection_id, item)?, None)
+					};
 
 					T::NftExpirationHandler::on_expire(&owner, metadata, item, &nominal_value);
 				}
