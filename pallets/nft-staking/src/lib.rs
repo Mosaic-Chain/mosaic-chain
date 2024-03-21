@@ -819,7 +819,7 @@ pub mod pallet {
 
 					*accept_delegations = true;
 				} else {
-					return Err(Error::<T>::TargetNotDPoS.into());
+					return Err(Error::<T>::CallerNotDPoS.into());
 				};
 
 				Self::deposit_event(Event::<T>::DelegationEnabled(caller.clone()));
@@ -840,7 +840,7 @@ pub mod pallet {
 
 					*accept_delegations = false;
 				} else {
-					return Err(Error::<T>::TargetNotDPoS.into());
+					return Err(Error::<T>::CallerNotDPoS.into());
 				};
 
 				Self::deposit_event(Event::<T>::DelegationDisabled(caller.clone()));
