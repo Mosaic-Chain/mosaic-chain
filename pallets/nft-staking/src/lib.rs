@@ -757,7 +757,7 @@ pub mod pallet {
 		pub fn unbind_validator(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
-			ensure!(Self::is_chilled(&caller), Error::<T>::TargetIsNotChilled);
+			ensure!(Self::is_chilled(&caller), Error::<T>::CallerIsNotChilled);
 
 			let _ = T::NftStakingHandler::unbind(&caller)?;
 
@@ -1087,10 +1087,10 @@ pub mod pallet {
 			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
 				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
 
-				ensure!(!Self::is_chilled(&caller), Error::<T>::TargetIsChilled);
+				ensure!(!Self::is_chilled(&caller), Error::<T>::CallerIsChilled);
 
 				let ValidatorDetails::DPoS { min_staking_period, .. } = details else {
-					return Err(Error::<T>::TargetNotDPoS.into());
+					return Err(Error::<T>::CallerNotDPoS.into());
 				};
 
 				ensure!(
@@ -1116,10 +1116,10 @@ pub mod pallet {
 			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
 				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
 
-				ensure!(!Self::is_chilled(&caller), Error::<T>::TargetIsChilled);
+				ensure!(!Self::is_chilled(&caller), Error::<T>::CallerIsChilled);
 
 				let ValidatorDetails::DPoS { commission, .. } = details else {
-					return Err(Error::<T>::TargetNotDPoS.into());
+					return Err(Error::<T>::CallerNotDPoS.into());
 				};
 
 				ensure!(
@@ -1147,7 +1147,7 @@ pub mod pallet {
 
 			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::CallerNotDPoS);
 
-			ensure!(!Self::is_chilled(&caller), Error::<T>::TargetIsChilled);
+			ensure!(!Self::is_chilled(&caller), Error::<T>::CallerIsChilled);
 
 			Contracts::<T>::mutate(&caller, &target, |s| {
 				let contract = s.ensure_staging_mut().ok_or(Error::<T>::NoContract)?;
