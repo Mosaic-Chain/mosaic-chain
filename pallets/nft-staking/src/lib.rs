@@ -243,6 +243,8 @@ pub mod pallet {
 		AlreadyAcceptsDelegations,
 		AlreadyDeniesDelegations,
 		TargetDeniesDelegations,
+		CallerIsChilled,
+		CallerIsNotChilled,
 		TargetIsChilled,
 		TargetIsNotChilled,
 		TooSmallStake,
@@ -855,7 +857,7 @@ pub mod pallet {
 			ValidatorStates::<T>::mutate(&caller, |validator_state| {
 				let validator_state = validator_state.as_mut().ok_or(Error::<T>::NotBound)?;
 				if let ValidatorState::Chilled(_) = validator_state {
-					Err(Error::<T>::TargetIsChilled.into())
+					Err(Error::<T>::CallerIsChilled.into())
 				} else {
 					*validator_state = Self::chill_state(caller.clone(), ChillReason::Manual);
 					Ok(())
@@ -866,10 +868,6 @@ pub mod pallet {
 		#[pallet::call_index(5)]
 		pub fn unchill_validator(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(
-				T::NftStakingHandler::nominal_factor_of(&caller)? > T::NominalValueThreshold::get(),
-				Error::<T>::ValidatorDisqualified
-			);
 
 			ValidatorStates::<T>::mutate(&caller, |validator_state| {
 				let validator_state = validator_state.as_mut().ok_or(Error::<T>::NotBound)?;
@@ -880,9 +878,16 @@ pub mod pallet {
 						Self::deposit_event(Event::<T>::ValidatorUnchilled(caller.clone()));
 						Ok(())
 					},
-					_ => Err(Error::<T>::TargetIsNotChilled.into()),
+					_ => Err(Error::<T>::CallerIsNotChilled),
 				}
-			})
+			})?;
+
+			ensure!(
+				T::NftStakingHandler::nominal_factor_of(&caller)? > T::NominalValueThreshold::get(),
+				Error::<T>::ValidatorDisqualified
+			);
+
+			Ok(())
 		}
 
 		#[pallet::call_index(6)]
