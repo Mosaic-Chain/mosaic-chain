@@ -82,8 +82,6 @@ Effects:
 
 ### `unbind_validator(caller)`
 
-_TODO: revise unbinding. what do we do staged and what immediately?_
-
 Preconditions:
 
 - `caller` is a bound, chilled validator
@@ -98,11 +96,11 @@ Effects:
 - `caller`'s permission nft is unbound
 - `caller`'s currency based self-stake is unlocked
 - `caller`'s self-bound delegator nfts are unbound
-- `caller`'s stake is **scheduled** to be removed.
+- `caller`'s stake is **immediately** to be removed.
 - If `caller` is DPoS:
   - all delegators' currency based stake is unlocked (these can happen "immediately")
   - all delegators' bound delegator nft is unbound
-  - all delegators' delegation to `caller` is **scheduled** to be removed.
+  - all delegators' delegation to `caller` is **immediately** to be removed.
 
 ### `disable_delegations(caller)`
 
