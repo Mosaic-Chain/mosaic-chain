@@ -501,16 +501,23 @@ pub mod pallet {
 		/// Adds the provided amount to the account's lock.
 		/// Possible side-effects: creates an entry in LockedCurrency, locks currency
 		/// (immediate)
-		pub(crate) fn lock_currency(account_id: &T::AccountId, amount: T::Balance) {
+		pub(crate) fn lock_currency(
+			account_id: &T::AccountId,
+			amount: T::Balance,
+		) -> DispatchResult {
 			if amount.is_zero() {
-				return;
+				return Ok(());
 			}
 
 			let locked = LockedCurrency::<T>::get(account_id)
 				.unwrap_or(Zero::zero())
 				.saturating_add(amount);
 
+			let free_balance = <T as pallet::Config>::Currency::free_balance(account_id);
+			ensure!(locked <= free_balance, Error::<T>::InsufficientFunds);
+
 			Self::update_lock(account_id, locked);
+			Ok(())
 		}
 
 		/// Removes the provided amount from the account's lock.
@@ -556,10 +563,7 @@ pub mod pallet {
 
 			ensure!(amount >= T::MinimumStakingAmount::get(), Error::<T>::TooSmallStake);
 
-			let balance = <T as pallet::Config>::Currency::free_balance(staker);
-			ensure!(balance >= amount, Error::<T>::InsufficientFunds);
-
-			Self::lock_currency(staker, amount);
+			Self::lock_currency(staker, amount)?;
 			Self::grow_total_validator_stake_by(validator, amount);
 			Self::ensure_stake_limit(validator)?;
 

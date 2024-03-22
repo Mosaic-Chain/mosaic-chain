@@ -83,7 +83,8 @@ impl<T: Config> Pallet<T> {
 				let s_imbalance =
 					<T as Config>::Currency::deposit_creating(&staker, reward.staker_reward);
 
-				Self::lock_currency(&staker, s_imbalance.peek());
+				Self::lock_currency(&staker, s_imbalance.peek())
+					.expect("the reward is available as free balance");
 
 				Contracts::<T>::mutate(&validator, &staker, |s| {
 					if let Some(new) = s.ensure_staging_mut() {
@@ -102,7 +103,8 @@ impl<T: Config> Pallet<T> {
 				});
 			}
 
-			Self::lock_currency(&validator, total_v_imbalance.peek());
+			Self::lock_currency(&validator, total_v_imbalance.peek())
+				.expect("the reward is available as free balance");
 
 			Contracts::<T>::mutate(&validator, &validator, |s| {
 				if let Some(new) = s.ensure_staging_mut() {
