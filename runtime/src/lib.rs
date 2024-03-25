@@ -281,7 +281,10 @@ impl pallet_assets::Config for Runtime {
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
-	type WeightInfo = ();
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -810,6 +813,11 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_validator_subset_selection, ValidatorSubsetSelection]
+		[pallet_assets, Assets]
+		[pallet_proxy, Proxy]
+		[pallet_identity, Identity]
+		[pallet_utility, Utility]
+		[pallet_recovery, Recovery]
 	);
 }
 
