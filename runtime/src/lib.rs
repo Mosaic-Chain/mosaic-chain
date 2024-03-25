@@ -63,7 +63,7 @@ pub use pallet_validator_subset_selection;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
-pub use mosaic_chain_runtime_constants::currency::{deposit, Balance, CENTS};
+pub use mosaic_chain_runtime_constants::currency::{deposit, Balance, CENTS, MOSAIC};
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -239,9 +239,6 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
-
-// 1 mosaic 10^18 tile
-const MOSAIC: u128 = 10u128.pow(18);
 
 parameter_types! {
 	// TODO: Review the amount and adjust it to the desired one if necessary
