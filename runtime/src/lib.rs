@@ -10,9 +10,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use sp_std::prelude::*;
 
-use codec::Encode;
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	traits::{AsEnsureOriginWithArg, ValidatorSet, ValidatorSetWithIdentification},
+	traits::{AsEnsureOriginWithArg, InstanceFilter, ValidatorSet, ValidatorSetWithIdentification},
 	PalletId,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -63,6 +63,8 @@ pub use pallet_validator_subset_selection;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
+pub use mosaic_chain_runtime_constants::currency::{deposit, Balance, CENTS};
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -74,9 +76,6 @@ pub type Signature = MultiSignature;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 pub type ValidatorId = AccountId;
-
-/// Balance of an account.
-pub type Balance = u128;
 
 ///Number of previous transactions associated with an account
 pub type Nonce = u32;
@@ -368,6 +367,32 @@ impl pallet_nft_staking::Config for Runtime {
 	type PalletId = StakingPalletId;
 }
 
+parameter_types! {
+	// TODO: review these
+	pub const BasicDeposit: Balance = deposit(1, 258);
+	pub const FieldDeposit: Balance = deposit(0, 66);
+	pub const SubAccountDeposit: Balance = deposit(1, 53);
+	pub const MaxSubAccounts: u32 = 100;
+	pub const MaxAdditionalFields: u32 = 100;
+	pub const MaxRegistrars: u32 = 20;
+}
+
+// Later version will require more types
+impl pallet_identity::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BasicDeposit = BasicDeposit;
+	type FieldDeposit = FieldDeposit;
+	type SubAccountDeposit = SubAccountDeposit;
+	type MaxSubAccounts = MaxSubAccounts;
+	type MaxAdditionalFields = MaxAdditionalFields;
+	type MaxRegistrars = MaxRegistrars;
+	type Slashed = ();
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type RegistrarOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
 // TODO: Can we not do silly things like this?
@@ -425,6 +450,150 @@ impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_im_online::IdentificationTuple<Self>;
 	type OnOffenceHandler = NftStaking;
+}
+
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	Debug,
+	MaxEncodedLen,
+	scale_info::TypeInfo,
+)]
+// I made these ProxyTypes according to this: https://mosaicchain.medium.com/account-abstractions-on-mosaic-chain-9b4162897536
+pub enum ProxyType {
+	/// Allow any kind of transaction, including balance transfers, staking, governance and others on behalf of the proxied account.
+	Any,
+	/// Allow any type of transaction except the balance transfer functionality.
+	/// This proxy does not have permission to access calls in the Balances and XCM pallet.
+	NonTransfer,
+	/// Allow to make transactions related to only for governance.
+	Governance,
+	/// Allow all staking-related transactions.
+	Staking,
+	/// Allow registrars to make judgments on an account’s identity.
+	Identity,
+	/// Allow to reject and remove any time-delay proxy announcements.
+	/// This proxy can only access the “reject_announcement” call from the Proxy pallet.
+	Cancel,
+}
+
+// Default must be provided and MUST BE the the most permissive value. aka Any
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
+
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
+		match self {
+			ProxyType::Any => true,
+			ProxyType::NonTransfer => {
+				matches!(
+					c,
+					// skipping pallet_balances entirely
+					// when xcm will be implemented skip that too
+
+					// As we add more pallets to the chain this needs to be extended as well.
+					RuntimeCall::System(..)
+						| RuntimeCall::Timestamp(..)
+						| RuntimeCall::Grandpa(..)
+						| RuntimeCall::ImOnline(..)
+						| RuntimeCall::Proxy(..) | RuntimeCall::NftDelegation(..)
+						| RuntimeCall::NftPermission(..)
+						| RuntimeCall::NftStaking(..)
+						| RuntimeCall::Nfts(..) | RuntimeCall::Session(..)
+						| RuntimeCall::Utility(..)
+						// Can a proxy be used for recovery?
+						// Excluding set_recovered(), create_recovery() and initiate_recovery()
+						| RuntimeCall::Recovery(pallet_recovery::Call::as_recovered{..})
+						| RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery{..})
+						| RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery{..})
+						| RuntimeCall::Recovery(pallet_recovery::Call::close_recovery{..})
+						| RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery{..})
+						| RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered{..})
+						| RuntimeCall::Identity(..)
+				)
+			},
+			// is there any governance added to the chain already?
+			ProxyType::Governance => matches!(c, RuntimeCall::Utility(..)),
+			ProxyType::Identity => {
+				matches!(c, RuntimeCall::Utility(..) | RuntimeCall::Identity(..))
+			},
+			ProxyType::Staking => matches!(
+				c,
+				RuntimeCall::Utility(..) | RuntimeCall::NftStaking(..) | RuntimeCall::Session(..)
+			),
+			ProxyType::Cancel => {
+				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
+			},
+		}
+	}
+
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			(ProxyType::NonTransfer, _) => true,
+			_ => false,
+		}
+	}
+}
+
+parameter_types! {
+	// went with the documentation on the values
+	pub const ProxyDepositBase: Balance = deposit(1, 8);
+	pub const ProxyDepositFactor: Balance = deposit(0, 33);
+	pub const AnnouncementDepositBase: Balance = deposit(1, 16);
+	pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
+}
+
+impl pallet_proxy::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type ProxyType = ProxyType;
+	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+	type CallHasher = BlakeTwo256;
+	type MaxProxies = ConstU32<32>;
+	type MaxPending = ConstU32<32>;
+	type ProxyDepositBase = ProxyDepositBase;
+	type ProxyDepositFactor = ProxyDepositFactor;
+	type AnnouncementDepositBase = AnnouncementDepositBase;
+	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+}
+
+impl pallet_utility::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	// TODO: review these
+	pub const ConfigDepositBase: Balance = 500 * CENTS;
+	pub const FriendDepositFactor: Balance = 50 * CENTS;
+	pub const MaxFriends: u16 = 9;
+	pub const RecoveryDeposit: Balance = 500 * CENTS;
+}
+
+impl pallet_recovery::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type ConfigDepositBase = ConfigDepositBase;
+	type FriendDepositFactor = FriendDepositFactor;
+	type MaxFriends = MaxFriends;
+	type RecoveryDeposit = RecoveryDeposit;
 }
 
 parameter_types! {
@@ -542,6 +711,10 @@ construct_runtime!(
 		Offences: pallet_offences,
 		ImOnline: pallet_im_online,
 		Authorship: pallet_authorship,
+		Proxy: pallet_proxy,
+		Utility: pallet_utility,
+		Recovery: pallet_recovery,
+		Identity: pallet_identity,
 	}
 );
 

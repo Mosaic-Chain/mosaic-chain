@@ -6,6 +6,7 @@ members = [
     "pallets/nft-delegation",
     "pallets/validator-subset-selection",
     "runtime",
+    "runtime/constants",
 ]
 resolver = "2"
 

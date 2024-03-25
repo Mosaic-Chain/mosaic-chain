@@ -11,7 +11,9 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+	"derive",
+] }
 frame-executive = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 frame-support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 frame-system = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
@@ -21,15 +23,21 @@ pallet-aura = { version = "4.0.0-dev", default-features = false, git = "https://
 pallet-authorship = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-grandpa = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
+pallet-identity = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-im-online = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-insecure-randomness-collective-flip = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-nfts = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-offences = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
+pallet-proxy = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
+pallet-recovery = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-session = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-sudo = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+pallet-utility = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
+scale-info = { version = "2.5.0", default-features = false, features = [
+	"derive",
+] }
 sp-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 sp-block-builder = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 sp-consensus-aura = { version = "0.10.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
@@ -54,6 +62,7 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, git = "h
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", optional = true, branch = "release-polkadot-v1.2.0" }
 
 # Local Dependencies
+mosaic-chain-runtime-constants = { version = "0.1.0", path = "constants" }
 pallet-nft-delegation = { version = "0.1.0", default-features = false, path = "../pallets/nft-delegation" }
 pallet-nft-permission = { version = "0.1.0", default-features = false, path = "../pallets/nft-permission" }
 pallet-nft-staking = { version = "0.1.0", default-features = false, path = "../pallets/nft-staking" }
@@ -79,16 +88,20 @@ std = [
 	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
+	"pallet-identity/std",
 	"pallet-im-online/std",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-nft-delegation/std",
 	"pallet-nft-permission/std",
 	"pallet-nft-staking/std",
 	"pallet-nfts/std",
+	"pallet-proxy/std",
+	"pallet-recovery/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-utility/std",
 	"pallet-validator-subset-selection/std",
 	"scale-info/std",
 	"sp-api/std",
@@ -113,8 +126,12 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
 	"pallet-nft-permission/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-recovery/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"pallet-validator-subset-selection/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -127,6 +144,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",
+	"pallet-identity/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
 	"pallet-nfts/try-runtime",
@@ -134,9 +152,12 @@ try-runtime = [
 	"pallet-nft-delegation/try-runtime",
 	"pallet-nft-staking/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-recovery/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"pallet-utility/try-runtime",
 	"pallet-validator-subset-selection/try-runtime",
 ]
