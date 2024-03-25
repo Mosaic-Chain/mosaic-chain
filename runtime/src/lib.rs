@@ -242,13 +242,11 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
 	// TODO: Review the amount and adjust it to the desired one if necessary
-	pub const AssetDeposit: Balance = 20*MOSAIC;
-	pub const AssetAccountDeposit: Balance = 10*MOSAIC;
-	pub const MetadataDepositBase: Balance = MOSAIC;
-	// 1024 Byte = 1 mosaic
-	// 1 mosaic / 1024 = 9.765625 * 10^14
-	pub const MetadataDepositPerByte: Balance = MOSAIC/1024;
-	pub const ApprovalDeposit: Balance = MOSAIC/10;
+	pub const AssetDeposit: Balance = deposit(1, 0);
+	pub const AssetAccountDeposit: Balance = deposit(1, 16);
+	pub const MetadataDepositBase: Balance = deposit(1, 68);
+	pub const MetadataDepositPerByte: Balance = deposit(0, 1);
+	pub const ApprovalDeposit: Balance = CENTS/100;
 }
 
 impl pallet_assets::Config for Runtime {
@@ -263,19 +261,14 @@ impl pallet_assets::Config for Runtime {
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	// See macros above for the amounts
 	// The basic amount of funds that must be reserved for an asset.
-	// 20 mosaic
 	type AssetDeposit = AssetDeposit;
 	// The amount of funds that must be reserved for a non-provider asset account to be maintained.
-	// 10 mosaic
 	type AssetAccountDeposit = AssetAccountDeposit;
 	// The basic amount of funds that must be reserved when adding metadata to your asset.
-	// 1 mosaic
 	type MetadataDepositBase = MetadataDepositBase;
 	// The additional funds that must be reserved for the number of bytes you store in your metadata.
-	// 1024 byte = 1 mosaic
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	// The amount of funds that must be reserved when creating a new approval.
-	// 0.1 mosaic
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = ConstU32<256>;
 	type Freezer = ();
