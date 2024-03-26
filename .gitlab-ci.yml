@@ -27,7 +27,9 @@ docker-rc:
     # Gitlab images
     - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
     - docker build -f Dockerfile -t $CI_REGISTRY_IMAGE/app:rc .
+    - docker build -f Dockerfile.local-testnet -t $CI_REGISTRY_IMAGE/app:rc-local-testnet .
     - docker push $CI_REGISTRY_IMAGE/app:rc
+    - docker push $CI_REGISTRY_IMAGE/app:rc-local-testnet
     # GCP images
     - docker tag $CI_REGISTRY_IMAGE/app:rc europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-chain:rc
     - cat $GCP_DEPLOY_JSON_KEY | docker login -u _json_key --password-stdin https://europe-west3-docker.pkg.dev
@@ -44,7 +46,9 @@ docker-latest:
     # Gitlab images
     - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
     - docker build -f Dockerfile -t $CI_REGISTRY_IMAGE/app:latest .
+    - docker build -f Dockerfile.local-testnet -t $CI_REGISTRY_IMAGE/app:latest-local-testnet .
     - docker push $CI_REGISTRY_IMAGE/app:latest
+    - docker push $CI_REGISTRY_IMAGE/app:latest-local-testnet
     # GCP images
     - docker tag $CI_REGISTRY_IMAGE/app:latest europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-chain:latest
     - cat $GCP_DEPLOY_JSON_KEY | docker login -u _json_key --password-stdin https://europe-west3-docker.pkg.dev

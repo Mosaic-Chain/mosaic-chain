@@ -1,0 +1,41 @@
+FROM rust:bookworm AS builder
+
+WORKDIR /app
+
+RUN apt update -y \
+    && apt upgrade -y \
+    && apt install build-essential libsnappy-dev librocksdb-dev libclang-dev clang cmake g++-multilib protobuf-compiler -y
+
+RUN rustup target add wasm32-unknown-unknown
+
+COPY . .
+
+RUN cargo build --release
+
+FROM bitnami/minideb:bookworm AS runtime
+RUN apt update -y \
+    && apt upgrade -y \
+    && apt install ca-certificates librocksdb-dev -y \
+    && rm -rf /var/lib/apt/lists/* /var/lib/dpkg/* /var/cache/*
+
+EXPOSE 30333-30339 30333-30339/udp 9944-9950 9933-9939
+
+COPY --from=builder /app/target/release/mosaic-chain /usr/local/bin/
+
+CMD bash -c 'ids=(alice bob charlie dave eve ferdie) && \
+max=6 && \
+for (( i=0; i < $max; i++ )); do \
+    mosaic-chain \
+    --base-path /app/chain-state/${ids[i]} \
+    --chain local \
+    --${ids[i]} \
+    --port $((30333 + i)) \
+    --unsafe-rpc-external \
+    --rpc-port $((9945 + i)) \
+    --node-key 000000000000000000000000000000000000000000000000000000000000000$((1 + i)) \
+    --validator \
+    --rpc-methods=Unsafe \
+    --rpc-cors=all \
+    --state-pruning archive-canonical & \
+done && \
+while true; do read; done'
