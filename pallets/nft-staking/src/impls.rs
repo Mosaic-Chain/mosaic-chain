@@ -29,7 +29,7 @@ impl<T: Config> ValidatorSet<T::AccountId> for SelectableValidators<T> {
 		ValidatorStates::<T>::iter()
 			.filter_map(|(validator_id, vstate)| match vstate {
 				ValidatorState::Normal | ValidatorState::Faulted => Some(validator_id),
-				_ => None,
+				ValidatorState::Chilled(_) => None,
 			})
 			.collect()
 	}
@@ -44,9 +44,9 @@ impl<T: Config> ValidatorSet<T::AccountId> for SlashableValidators<T> {
 	}
 
 	// A validator can be slashed if:
-	// - has commited self-contract
-	// - not chilled
+	// - has committed self-contract
 	// - currently in active set or is selected to be in the next one (even if chilled)
+	// - currently not selected and not chilled
 	fn validators() -> SpVec<Self::ValidatorId> {
 		let drafted_validators: SpVec<_> = Pallet::<T>::drafted_validators().collect(); // I'd like to use some sort of set so much...
 

@@ -329,7 +329,7 @@ pub mod pallet {
 				.chain(SessionPallet::<T>::validators())
 		}
 
-		fn ensure_stake_limit(validator: &T::AccountId) -> DispatchResult {
+		fn ensure_not_overdominant(validator: &T::AccountId) -> DispatchResult {
 			let total_stake = TotalValidatorStakes::<T>::get(validator)
 				.current()
 				.ok_or(Error::<T>::NotBound)?
@@ -565,7 +565,7 @@ pub mod pallet {
 
 			Self::lock_currency(staker, amount)?;
 			Self::grow_total_validator_stake_by(validator, amount);
-			Self::ensure_stake_limit(validator)?;
+			Self::ensure_not_overdominant(validator)?;
 
 			let min_staking_period_end =
 				SessionPallet::<T>::current_index() + validator_details.min_staking_period::<T>();
@@ -614,7 +614,7 @@ pub mod pallet {
 			ensure!(expiry >= min_staking_period_end, Error::<T>::NftExpiresEarly);
 
 			Self::grow_total_validator_stake_by(validator, nominal_value);
-			Self::ensure_stake_limit(validator)?;
+			Self::ensure_not_overdominant(validator)?;
 
 			Contracts::<T>::mutate(validator, staker, |s| {
 				let stake = match s.current() {
@@ -622,7 +622,7 @@ pub mod pallet {
 						let mut new = old.clone();
 						new.delegated_nfts
 							.try_push((item_id.clone(), nominal_value))
-							.map(|_| new)
+							.map(|()| new)
 							.map_err(|_| Error::<T>::TooManyNftDelegatedToContract)
 					},
 
@@ -660,19 +660,20 @@ pub mod pallet {
 
 				let session = SessionPallet::<T>::current_index();
 				ensure!(
-					session >= contract.min_staking_period_end || Self::is_slacking(validator),
+					session >= contract.min_staking_period_end
+						|| (validator != staker && Self::is_slacking(validator)),
 					Error::<T>::EarlyUnstake
 				);
-				ensure!(amount >= T::MinimumStakingAmount::get(), Error::<T>::TooSmallUnstake);
+
+				let minimum_staking_amount = T::MinimumStakingAmount::get();
+
+				ensure!(
+					amount >= contract.stake.currency.min(minimum_staking_amount),
+					Error::<T>::TooSmallUnstake
+				);
 				ensure!(amount <= contract.stake.currency, Error::<T>::InsufficientFunds);
 
 				contract.stake.currency = contract.stake.currency.saturating_sub(amount);
-
-				ensure!(
-					contract.stake.currency >= T::MinimumStakingAmount::get()
-						|| contract.stake.currency.is_zero(),
-					Error::<T>::TooSmallUnstake
-				);
 
 				Self::shrink_total_validator_stake_by(validator, amount);
 				Self::stage_unlock_currency(staker, amount);
@@ -693,7 +694,8 @@ pub mod pallet {
 
 				let session = SessionPallet::<T>::current_index();
 				ensure!(
-					session >= contract.min_staking_period_end || Self::is_slacking(validator),
+					session >= contract.min_staking_period_end
+						|| (validator != staker && Self::is_slacking(validator)),
 					Error::<T>::EarlyUnstake
 				);
 
@@ -1160,12 +1162,13 @@ pub mod pallet {
 					return Err(Error::<T>::EarlyKick.into());
 				}
 
+				// TODO: there might be events missing for the indexer
 				Self::stage_unlock_currency(&target, contract.stake.currency);
 				for (item_id, _) in &contract.stake.delegated_nfts {
 					UnlockingDelegatorNfts::<T>::insert(item_id.clone(), target.clone());
 				}
 
-				// FIXME?: this is a staged action, so in the current session this delegator's stake is still included.
+				// this is a staged action, so in the current session this delegator's stake is still included.
 				Self::shrink_total_validator_stake_by(&caller, contract.stake.total());
 
 				// Note: contracts with empty stake are removed in next session,
@@ -1199,6 +1202,7 @@ pub mod pallet {
 
 			Contracts::<T>::mutate(&caller, &caller, |s| {
 				let Some(contract) = s.ensure_staging_mut() else {
+					// No self-contract -> Not bound
 					return;
 				};
 
@@ -1207,20 +1211,21 @@ pub mod pallet {
 				Self::grow_total_validator_stake_by(&caller, imbalance);
 
 				ValidatorStates::<T>::mutate_extant(&caller, |vstate| {
-					*vstate = match *vstate {
-						ValidatorState::Faulted => ValidatorState::Normal,
-						s => s,
+					if let ValidatorState::Faulted = vstate {
+						*vstate = ValidatorState::Normal;
 					}
 				});
 			});
 
-			let _withdrawn = <T as pallet::Config>::Currency::withdraw(
+			let withdrawn = <T as pallet::Config>::Currency::withdraw(
 				&caller,
 				imbalance,
-				//TODO: Is `all` okay for us? In this entire pallet...
 				WithdrawReasons::all(),
 				ExistenceRequirement::KeepAlive,
 			)?;
+
+			// Modifies total issuance
+			drop(withdrawn);
 
 			T::NftStakingHandler::set_nominal_value(&item_id, issued_nominal_value)?;
 

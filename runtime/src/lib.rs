@@ -399,7 +399,7 @@ parameter_types! {
 	pub const MinimumStakingPeriod: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(200) }; // approx. 1 week
 	pub const NominalValueThreshold: Perbill = Perbill::from_percent(80);
 	// TODO: revise this value
-	pub const MaximumStakePercentage: Perbill = Perbill::from_percent(15);
+	pub const MaximumStakePercentage: Perbill = Perbill::from_percent(1);
 	pub const MaximumContractsPerValidator: u32 = 1000;
 }
 
