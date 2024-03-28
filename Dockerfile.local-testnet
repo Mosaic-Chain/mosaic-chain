@@ -15,7 +15,7 @@ RUN cargo build --release
 FROM bitnami/minideb:bookworm AS runtime
 RUN apt update -y \
     && apt upgrade -y \
-    && apt install ca-certificates librocksdb-dev -y \
+    && apt install curl ca-certificates librocksdb-dev -y \
     && rm -rf /var/lib/apt/lists/* /var/lib/dpkg/* /var/cache/*
 
 EXPOSE 30333-30339 30333-30339/udp 9944-9950 9933-9939
