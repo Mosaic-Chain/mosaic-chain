@@ -96,11 +96,11 @@ Effects:
 - `caller`'s permission nft is unbound
 - `caller`'s currency based self-stake is unlocked
 - `caller`'s self-bound delegator nfts are unbound
-- `caller`'s stake is **immediately** to be removed.
+- `caller`'s stake is **immediately** to be removed
 - If `caller` is DPoS:
   - all delegators' currency based stake is unlocked (these can happen "immediately")
   - all delegators' bound delegator nft is unbound
-  - all delegators' delegation to `caller` is **immediately** to be removed.
+  - all delegators' delegation to `caller` is **immediately** to be removed
 
 ### `disable_delegations(caller)`
 
@@ -108,7 +108,7 @@ Preconditions:
 
 - `caller` is a bound validator
 - `caller` is DPoS validator
-- `caller` has not yet disabled delegations (delegations can be disabled for other reasons, eg.: validator is chilled)
+- `caller` has not yet disabled delegations by this call
 
 Effects:
 
@@ -135,7 +135,7 @@ Preconditions:
 
 Effects:
 
-- `caller` is not considered for future selection into the active set
+- `caller` is not considered for future(!) selection into the active set
 - `caller` is now considered chilled
 
 ### `unchill(caller)`
@@ -155,9 +155,10 @@ Effects:
 
 Preconditions:
 
-- `caller` is a bound, not chilled  validator
+- `caller` is a bound, not chilled validator
 - `amount` is greater or equal to the minimum staking amount
 - `caller` has at least `amount` of free and lockable balance
+- This stake doesn't make validator overdominant (see later)
 
 Effects:
 
@@ -177,6 +178,7 @@ Preconditions:
 - `item` is not bound to another validator
 - the nominal value of `item` is greater or equal to the minimum staking amount
 - the `item` will not expire before the minimum staking period ends
+- This stake doesn't make validator overdominant (see later)
 
 Effects:
 
@@ -219,11 +221,12 @@ Preconditions:
 
 - `target` is a bound, not chilled validator
 - `target` is a DPoS validator
-- `target` accpets delegations
+- `target` accepts delegations
 - `observed_staking_period` and `observed_commission` match the current terms
 - `caller` and `target` are not the same (use `self_stake_currency` instead)
 - `amount` is more than or equal to the minimum staking amount
 - `caller` has at least `amount` lockable, free currency
+- This stake doesn't make validator overdominant (see later)
 
 Effects:
 
@@ -245,6 +248,7 @@ Preconditions:
 - `item` is not bound to any other validator
 - `item`'s nominal value is greater or equal to the minimal staking amount
 - `item` will not expire before the minimum staking period ends
+- This stake doesn't make validator overdominant (see later)
 
 Effects:
 
@@ -268,7 +272,7 @@ Preconditions:
 
 Effects:
 
-- `amount` currency is scheduled to be unlocked on _(or added to)_ the `caller`'s account
+- `amount` currency is scheduled to be unlocked on the `caller`'s account
 - `amount` currency is scheduled to be removed from the `target`'s stake
 
 ### `undelegate_nft(caller, item, target)`
@@ -297,8 +301,8 @@ Preconditions:
 
 Effects:
 
-- `caller`'s new contract term is updated immediately.
-  - _(Note: Existing contracts don't get updated)_
+- `caller`'s new contract term is updated immediately
+- _(Note: Existing contracts don't get updated)_
 
 ### `set_commission(caller, new_commission)`
 
@@ -311,6 +315,7 @@ Preconditions:
 Effects:
 
 - `caller`'s new contract term is updated immediately
+- _(Note: Existing contracts don't get updated)_
 
 ### `kick(caller, target)`
 
@@ -318,13 +323,13 @@ Preconditions:
 
 - `caller` is a bound, not chilled validator
 - `caller` is a DPoS validator
-- `caller` is not `target` (use `self_unstake_nft` instead)
-- `caller` has a contract with `target` and `caller` is not `target`
-- the minimal staking period has passed on this contract
+- `caller` is not `target` (use `self_unstake_*` instead)
+- `caller` has a contract with `target`
+- the minimum staking period has passed on this contract
 
 Effects:
 
-- `target`'s currency based delegation scheduled to be freed
+- `target`'s currency based delegation **scheduled** to be freed
 - `target`'s delegated nfts are **scheduled** to be unbound
 - `target`'s stake is **scheduled** to be removed from `caller`'s stake
 
@@ -336,14 +341,14 @@ Preconditions:
 
 - `caller` is the owner of the item identified by `item_id`
 - `imbalance` <= `allowed_amount`
-- `caller` has enough free balance to pay fir topup
+- `caller` has enough transferable balance to pay for topup
 
 Effects:
 
 - `imbalance` is withdrawn from `caller`'s free balance
 - `imbalance` is added to `item_id`'s nominal value
 - if `item_id` is currently bound `imbalance` is scheduled to be added to `caller`'s stake.
-- if validator state is `Faluted` it's changes back to `Normal`
+- if validator state is `Faulted` it's changes back to `Normal`
 
 ## Mechanisms
 
