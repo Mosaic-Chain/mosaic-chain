@@ -1,0 +1,18 @@
+Network: ./0000-first-test.toml
+Creds: config
+
+# well known functions
+alice: is up
+bob: is up
+charlie: is up
+dave: is up
+eve: is up
+ferdie: is up
+
+# logs
+alice: log line matches "Imported #50+" within 320 seconds
+bob: log line matches "Imported #50+" within 320 seconds
+charlie: log line matches "Imported #50+" within 320 seconds
+dave: log line matches "Imported #50+" within 320 seconds
+eve: log line matches "Imported #50+" within 320 seconds
+ferdie: log line matches "Imported #50+" within 320 seconds
