@@ -14,7 +14,7 @@ use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	traits::{AsEnsureOriginWithArg, InstanceFilter, ValidatorSet, ValidatorSetWithIdentification},
+	traits::{AsEnsureOriginWithArg, InstanceFilter},
 	PalletId,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -33,7 +33,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, SaturatedConversion,
 };
-use sp_staking::offence::{Offence, OnOffenceHandler, ReportOffence};
+use sp_staking::offence::{Offence, ReportOffence};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -780,7 +780,7 @@ impl pallet_nft_delegation::Config for Runtime {
 	type PalletId = NftDelegationPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Balance = Balance;
-	type NftExpirationHandler = Staking;
+	type NftExpirationHandler = NftStaking;
 	type BindMetadata = Self::AccountId;
 }
 

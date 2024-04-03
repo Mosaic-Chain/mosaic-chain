@@ -29,10 +29,7 @@ use sp_runtime::{
 	FixedPointOperand, Perbill, Saturating,
 };
 
-use utils::{
-	traits::{NftDelegation, NftStaking},
-	SessionIndex,
-};
+use sp_staking::SessionIndex;
 
 use types::{
 	ChillReason, Contract, KickReason, PositiveImbalanceOf, Staging, Stake, TotalValidatorStake,
