@@ -1,5 +1,6 @@
 [package]
 name = "mosaic-chain-runtime-constants"
-version = "0.1.0"
+version.workspace = true
+repository.workspace = true
 
 [dependencies]

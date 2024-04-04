@@ -23,6 +23,7 @@ buildInputs = [
     bacon
     just
     cargo-nextest
+    dpkg
   ]);
 
   LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";

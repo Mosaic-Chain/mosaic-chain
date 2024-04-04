@@ -1,0 +1,7 @@
+Package: mosaic-chain
+Version: xVERSION
+Maintainer: dlabs
+Architecture: amd64
+Description: Mosaic Chain node binary
+Depends: ca-certificates, librocksdb-dev
+Conflicts: mosaic-chain-rc

@@ -55,4 +55,10 @@ run-network: build-release
 install-nix:
   sh <(curl -L https://nixos.org/nix/install) --daemon
 
+# create debian package for release
+pkg: build-release
+  cd packaging/release && ./make-package.sh
 
+# create debian package for release candidacy
+pkg-rc: build-release
+  cd packaging/release-candidate && ./make-package.sh

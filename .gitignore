@@ -12,3 +12,6 @@
 
 .editorconfig
 settings.json
+
+# packaging
+/packaging/*/mosaic-chain*

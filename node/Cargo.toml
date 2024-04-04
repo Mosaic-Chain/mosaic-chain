@@ -1,10 +1,10 @@
 [package]
 name = "mosaic-chain"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 license = "MIT-0"
 publish = false
-repository = "https://gitlab.com/dlabs1/mozaik-chain"
+repository.workspace = true
 build = "build.rs"
 
 [package.metadata.docs.rs]
@@ -50,11 +50,11 @@ sp-keyring = { version = "24.0.0", git = "https://github.com/paritytech/polkadot
 sp-runtime = { version = "24.0.0", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
 substrate-frame-rpc-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" } # CLI-specific dependencies
+try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }                    # CLI-specific dependencies
 
 # Local Dependencies
-mosaic-chain-runtime = { version = "4.0.0-dev", path = "../runtime" }
-pallet-nft-staking = { version = "0.1.0", default-features = false, path = "../pallets/nft-staking" }
+mosaic-chain-runtime.workspace = true
+pallet-nft-staking.workspace = true
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }

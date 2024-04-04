@@ -1,28 +1,74 @@
 stages:
+  - build
   - test
   - release
 
-all-in-one-tests:
-  stage: test
+.build-deps:
   image: rust:bookworm
-  script:
+  before_script:
     - apt update -y
     - apt upgrade -y
     - apt install build-essential git librocksdb-dev libsnappy-dev libclang-dev clang g++-multilib protobuf-compiler -y
     - rustup target add wasm32-unknown-unknown
+
+build:
+  stage: build
+  extends: .build-deps
+  script:
+   - cargo build --release
+  artifacts:
+    expire_in: 1h
+    paths:
+      - target/release/mosaic-chain
+
+test:
+  stage: test
+  extends: .build-deps
+  script:
     - rustup component add rustfmt clippy
     - cargo install cargo-nextest
     - cargo fmt -- --check
     - cargo clippy --color=always --tests --examples --bins --benches --release --features runtime-benchmarks,try-runtime --no-deps -- -D warnings
     - cargo nextest run --release --features try-runtime
 
+.debian-repo-setup:
+  stage: release
+  image: google/cloud-sdk:latest
+  dependencies:
+   - build
+  before_script:
+   - gcloud auth activate-service-account --key-file $GCP_DEB_DEPLOY_JSON_KEY
+   - gcloud config set core/project dlabs-317612
+   - gcloud config set artifacts/location europe-west3
+   - gcloud config set artifacts/repository deb-repo
+
+debian-rc:
+  extends: .debian-repo-setup
+  only:
+    - develop
+  script:
+    - cd packaging/release-candidate
+    - PKG=$(./make-package)
+    - gcloud artifacts apt upload deb-repo --source $PKG
+    
+debian-latest:
+  extends: .debian-repo-setup
+  only:
+    - main
+  script:
+    - cd packaging/release
+    - PKG=$(./make-package)
+    - gcloud artifacts apt upload deb-repo --source $PKG
+
 docker-rc:
   stage: release
   image: docker:stable
-  services:
-    - docker:dind
   only:
     - develop
+  dependencies:
+    - build
+  services:
+    - docker:dind
   script:
     # Gitlab images
     - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
@@ -38,6 +84,8 @@ docker-rc:
 docker-latest:
   stage: release
   image: docker:stable
+  dependencies:
+    - build
   services:
     - docker:dind
   only:
