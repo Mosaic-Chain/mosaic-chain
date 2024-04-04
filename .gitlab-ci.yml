@@ -48,7 +48,7 @@ debian-rc:
     - develop
   script:
     - cd packaging/release-candidate
-    - PKG=$(./make-package)
+    - PKG=$(./make-package.sh)
     - gcloud artifacts apt upload deb-repo --source $PKG
     
 debian-latest:
@@ -57,7 +57,7 @@ debian-latest:
     - main
   script:
     - cd packaging/release
-    - PKG=$(./make-package)
+    - PKG=$(./make-package.sh)
     - gcloud artifacts apt upload deb-repo --source $PKG
 
 docker-rc:
