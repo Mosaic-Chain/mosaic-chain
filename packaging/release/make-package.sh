@@ -2,7 +2,7 @@
 
 set -eu
 
-VER="$(grep -o 'version = "[^"]*"' ../../Cargo.toml | cut -d '"' -f2)-1"
+VER="$(grep -o -m 1 'version = "[^"]*"' ../../Cargo.toml | cut -d '"' -f2)-1"
 DIR="mosaic-chain_`echo $VER`_amd64"
 
 mkdir -p "$DIR/DEBIAN"

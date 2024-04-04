@@ -3,7 +3,7 @@
 set -eu
 
 HASH=$(git describe --always)
-VER="$(grep -o 'version = "[^"]*"' ../../Cargo.toml | cut -d '"' -f2)+$HASH-1"
+VER="$(grep -o -m 1 'version = "[^"]*"' ../../Cargo.toml | cut -d '"' -f2)+$HASH-1"
 DIR="mosaic-chain-rc_`echo $VER`_amd64"
 
 mkdir -p "$DIR/DEBIAN"
