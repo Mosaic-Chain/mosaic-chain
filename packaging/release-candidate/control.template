@@ -3,6 +3,6 @@ Version: xVERSION
 Maintainer: dlabs
 Architecture: amd64
 Description: Mosaic Chain node binary release candidate
-Depends: ca-certificates, librocksdb-dev
+Depends: ca-certificates
 Conflicts: mosaic-chain
-
+Suggests: mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc

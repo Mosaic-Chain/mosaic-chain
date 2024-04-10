@@ -1,0 +1,19 @@
+#!/usr/bin/bash
+
+set -eu
+
+RPC_PORT=9944
+P2P_PORT=30333
+NODE_NAME=default
+
+CONFIG_PATH=/etc/mosaic/chain-config
+NODE_NAME_PATH=/var/lib/mosaic/node-name
+if [[ -f $CONFIG_PATH ]]; then
+	export $(grep -v '^#' $CONFIG_PATH | xargs -d '\n')
+fi
+
+if [[ -f $NODE_NAME_PATH ]]; then
+	export $(grep -v '^#' $NODE_NAME_PATH | xargs -d '\n')
+fi
+
+mosaic-chain --chain local --rpc-port $RPC_PORT --port $P2P_PORT --name $NODE_NAME --no-telemetry --validator

@@ -14,4 +14,4 @@
 settings.json
 
 # packaging
-/packaging/*/mosaic-chain*
+/packaging/*/mosaic-chain*_amd64*
