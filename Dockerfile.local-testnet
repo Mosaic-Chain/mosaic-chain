@@ -20,12 +20,12 @@ RUN apt update -y \
 
 EXPOSE 30333-30339 30333-30339/udp 9944-9950 9933-9939
 
-COPY --from=builder /app/target/release/mosaic-chain /usr/local/bin/
+COPY --from=builder /app/target/release/mosaic-testnet-solo /usr/local/bin/
 
 CMD bash -c 'ids=(alice bob charlie dave eve ferdie) && \
 max=6 && \
 for (( i=0; i < $max; i++ )); do \
-    mosaic-chain \
+    mosaic-testnet-solo \
     --base-path /app/chain-state/${ids[i]} \
     --chain local \
     --${ids[i]} \

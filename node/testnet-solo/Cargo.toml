@@ -1,5 +1,5 @@
 [package]
-name = "mosaic-chain"
+name = "mosaic-testnet-solo-node"
 version.workspace = true
 edition = "2021"
 license = "MIT-0"
@@ -11,7 +11,8 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "mosaic-chain"
+name = "mosaic-testnet-solo"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.4.4", features = ["derive"] }
@@ -53,7 +54,7 @@ substrate-frame-rpc-system = { version = "4.0.0-dev", git = "https://github.com/
 try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }                    # CLI-specific dependencies
 
 # Local Dependencies
-mosaic-chain-runtime.workspace = true
+mosaic-testnet-solo-runtime.workspace = true
 pallet-nft-staking.workspace = true
 
 [build-dependencies]
@@ -63,13 +64,13 @@ substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/pa
 default = []
 # Dependencies that are only required if runtime benchmarking should be built.
 runtime-benchmarks = [
-	"mosaic-chain-runtime/runtime-benchmarks",
+	"mosaic-testnet-solo-runtime/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = [
-	"mosaic-chain-runtime/try-runtime",
+	"mosaic-testnet-solo-runtime/try-runtime",
 	"try-runtime-cli/try-runtime",
 ]

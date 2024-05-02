@@ -19,7 +19,7 @@ build:
   artifacts:
     expire_in: 1h
     paths:
-      - target/release/mosaic-chain
+      - target/release/mosaic-testnet-solo
 
 test:
   stage: test
@@ -77,9 +77,9 @@ docker-rc:
     - docker push $CI_REGISTRY_IMAGE/app:rc
     - docker push $CI_REGISTRY_IMAGE/app:rc-local-testnet
     # GCP images
-    - docker tag $CI_REGISTRY_IMAGE/app:rc europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-chain:rc
+    - docker tag $CI_REGISTRY_IMAGE/app:rc europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-testnet-solo:rc
     - cat $GCP_DEPLOY_JSON_KEY | docker login -u _json_key --password-stdin https://europe-west3-docker.pkg.dev
-    - docker push europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-chain:rc
+    - docker push europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-testnet-solo:rc
 
 docker-latest:
   stage: release
@@ -98,6 +98,6 @@ docker-latest:
     - docker push $CI_REGISTRY_IMAGE/app:latest
     - docker push $CI_REGISTRY_IMAGE/app:latest-local-testnet
     # GCP images
-    - docker tag $CI_REGISTRY_IMAGE/app:latest europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-chain:latest
+    - docker tag $CI_REGISTRY_IMAGE/app:latest europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-testnet-solo:latest
     - cat $GCP_DEPLOY_JSON_KEY | docker login -u _json_key --password-stdin https://europe-west3-docker.pkg.dev
-    - docker push europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-chain:latest
+    - docker push europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-testnet-solo:latest

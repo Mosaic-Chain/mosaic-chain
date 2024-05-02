@@ -1,5 +1,5 @@
 [package]
-name = "mosaic-chain-runtime-constants"
+name = "mosaic-testnet-solo-constants"
 version.workspace = true
 repository.workspace = true
 

@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
-use mosaic_chain_runtime::{opaque::Block, AccountId, Balance, Nonce};
+use mosaic_testnet_solo_runtime::{opaque::Block, AccountId, Balance, Nonce};
 pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;

@@ -69,7 +69,7 @@ pub use pallet_validator_subset_selection;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
-pub use mosaic_chain_runtime_constants::currency::{deposit, Balance, CENTS, MOSAIC};
+pub use mosaic_testnet_solo_constants::currency::{deposit, Balance, CENTS, MOSAIC};
 
 #[cfg(test)]
 mod mock;
@@ -124,8 +124,8 @@ pub mod opaque {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("mosaic-chain"),
-	impl_name: create_runtime_str!("mosaic-chain"),
+	spec_name: create_runtime_str!("mosaic-testnet-solo"),
+	impl_name: create_runtime_str!("mosaic-testnet-solo"),
 	authoring_version: 1,
 	// The version of the runtime specification. A full node will not attempt to use its native
 	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,

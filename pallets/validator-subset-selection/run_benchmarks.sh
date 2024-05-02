@@ -2,7 +2,7 @@
 
 SCRIPT_DIR=$(dirname $(readlink -f $0))
 
-$SCRIPT_DIR/../../target/release/mosaic-chain \
+$SCRIPT_DIR/../../target/release/mosaic-testnet-solo \
     benchmark pallet \
     --chain=dev \
     --wasm-execution=compiled \

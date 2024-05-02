@@ -2,25 +2,25 @@
 provider = "native"
 
 [relaychain]
-default_command = "./target/release/mosaic-chain"
-chain = "mosaic-chain"
-chain_spec_path = "mosaic-chain.json"
+default_command = "./target/release/mosaic-testnet-solo"
+chain = "mosaic-testnet-solo"
+chain_spec_path = "mosaic-testnet-solo.json"
 
 # when i tried with group spawning the validators remained idle
-  [[relaychain.nodes]]
-  name = "alice"
+[[relaychain.nodes]]
+name = "alice"
 
-  [[relaychain.nodes]]
-  name = "bob"
-  
-  [[relaychain.nodes]]
-  name = "charlie"
-  
-  [[relaychain.nodes]]
-  name = "dave"
-  
-  [[relaychain.nodes]]
-  name = "eve"
-  
-  [[relaychain.nodes]]
-  name = "ferdie"
+[[relaychain.nodes]]
+name = "bob"
+
+[[relaychain.nodes]]
+name = "charlie"
+
+[[relaychain.nodes]]
+name = "dave"
+
+[[relaychain.nodes]]
+name = "eve"
+
+[[relaychain.nodes]]
+name = "ferdie"

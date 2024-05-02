@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use futures::FutureExt;
-use mosaic_chain_runtime::{self, opaque::Block, RuntimeApi};
+use mosaic_testnet_solo_runtime::{self as runtime, opaque::Block, RuntimeApi};
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
@@ -26,11 +26,11 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 	type ExtendHostFunctions = ();
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		mosaic_chain_runtime::api::dispatch(method, data)
+		runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		mosaic_chain_runtime::native_version()
+		runtime::native_version()
 	}
 }
 

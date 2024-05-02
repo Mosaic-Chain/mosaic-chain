@@ -4,7 +4,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use mosaic_chain_runtime as runtime;
+use mosaic_testnet_solo_runtime as runtime;
 use runtime::{AccountId, Balance, BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;

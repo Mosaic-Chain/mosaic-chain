@@ -1,8 +1,8 @@
-# build debug version of mosaic-chain
+# build debug version of Mosaic chains
 build:
   cargo build
 
-# build release version of mosaic-chain
+# build release version of Mosaic chains
 build-release:
   cargo build --release
 
@@ -30,11 +30,11 @@ run-network: build-release
   max=6
   for (( i=0; i < $max; i++ ))
   do
-    ./target/release/mosaic-chain purge-chain \
+    ./target/release/mosaic-testnet-solo purge-chain \
     --base-path /tmp/${ids[i]} \
     --chain local -y \
 
-    ./target/release/mosaic-chain \
+    ./target/release/mosaic-testnet-solo \
     --base-path /tmp/${ids[i]} \
     --chain local \
     --${ids[i]} \

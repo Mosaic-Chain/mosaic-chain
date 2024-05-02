@@ -1,5 +1,5 @@
 [package]
-name = "mosaic-chain-runtime"
+name = "mosaic-testnet-solo-runtime"
 version.workspace = true
 repository.workspace = true
 edition = "2021"
@@ -65,8 +65,8 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, git = "h
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", optional = true, branch = "release-polkadot-v1.2.0" }
 
 # Local Dependencies
-mosaic-chain-runtime-constants.workspace = true
 pallet-doas.workspace = true
+mosaic-testnet-solo-constants.workspace = true
 pallet-nft-delegation.workspace = true
 pallet-nft-permission.workspace = true
 pallet-nft-staking.workspace = true

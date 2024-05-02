@@ -20,6 +20,6 @@ RUN apt update -y \
 
 EXPOSE 30333 30333/udp 9944 9933
 
-COPY --from=builder /app/target/release/mosaic-chain /usr/local/bin/
+COPY --from=builder /app/target/release/mosaic-testnet-solo /usr/local/bin/
 
-CMD ["mosaic-chain"]
+CMD ["mosaic-testnet-solo"]

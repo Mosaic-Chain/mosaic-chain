@@ -1,13 +1,13 @@
 [workspace]
 members = [
-    "node",
     "pallets/doas",
+    "node/testnet-solo",
     "pallets/nft-permission",
     "pallets/nft-staking",
     "pallets/nft-delegation",
     "pallets/validator-subset-selection",
-    "runtime",
-    "runtime/constants",
+    "runtime/testnet-solo",
+    "runtime/testnet-solo/constants",
 ]
 resolver = "2"
 
@@ -16,9 +16,9 @@ version = "0.1.0"
 repository = "https://gitlab.com/dlabs1/mozaik-chain"
 
 [workspace.dependencies]
-mosaic-chain-runtime = { version = "0.1.0", path = "runtime" }
-mosaic-chain-runtime-constants = { version = "0.1.0", path = "runtime/constants" }
 pallet-doas = { version = "0.1.0", default-features = false, path = "pallets/doas" }
+mosaic-testnet-solo-runtime = { version = "0.1.0", path = "runtime/testnet-solo" }
+mosaic-testnet-solo-constants = { version = "0.1.0", path = "runtime/testnet-solo/constants" }
 pallet-nft-staking = { version = "0.1.0", default-features = false, path = "pallets/nft-staking" }
 pallet-nft-delegation = { version = "0.1.0", default-features = false, path = "pallets/nft-delegation" }
 pallet-nft-permission = { version = "0.1.0", default-features = false, path = "pallets/nft-permission" }

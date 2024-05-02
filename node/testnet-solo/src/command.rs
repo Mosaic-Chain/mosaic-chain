@@ -1,5 +1,5 @@
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
-use mosaic_chain_runtime::{Block, EXISTENTIAL_DEPOSIT};
+use mosaic_testnet_solo_runtime::{Block, EXISTENTIAL_DEPOSIT};
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 use sp_keyring::Sr25519Keyring;

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use mosaic_chain_runtime::{
+use mosaic_testnet_solo_runtime::{
 	opaque::SessionKeys, AccountId, Balance, BalancesConfig, CouncilCollectiveMembershipConfig,
 	NftPermissionConfig, NftStakingConfig, RuntimeGenesisConfig, SessionConfig, Signature,
 	SystemConfig, ValidatorSubsetSelectionConfig, WASM_BINARY,

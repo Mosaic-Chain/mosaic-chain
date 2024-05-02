@@ -4153,7 +4153,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "mosaic-chain"
+name = "mosaic-testnet-solo-constants"
+version = "0.1.0"
+
+[[package]]
+name = "mosaic-testnet-solo-node"
 version = "0.1.0"
 dependencies = [
  "clap",
@@ -4162,7 +4166,7 @@ dependencies = [
  "frame-system",
  "futures",
  "jsonrpsee",
- "mosaic-chain-runtime",
+ "mosaic-testnet-solo-runtime",
  "pallet-im-online",
  "pallet-nft-staking",
  "pallet-transaction-payment",
@@ -4199,7 +4203,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mosaic-chain-runtime"
+name = "mosaic-testnet-solo-runtime"
 version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
@@ -4210,7 +4214,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "log",
- "mosaic-chain-runtime-constants",
+ "mosaic-testnet-solo-constants",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -4257,10 +4261,6 @@ dependencies = [
  "substrate-wasm-builder",
  "utils",
 ]
-
-[[package]]
-name = "mosaic-chain-runtime-constants"
-version = "0.1.0"
 
 [[package]]
 name = "multiaddr"

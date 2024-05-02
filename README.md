@@ -10,18 +10,20 @@ A `shell.nix` file is also included using which a complete development environme
 It also serves as a complete list of dependencies together with `toolchain.toml`
 
 ### justfile
+
 The project provides a `justfile` which contains regurarly used actions.
 After installing [just](https://github.com/casey/just) these actions can be easily ran.
 
 For example:
+
 ```bash
 just test-all
 ```
 
 ```bash
 Available recipes:
-    build         # build debug version of mosaic-chain
-    build-release # build release version of mosaic-chain
+    build         # build debug versions of Mosaic-testnet-solo
+    build-release # build release versions of Mosaic-testnet-solo
     clippy        # run clippy for lints
     format        # format the code
     install-nix   # install the nix package manager to make your life easier*
@@ -45,7 +47,7 @@ cargo build --release
 After you build the project, you can use the following command to explore its parameters and subcommands:
 
 ```sh
-./target/release/mosaic-chain -h
+./target/release/mosaic-testnet-solo -h
 ```
 
 You can generate and view the [Rust Docs](https://doc.rust-lang.org/cargo/commands/cargo-doc.html) for this project with this command:
@@ -59,19 +61,19 @@ cargo +nightly doc --open
 The following command starts a single-node development chain that doesn't persist state:
 
 ```sh
-./target/release/mosaic-chain --dev
+./target/release/mosaic-testnet-solo --dev
 ```
 
 To purge the development chain's state, run the following command:
 
 ```sh
-./target/release/mosaic-chain purge-chain --dev
+./target/release/mosaic-testnet-solo purge-chain --dev
 ```
 
 To start the development chain with detailed logging, run the following command:
 
 ```sh
-RUST_BACKTRACE=1 ./target/release/mosaic-chain -ldebug --dev
+RUST_BACKTRACE=1 ./target/release/mosaic-testnet-solo -ldebug --dev
 ```
 
 Development chains:
@@ -87,7 +89,7 @@ To persist chain state between runs, specify a base path by running a command si
 $ mkdir my-chain-state
 
 # Use of that folder to store the chain state
-$ ./target/release/mosaic-chain --dev --base-path ./my-chain-state/
+$ ./target/release/mosaic-testnet-solo --dev --base-path ./my-chain-state/
 
 # Check the folder structure created inside the base path after running the chain
 $ ls ./my-chain-state
@@ -119,11 +121,11 @@ ids=(alice bob charlie dave eve ferdie)
 max=6
 for (( i=0; i < $max; i++ ))
   do
-    ./target/release/mosaic-chain purge-chain \
+    ./target/release/mosaic-testnet-solo purge-chain \
     --base-path /tmp/${ids[i]} \
     --chain local -y \
 
-    ./target/release/mosaic-chain \
+    ./target/release/mosaic-testnet-solo \
     --base-path /tmp/${ids[i]} \
     --chain local \
     --${ids[i]} \
@@ -195,6 +197,7 @@ A FRAME pallet is compromised of a number of blockchain primitives:
 - Config: The `Config` configuration interface is used to define the types and parameters upon which a FRAME pallet depends.
 
 #### Custom pallets
+
 Mosaic Chain implements it's business logic in custom built pallets:
 
 - [`pallet-nft-staking`](./pallets/nft-staking/README.md) ties staking and validation logic together, it's responsible for:
@@ -205,5 +208,5 @@ Mosaic Chain implements it's business logic in custom built pallets:
   - providing the list of selectable validators to `validator-subset-selection`
 - [`pallet-validator-subset-selection`](./pallets/validator-subset-selection/README.md) selects the active subset of validators who produce the block in the current session and drives session progression.
 - [`pallet-nft-permission`](./pallets/nft-permission/README.md) owns permission NFTs and handles it's attributes.
-- [`pallet-nft-delegation`](./pallets/nft-delegation/README.md) owns delegator NFTs and handles it's attributes. 
+- [`pallet-nft-delegation`](./pallets/nft-delegation/README.md) owns delegator NFTs and handles it's attributes.
   
