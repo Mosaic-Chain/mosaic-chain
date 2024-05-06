@@ -34,7 +34,7 @@ use sp_runtime::{
 		NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature, SaturatedConversion,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, MultiSignature, SaturatedConversion,
 };
 use sp_staking::offence::{Offence, ReportOffence};
 #[cfg(feature = "std")]
@@ -249,6 +249,17 @@ impl frame_system::Config for Runtime {
 	/// The set code logic, just the default since we're not a parachain.
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+
+	type RuntimeTask = ();
+
+	type SingleBlockMigrations = ();
+
+	type MultiBlockMigrator = ();
+
+	type PreInherents = ();
+
+	type PostInherents = ();
+	type PostTransactions = ();
 }
 
 parameter_types! {
@@ -338,7 +349,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxHolds = ();
+	type RuntimeFreezeReason = RuntimeHoldReason;
 }
 
 parameter_types! {
@@ -438,27 +449,35 @@ impl pallet_nft_staking::Config for Runtime {
 
 parameter_types! {
 	// TODO: review these
+	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const BasicDeposit: Balance = deposit(1, 258);
-	pub const FieldDeposit: Balance = deposit(0, 66);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
 	pub const MaxSubAccounts: u32 = 100;
 	pub const MaxAdditionalFields: u32 = 100;
 	pub const MaxRegistrars: u32 = 20;
+	pub const MaxSuffixLength: u32 = 20;
+	pub const MaxUsernameLength: u32 = 20;
 }
 
 impl pallet_identity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
-	type FieldDeposit = FieldDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
-	type MaxAdditionalFields = MaxAdditionalFields;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type RegistrarOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+	type ByteDeposit = ByteDeposit;
+	type IdentityInformation = pallet_identity::legacy::IdentityInfo<MaxAdditionalFields>;
+	type OffchainSignature = Signature;
+	type SigningPublicKey = <Signature as Verify>::Signer;
+	type UsernameAuthorityOrigin = frame_system::EnsureRoot<AccountId>;
+	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+	type MaxSuffixLength = MaxSuffixLength;
+	type MaxUsernameLength = MaxUsernameLength;
 }
 
 parameter_types! {
@@ -995,7 +1014,7 @@ impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}

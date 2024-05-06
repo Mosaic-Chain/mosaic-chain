@@ -345,7 +345,7 @@ pub mod pallet {
 			T::Balance::decode(
 				&mut NftsPallet::<T>::system_attribute(
 					collection_id,
-					item_id,
+					Some(item_id),
 					AttributeKey::NominalValue.into(),
 				)
 				.ok_or(Error::<T>::ItemNotInitialized)?
@@ -363,7 +363,7 @@ pub mod pallet {
 			T::Balance::decode(
 				&mut NftsPallet::<T>::system_attribute(
 					collection_id,
-					item_id,
+					Some(item_id),
 					AttributeKey::IssuedNominalValue.into(),
 				)
 				.ok_or(Error::<T>::ItemNotInitialized)?
@@ -382,7 +382,7 @@ pub mod pallet {
 			T::Permission::decode(
 				&mut NftsPallet::<T>::system_attribute(
 					collection_id,
-					item_id,
+					Some(item_id),
 					AttributeKey::Permission.into(),
 				)
 				.ok_or(Error::<T>::ItemNotInitialized)?

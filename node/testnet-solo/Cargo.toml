@@ -15,50 +15,51 @@ name = "mosaic-testnet-solo"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.4.4", features = ["derive"] }
-frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-futures = { version = "0.3.21", features = ["thread-pool"] }
-jsonrpsee = { version = "0.16.2", features = ["server"] }
-pallet-im-online = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-pallet-transaction-payment-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-basic-authorship = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-client-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-consensus = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-consensus-aura = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-consensus-grandpa = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-executor = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-network = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-offchain = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-rpc-api = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-statement-store = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-telemetry = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sc-transaction-pool-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-block-builder = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-blockchain = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-consensus-aura = { version = "0.10.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-consensus-grandpa = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-core = { version = "21.0.0", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-inherents = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-io = { version = "23.0.0", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-keyring = { version = "24.0.0", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-runtime = { version = "24.0.0", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-substrate-frame-rpc-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
-try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }                    # CLI-specific dependencies
+clap = { workspace = true, features = ["derive"] }
+frame-benchmarking = { workspace = true }
+frame-benchmarking-cli = { workspace = true }
+frame-system = { workspace = true }
+futures = { workspace = true, features = ["thread-pool"] }
+jsonrpsee = { workspace = true, features = ["server"] }
+pallet-im-online = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc = { workspace = true }
+sc-basic-authorship = { workspace = true }
+sc-cli = { workspace = true }
+sc-client-api = { workspace = true }
+sc-consensus = { workspace = true }
+sc-consensus-aura = { workspace = true }
+sc-consensus-grandpa = { workspace = true }
+sc-executor = { workspace = true }
+sc-network = { workspace = true }
+sc-offchain = { workspace = true }
+sc-rpc-api = { workspace = true }
+sc-service = { workspace = true }
+sc-statement-store = { workspace = true }
+sc-telemetry = { workspace = true }
+sc-transaction-pool = { workspace = true }
+sc-transaction-pool-api = { workspace = true }
+sp-api = { workspace = true }
+sp-block-builder = { workspace = true }
+sp-blockchain = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
+sp-core = { workspace = true }
+sp-inherents = { workspace = true }
+sp-io = { workspace = true }
+sp-keyring = { workspace = true }
+sp-runtime = { workspace = true }
+sp-timestamp = { workspace = true }
+substrate-frame-rpc-system = { workspace = true }
+try-runtime-cli = { workspace = true, optional = true }                    # CLI-specific dependencies
 
 # Local Dependencies
 mosaic-testnet-solo-runtime.workspace = true
 pallet-nft-staking.workspace = true
+serde_json = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.2.0" }
+substrate-build-script-utils = { workspace = true }
 
 [features]
 default = []

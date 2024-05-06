@@ -123,6 +123,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
 		pub initial_subset_size: u64,
+		#[serde(skip_serializing)]
 		pub _phantom: PhantomData<T>,
 	}
 

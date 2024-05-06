@@ -384,7 +384,7 @@ pub mod pallet {
 			T::Balance::decode(
 				&mut NftsPallet::<T>::system_attribute(
 					collection_id,
-					item_id,
+					Some(item_id),
 					AttributeKey::NominalValue.into(),
 				)
 				.ok_or(Error::<T>::ItemNotInitialized)?
@@ -402,7 +402,7 @@ pub mod pallet {
 			sp_staking::SessionIndex::decode(
 				&mut NftsPallet::<T>::system_attribute(
 					collection_id,
-					item_id,
+					Some(item_id),
 					AttributeKey::Expiration.into(),
 				)
 				.ok_or(Error::<T>::ItemNotInitialized)?

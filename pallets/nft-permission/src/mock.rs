@@ -53,22 +53,32 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type RuntimeTask = ();
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
 }
 
 impl pallet_balances::Config for Test {
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+
+	/// The type for recording an account's balance.
 	type Balance = u64;
-	type DustRemoval = ();
+
+	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
+	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl pallet_nfts::Config for Test {
