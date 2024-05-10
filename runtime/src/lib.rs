@@ -14,10 +14,13 @@ use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	traits::{AsEnsureOriginWithArg, EitherOfDiverse, InstanceFilter},
+	traits::{
+		fungible::HoldConsideration, AsEnsureOriginWithArg, EitherOfDiverse, EqualPrivilegeOnly,
+		InstanceFilter, LinearStoragePrice,
+	},
 	PalletId,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -331,10 +334,10 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_balances::weights::SubstrateWeight<Self>;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ();
 }
 
@@ -443,7 +446,6 @@ parameter_types! {
 	pub const MaxRegistrars: u32 = 20;
 }
 
-// Later version will require more types
 impl pallet_identity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -457,6 +459,44 @@ impl pallet_identity::Config for Runtime {
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type RegistrarOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub MaximumWeight: Weight = Perbill::from_percent(75) * BlockWeights::get().max_block;
+	pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumWeight;
+	type ScheduleOrigin =
+		EitherOfDiverse<frame_system::EnsureRoot<AccountId>, frame_system::EnsureSigned<AccountId>>;
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
+	type Preimages = Preimage;
+}
+
+parameter_types! {
+	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
+	pub const PreimageByteDeposit: Balance = deposit(0, 1);
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
+}
+
+impl pallet_preimage::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -544,6 +584,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 
 					// As we add more pallets to the chain this needs to be extended as well.
 					RuntimeCall::System(..)
+						| RuntimeCall::Scheduler(..)
 						| RuntimeCall::Timestamp(..)
 						| RuntimeCall::Grandpa(..)
 						| RuntimeCall::ImOnline(..)
@@ -880,6 +921,8 @@ construct_runtime!(
 		CouncilCollective: pallet_collective::<Instance1>,
 		CouncilCollectiveMembership: pallet_membership::<Instance1>,
 		DoAs: pallet_doas,
+		Preimage: pallet_preimage,
+		Scheduler: pallet_scheduler,
 	}
 );
 
@@ -937,6 +980,8 @@ mod benches {
 		[pallet_recovery, Recovery]
 		[pallet_collective, CouncilCollective]
 		[pallet_membership, CouncilCollectiveMembership]
+		[pallet_scheduler, Scheduler]
+		[pallet_preimage, Preimage]
 	);
 }
 
