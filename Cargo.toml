@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "node",
+    "pallets/doas",
     "pallets/nft-permission",
     "pallets/nft-staking",
     "pallets/nft-delegation",
@@ -17,6 +18,7 @@ repository = "https://gitlab.com/dlabs1/mozaik-chain"
 [workspace.dependencies]
 mosaic-chain-runtime = { version = "0.1.0", path = "runtime" }
 mosaic-chain-runtime-constants = { version = "0.1.0", path = "runtime/constants" }
+pallet-doas = { version = "0.1.0", default-features = false, path = "pallets/doas" }
 pallet-nft-staking = { version = "0.1.0", default-features = false, path = "pallets/nft-staking" }
 pallet-nft-delegation = { version = "0.1.0", default-features = false, path = "pallets/nft-delegation" }
 pallet-nft-permission = { version = "0.1.0", default-features = false, path = "pallets/nft-permission" }

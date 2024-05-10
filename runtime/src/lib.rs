@@ -14,7 +14,7 @@ use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	traits::{AsEnsureOriginWithArg, InstanceFilter},
+	traits::{AsEnsureOriginWithArg, EitherOfDiverse, InstanceFilter},
 	PalletId,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -67,6 +67,12 @@ pub use pallet_validator_subset_selection;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 pub use mosaic_chain_runtime_constants::currency::{deposit, Balance, CENTS, MOSAIC};
+
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -171,7 +177,6 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
-
 impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -344,12 +349,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
-}
-
-impl pallet_sudo::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_nfts::Config for Runtime {
@@ -553,7 +552,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						| RuntimeCall::NftStaking(..)
 						| RuntimeCall::Nfts(..) | RuntimeCall::Session(..)
 						| RuntimeCall::Utility(..)
-						// Can a proxy be used for recovery?
 						// Excluding set_recovered(), create_recovery() and initiate_recovery()
 						| RuntimeCall::Recovery(pallet_recovery::Call::as_recovered{..})
 						| RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery{..})
@@ -562,10 +560,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						| RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery{..})
 						| RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered{..})
 						| RuntimeCall::Identity(..)
+						| RuntimeCall::CouncilCollective(..)
+						| RuntimeCall::CouncilCollectiveMembership(..)
 				)
 			},
-			// is there any governance added to the chain already?
-			ProxyType::Governance => matches!(c, RuntimeCall::Utility(..)),
+			ProxyType::Governance => {
+				matches!(
+					c,
+					RuntimeCall::Utility(..)
+						| RuntimeCall::CouncilCollective(..)
+						| RuntimeCall::CouncilCollectiveMembership(..)
+				)
+			},
 			ProxyType::Identity => {
 				matches!(c, RuntimeCall::Utility(..) | RuntimeCall::Identity(..))
 			},
@@ -637,6 +643,67 @@ impl pallet_recovery::Config for Runtime {
 	type FriendDepositFactor = FriendDepositFactor;
 	type MaxFriends = MaxFriends;
 	type RecoveryDeposit = RecoveryDeposit;
+}
+
+impl pallet_doas::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	// NOTE: changing this to a type which won't check if a vote happened is a risk, because
+	// pallet_collective::Call::propose{} with < 2 threshold will result in an immediate pallet_collective::Call::execute{}
+	// basically turning all of the council members into a doas account.
+	//
+	// This ensures that a vote with 2/3 aye ratio is needed for a doas proposal to be accepted.
+	type EnsureOrigin = pallet_collective::EnsureProportionAtLeast<AccountId, Council, 2, 3>;
+}
+
+parameter_types! {
+	/// The time-out for council motions.
+	pub const MotionDuration: BlockNumber = MINUTES;
+	pub const MaxProposals: u32 = 10;
+
+	// (from docs) NOTE:
+	// + Benchmarks will need to be re-run and weights adjusted if this changes.
+	// + This pallet assumes that dependents keep to the limit without enforcing it.
+	pub const MaxMembers: u32 = 100;
+	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
+}
+
+type Council = pallet_collective::Instance1;
+impl pallet_collective::Config<Council> for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	/// The runtime call dispatch type.
+	type Proposal = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+
+	type MotionDuration = MotionDuration;
+	type MaxProposals = MaxProposals;
+	type MaxMembers = MaxMembers;
+
+	// also check and see which is good for us
+	// type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = frame_system::EnsureRoot<AccountId>;
+	type MaxProposalWeight = MaxProposalWeight;
+}
+
+type EnsureRootOrTwoThirdCouncil = EitherOfDiverse<
+	frame_system::EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionAtLeast<AccountId, Council, 2, 3>,
+>;
+
+type CouncilMembership = pallet_membership::Instance1;
+impl pallet_membership::Config<CouncilMembership> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = EnsureRootOrTwoThirdCouncil;
+	type RemoveOrigin = EnsureRootOrTwoThirdCouncil;
+	type SwapOrigin = EnsureRootOrTwoThirdCouncil;
+	type ResetOrigin = EnsureRootOrTwoThirdCouncil;
+	type PrimeOrigin = EnsureRootOrTwoThirdCouncil;
+	type MembershipInitialized = CouncilCollective;
+	type MembershipChanged = CouncilCollective;
+	type MaxMembers = MaxMembers;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -784,6 +851,8 @@ impl pallet_nft_delegation::Config for Runtime {
 	type BindMetadata = Self::AccountId;
 }
 
+// this is needed, otherwise fmt will remove the :: from ::<Instance1>
+#[rustfmt::skip::macros(construct_runtime)]
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime {
@@ -793,7 +862,6 @@ construct_runtime!(
 		Grandpa: pallet_grandpa,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
-		Sudo: pallet_sudo,
 		Nfts: pallet_nfts,
 		NftDelegation: pallet_nft_delegation,
 		NftPermission: pallet_nft_permission,
@@ -809,6 +877,9 @@ construct_runtime!(
 		Recovery: pallet_recovery,
 		Identity: pallet_identity,
 		Assets: pallet_assets,
+		CouncilCollective: pallet_collective::<Instance1>,
+		CouncilCollectiveMembership: pallet_membership::<Instance1>,
+		DoAs: pallet_doas,
 	}
 );
 
@@ -864,6 +935,8 @@ mod benches {
 		[pallet_identity, Identity]
 		[pallet_utility, Utility]
 		[pallet_recovery, Recovery]
+		[pallet_collective, CouncilCollective]
+		[pallet_membership, CouncilCollectiveMembership]
 	);
 }
 

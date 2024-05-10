@@ -1,16 +1,16 @@
 use std::marker::PhantomData;
 
 use mosaic_chain_runtime::{
-	opaque::SessionKeys, AccountId, Balance, BalancesConfig, NftPermissionConfig, NftStakingConfig,
-	RuntimeGenesisConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
-	ValidatorSubsetSelectionConfig, WASM_BINARY,
+	opaque::SessionKeys, AccountId, Balance, BalancesConfig, CouncilCollectiveMembershipConfig,
+	NftPermissionConfig, NftStakingConfig, RuntimeGenesisConfig, SessionConfig, Signature,
+	SystemConfig, ValidatorSubsetSelectionConfig, WASM_BINARY,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nft_staking::PermissionType;
 use sc_service::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{bounded_vec, sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 // The URL for the telemetry server.
@@ -116,9 +116,6 @@ pub fn development_config() -> Result<ChainSpec, String> {
 						10,
 					),
 				],
-				// Sudo account
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				// Pre-funded accounts
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -204,9 +201,6 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 						100,
 					),
 				],
-				// Sudo account
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				// Pre-funded accounts
 				vec![
 					get_account_id_from_seed::<sr25519::Public>("Alice"),
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -244,7 +238,6 @@ fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId, ImOnlineId, AccountId)>,
 	initial_permission_holders: Vec<(AccountId, PermissionType, bool, Balance)>,
-	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	initial_subset_size: u64,
 	_enable_println: bool,
@@ -264,10 +257,6 @@ fn testnet_genesis(
 		assets: Default::default(),
 		grandpa: Default::default(),
 		im_online: Default::default(),
-		sudo: SudoConfig {
-			// Assign network admin rights.
-			key: Some(root_key),
-		},
 		transaction_payment: Default::default(),
 		nft_permission: NftPermissionConfig {
 			unstaked_permission_holders: initial_permission_holders
@@ -301,6 +290,15 @@ fn testnet_genesis(
 		validator_subset_selection: ValidatorSubsetSelectionConfig {
 			initial_subset_size,
 			_phantom: PhantomData,
+		},
+		council_collective: Default::default(),
+		council_collective_membership: CouncilCollectiveMembershipConfig {
+			phantom: PhantomData,
+			members: bounded_vec![
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			],
 		},
 	}
 }
