@@ -106,7 +106,7 @@ pub fn development_config() -> ChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		1000.into(),
+		2000.into(),
 	))
 	.build()
 }
@@ -158,7 +158,7 @@ pub fn local_testnet_config() -> ChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		1000.into(),
+		2000.into(),
 	))
 	.with_protocol_id("template-local")
 	.with_properties(properties)
