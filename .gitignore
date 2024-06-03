@@ -15,3 +15,7 @@ settings.json
 
 # packaging
 /packaging/*/mosaic-testnet-solo*_amd64*
+
+# generated spec and genesis data
+parachain.json
+para-2000*
