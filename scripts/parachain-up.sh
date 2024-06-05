@@ -26,8 +26,8 @@ run_collator() {
   local iden=${ids[$1]}
   local base_path="/tmp/parachain/$iden"
 
-  $NODE --$(echo $iden) --collator --force-authoring --chain parachain.json --base-path $base_path \
-  --port $((40333 + $1)) --rpc-port $((8844 + $1)) -- \
+  $NODE --$(echo $iden) --collator --chain parachain.json --base-path $base_path \
+  --pruning archive --port $((40333 + $1)) --rpc-port $((8844 + $1)) -- \
   --execution wasm --chain "$RELAY_SPEC" --port $((30343 + $1)) --rpc-port $((9977 + $1)) &
 
 }
