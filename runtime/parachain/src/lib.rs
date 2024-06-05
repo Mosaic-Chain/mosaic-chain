@@ -176,10 +176,10 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("parachain-template-runtime"),
-	impl_name: create_runtime_str!("parachain-template-runtime"),
+	spec_name: create_runtime_str!("mosaic-parachain"),
+	impl_name: create_runtime_str!("mosaic-parachain"),
 	authoring_version: 1,
-	spec_version: 1,
+	spec_version: 100,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -268,7 +268,7 @@ parameter_types! {
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
-	pub const SS58Prefix: u16 = 42;
+	pub const SS58Prefix: u16 = 14998;
 }
 
 /// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
