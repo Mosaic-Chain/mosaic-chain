@@ -11,6 +11,8 @@ pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+const PARA_ID: u32 = 2000;
+const RELAY_CHAIN: &str = "paseo-local";
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -65,15 +67,15 @@ pub fn development_config() -> ChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "MOS".into());
 	properties.insert("tokenDecimals".into(), 18.into());
-	properties.insert("ss58Format".into(), 209.into());
+	properties.insert("ss58Format".into(), 14998.into());
 
 	ChainSpec::builder(
 		parachain_template_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions {
-			relay_chain: "paseo-local".into(),
+			relay_chain: RELAY_CHAIN.into(),
 			// You MUST set this to the correct network!
-			para_id: 2000,
+			para_id: PARA_ID,
 		},
 	)
 	.with_name("Development")
@@ -106,7 +108,7 @@ pub fn development_config() -> ChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		2000.into(),
+		PARA_ID.into(),
 	))
 	.build()
 }
@@ -116,16 +118,16 @@ pub fn local_testnet_config() -> ChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "MOS".into());
 	properties.insert("tokenDecimals".into(), 18.into());
-	properties.insert("ss58Format".into(), 209.into());
+	properties.insert("ss58Format".into(), 14998.into());
 
 	#[allow(deprecated)]
 	ChainSpec::builder(
 		parachain_template_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions {
-			relay_chain: "paseo-local".into(),
+			relay_chain: RELAY_CHAIN.into(),
 			// You MUST set this to the correct network!
-			para_id: 2000,
+			para_id: PARA_ID,
 		},
 	)
 	.with_name("Local Testnet")
@@ -158,7 +160,7 @@ pub fn local_testnet_config() -> ChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		2000.into(),
+		PARA_ID.into(),
 	))
 	.with_protocol_id("template-local")
 	.with_properties(properties)
