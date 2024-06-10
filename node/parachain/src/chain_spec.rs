@@ -167,6 +167,59 @@ pub fn local_testnet_config() -> ChainSpec {
 	.build()
 }
 
+pub fn live_config() -> ChainSpec {
+	let mut properties = sc_chain_spec::Properties::new();
+	properties.insert("tokenSymbol".into(), "MOS".into());
+	properties.insert("tokenDecimals".into(), 18.into());
+	properties.insert("ss58Format".into(), 14998.into());
+
+	#[allow(deprecated)]
+	ChainSpec::builder(
+		parachain_template_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+		Extensions {
+			relay_chain: "polkadot".into(),
+			// You MUST set this to the correct network!
+			para_id: 3377,
+		},
+	)
+	.with_name("Mosaic")
+	.with_id("mosaic")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(testnet_genesis(
+		// initial collators.
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_collator_keys_from_seed("Alice"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_collator_keys_from_seed("Bob"),
+			),
+		],
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		PARA_ID.into(),
+	))
+	.with_protocol_id("mosaic")
+	.with_properties(properties)
+	.build()
+}
+
 fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
@@ -183,6 +236,7 @@ fn testnet_genesis(
 		"collatorSelection": {
 			"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
 			"candidacyBond": EXISTENTIAL_DEPOSIT * 16,
+			//"desiredCandidates": 2,
 		},
 		"session": {
 			"keys": invulnerables

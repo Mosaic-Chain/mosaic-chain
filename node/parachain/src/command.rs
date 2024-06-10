@@ -10,6 +10,7 @@ use sc_cli::{
 	NetworkParams, Result, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
+use sp_core::crypto::Ss58AddressFormat;
 use sp_runtime::traits::AccountIdConversion;
 
 use crate::{
@@ -20,6 +21,7 @@ use crate::{
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 	Ok(match id {
+		"live" => Box::new(chain_spec::live_config()),
 		"dev" => Box::new(chain_spec::development_config()),
 		"template-rococo" => Box::new(chain_spec::local_testnet_config()),
 		"" | "local" => Box::new(chain_spec::local_testnet_config()),
@@ -233,6 +235,13 @@ pub fn run() -> Result<()> {
 				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
 					.map(|e| e.para_id)
 					.ok_or("Could not find parachain ID in chain-spec.")?;
+
+				if let Some(serde_json::Value::Number(ss58prefix)) =  config.chain_spec.properties().get("ss58Format") {
+					let prefix = ss58prefix.as_u64().ok_or_else(||sc_cli::Error::Input("ss58 prefix cannot be negative".into()))?;
+					let prefix = u16::try_from(prefix).map_err(|err| sc_cli::Error::Input(err.to_string()))?;
+
+					sp_core::crypto::set_default_ss58_version(Ss58AddressFormat::custom(prefix));
+				}
 
 				let polkadot_cli = RelayChainCli::new(
 					&config,

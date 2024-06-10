@@ -32,9 +32,7 @@ run_collator() {
 
 }
 
-$NODE build-spec --disable-default-bootnode --raw > parachain.json
-
-for i in $(seq 0 5); do 
+for i in $(seq 0 1); do 
   run_collator $i
 done
 

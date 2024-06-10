@@ -5,5 +5,6 @@ if [ ! -f $NODE ]; then
   exit 3
 fi;
 
+$NODE build-spec --chain local --disable-default-bootnode --raw > parachain.json
 $NODE export-genesis-wasm --chain parachain.json para-2000-wasm
 $NODE export-genesis-state --chain parachain.json para-2000-genesis-state
