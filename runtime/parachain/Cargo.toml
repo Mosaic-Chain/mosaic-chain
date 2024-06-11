@@ -35,6 +35,8 @@ pallet-sudo = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = false }
+pallet-proxy = { workspace = true }
+pallet-multisig = { workspace = true }
 
 sp-api = { workspace = true, default-features = false }
 sp-block-builder = { workspace = true, default-features = false }
@@ -107,6 +109,8 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-xcm/std",
+	"pallet-proxy/std",
+	"pallet-multisig/std",
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
@@ -172,6 +176,8 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-xcm/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-multisig/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",

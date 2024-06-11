@@ -31,7 +31,9 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin},
+	traits::{
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter, TransformOrigin,
+	},
 	weights::{
 		constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight, WeightToFeeCoefficient,
 		WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -176,8 +178,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("mosaic-parachain"),
-	impl_name: create_runtime_str!("mosaic-parachain"),
+	spec_name: create_runtime_str!("mosaic-chain"),
+	impl_name: create_runtime_str!("mosaic-chain"),
 	authoring_version: 1,
 	spec_version: 100,
 	impl_version: 0,
@@ -361,6 +363,124 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = (); // Configure based on benchmarking results.
 }
 
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	codec::Encode,
+	codec::Decode,
+	Debug,
+	codec::MaxEncodedLen,
+	scale_info::TypeInfo,
+)]
+// I made these ProxyTypes according to this: https://mosaicchain.medium.com/account-abstractions-on-mosaic-chain-9b4162897536
+pub enum ProxyType {
+	/// Allow any kind of transaction, including balance transfers, staking, governance and others on behalf of the proxied account.
+	Any,
+	/// Allow any type of transaction except the balance transfer functionality.
+	/// This proxy does not have permission to access calls in the Balances and XCM pallet.
+	NonTransfer,
+	/// Allow to reject and remove any time-delay proxy announcements.
+	/// This proxy can only access the “reject_announcement” call from the Proxy pallet.
+	Cancel,
+}
+
+// Default must be provided and MUST BE the the most permissive value. aka Any
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
+
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
+		match self {
+			ProxyType::Any => true,
+			ProxyType::NonTransfer => {
+				matches!(
+					c,
+					// skipping pallet_balances entirely
+					// when xcm will be implemented skip that too
+
+					// As we add more pallets to the chain this needs to be extended as well.
+					RuntimeCall::System(..)
+						| RuntimeCall::Timestamp(..)
+						| RuntimeCall::Proxy(..) | RuntimeCall::Session(..)
+						| RuntimeCall::Multisig(..)
+				)
+			},
+			ProxyType::Cancel => {
+				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
+			},
+		}
+	}
+
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			(ProxyType::NonTransfer, _) => true,
+			_ => false,
+		}
+	}
+}
+
+pub const MOSAIC: Balance = 10u128.pow(18);
+pub const DOLLAR: Balance = MOSAIC;
+pub const CENTS: Balance = MOSAIC / 100;
+pub const MILLICENTS: Balance = MOSAIC / 1_000;
+pub const GRAND: Balance = MOSAIC * 1000;
+
+// TODO: rewrite values
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+	items as Balance * 20 * MOSAIC + (bytes as Balance) * 10 * CENTS
+}
+
+parameter_types! {
+	// went with the documentation on the values
+	pub const ProxyDepositBase: Balance = deposit(1, 8);
+	pub const ProxyDepositFactor: Balance = deposit(0, 33);
+	pub const AnnouncementDepositBase: Balance = deposit(1, 16);
+	pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
+}
+
+impl pallet_proxy::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type ProxyType = ProxyType;
+	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+	type CallHasher = BlakeTwo256;
+	type MaxProxies = ConstU32<32>;
+	type MaxPending = ConstU32<32>;
+	type ProxyDepositBase = ProxyDepositBase;
+	type ProxyDepositFactor = ProxyDepositFactor;
+	type AnnouncementDepositBase = AnnouncementDepositBase;
+	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+}
+
+parameter_types! {
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = deposit(1, 88);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 32);
+	pub const MaxSignatories: u32 = 100;
+}
+
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = MaxSignatories;
+	type WeightInfo = (); // Configure based on benchmarking results.
+}
+
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
@@ -527,6 +647,10 @@ construct_runtime!(
 		Aura: pallet_aura = 23,
 		AuraExt: cumulus_pallet_aura_ext = 24,
 
+		// Account utilities
+		Multisig: pallet_multisig = 34,
+		Proxy: pallet_proxy = 35,
+
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
 		PolkadotXcm: pallet_xcm = 31,
@@ -548,6 +672,8 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_message_queue, MessageQueue]
+		[pallet_proxy, Proxy]
+		[pallet_multisig, Multisig]
 	);
 }
 
