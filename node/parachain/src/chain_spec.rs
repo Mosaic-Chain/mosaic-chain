@@ -3,7 +3,7 @@ use parachain_template_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOS
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{bytes, sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
@@ -11,14 +11,26 @@ pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-const PARA_ID: u32 = 2000;
-const RELAY_CHAIN: &str = "paseo-local";
+const TEST_PARA_ID: u32 = 2000;
+const TEST_RELAY_CHAIN: &str = "paseo-local";
+
+const PARA_ID: u32 = 3377;
+const RELAY_CHAIN: &str = "polkadot";
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+pub fn from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(&format!("//{seed}"), None)
 		.expect("static values are valid; qed")
 		.public()
+}
+
+pub fn from_hex(hex: &str) -> sr25519::Public {
+	let data: [u8; 32] = bytes::from_hex(hex)
+		.expect("static values are valid hex")
+		.try_into()
+		.expect("static value represents a 32 byte long key");
+
+	sr25519::Public::from_raw(data)
 }
 
 /// The extensions for the [`ChainSpec`].
@@ -44,21 +56,21 @@ type AccountPublic = <Signature as Verify>::Signer;
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
 pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
-	get_from_seed::<AuraId>(seed)
+	from_seed::<AuraId>(seed)
 }
 
 /// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+pub fn get_account_id(pubkey: sr25519::Public) -> AccountId
 where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	AccountPublic: From<sr25519::Public>,
 {
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	AccountPublic::from(pubkey).into_account()
 }
 
 /// Generate the session keys from individual elements.
 ///
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn template_session_keys(keys: AuraId) -> parachain_template_runtime::SessionKeys {
+pub fn session_keys(keys: AuraId) -> parachain_template_runtime::SessionKeys {
 	parachain_template_runtime::SessionKeys { aura: keys }
 }
 
@@ -73,9 +85,9 @@ pub fn development_config() -> ChainSpec {
 		parachain_template_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions {
-			relay_chain: RELAY_CHAIN.into(),
+			relay_chain: TEST_RELAY_CHAIN.into(),
 			// You MUST set this to the correct network!
-			para_id: PARA_ID,
+			para_id: TEST_PARA_ID,
 		},
 	)
 	.with_name("Development")
@@ -85,30 +97,30 @@ pub fn development_config() -> ChainSpec {
 		// initial collators.
 		vec![
 			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id(from_seed::<sr25519::Public>("Alice")),
 				get_collator_keys_from_seed("Alice"),
 			),
 			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id(from_seed::<sr25519::Public>("Bob")),
 				get_collator_keys_from_seed("Bob"),
 			),
 		],
 		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			get_account_id(from_seed::<sr25519::Public>("Alice")),
+			get_account_id(from_seed::<sr25519::Public>("Bob")),
+			get_account_id(from_seed::<sr25519::Public>("Charlie")),
+			get_account_id(from_seed::<sr25519::Public>("Dave")),
+			get_account_id(from_seed::<sr25519::Public>("Eve")),
+			get_account_id(from_seed::<sr25519::Public>("Ferdie")),
+			get_account_id(from_seed::<sr25519::Public>("Alice//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Bob//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Charlie//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Dave//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Eve//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Ferdie//stash")),
 		],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		PARA_ID.into(),
+		get_account_id(from_seed::<sr25519::Public>("Alice")),
+		TEST_PARA_ID.into(),
 	))
 	.build()
 }
@@ -125,9 +137,9 @@ pub fn local_testnet_config() -> ChainSpec {
 		parachain_template_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions {
-			relay_chain: RELAY_CHAIN.into(),
+			relay_chain: TEST_RELAY_CHAIN.into(),
 			// You MUST set this to the correct network!
-			para_id: PARA_ID,
+			para_id: TEST_PARA_ID,
 		},
 	)
 	.with_name("Local Testnet")
@@ -137,30 +149,30 @@ pub fn local_testnet_config() -> ChainSpec {
 		// initial collators.
 		vec![
 			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id(from_seed::<sr25519::Public>("Alice")),
 				get_collator_keys_from_seed("Alice"),
 			),
 			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id(from_seed::<sr25519::Public>("Bob")),
 				get_collator_keys_from_seed("Bob"),
 			),
 		],
 		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			get_account_id(from_seed::<sr25519::Public>("Alice")),
+			get_account_id(from_seed::<sr25519::Public>("Bob")),
+			get_account_id(from_seed::<sr25519::Public>("Charlie")),
+			get_account_id(from_seed::<sr25519::Public>("Dave")),
+			get_account_id(from_seed::<sr25519::Public>("Eve")),
+			get_account_id(from_seed::<sr25519::Public>("Ferdie")),
+			get_account_id(from_seed::<sr25519::Public>("Alice//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Bob//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Charlie//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Dave//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Eve//stash")),
+			get_account_id(from_seed::<sr25519::Public>("Ferdie//stash")),
 		],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		PARA_ID.into(),
+		get_account_id(from_seed::<sr25519::Public>("Alice")),
+		TEST_PARA_ID.into(),
 	))
 	.with_protocol_id("template-local")
 	.with_properties(properties)
@@ -173,14 +185,37 @@ pub fn live_config() -> ChainSpec {
 	properties.insert("tokenDecimals".into(), 18.into());
 	properties.insert("ss58Format".into(), 14998.into());
 
+	// TODO: make this nicer
+	let accounts = [
+		from_hex("0x1ee256f0b5b975c51b62e199ae1796b342d9337aa2b1dbc9777d44107446ae1d"),
+		from_hex("0x5e4c345149989cfdba0f452e5e2e132901d85ad513269fdc06a77bf205d0cf67"),
+		from_hex("0xdc6b9379f2f366ea7a60dae93db47b479dfa4def30962c40428167b225e9285c"),
+		from_hex("0x6ebbc72a185b1b4ebc38ca63ce142a667b816a54dcc94ed25dcdb022cecce13a"),
+	];
+
+	let aura_ids = [
+		AuraId::from(from_hex(
+			"0xc09b26e7a448f367fe51012fb697ee1a7d3735b1915ba2b3e3c1371686bd797d",
+		)),
+		AuraId::from(from_hex(
+			"0xe28984679daf4acb81cf7d5f6f18e6742beb94ae4535e80450a2db9ecfde2243",
+		)),
+		AuraId::from(from_hex(
+			"0x5add02e6523ea5294cccf6292547efc26d78205aa857d37ddfda95fc6ae38a38",
+		)),
+		AuraId::from(from_hex(
+			"0x0472d783769d432a0961d4a0233ec8805c234fee7ca2e2d3a2965fee5f4a9642",
+		)),
+	];
+
 	#[allow(deprecated)]
 	ChainSpec::builder(
 		parachain_template_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions {
-			relay_chain: "polkadot".into(),
+			relay_chain: RELAY_CHAIN.into(),
 			// You MUST set this to the correct network!
-			para_id: 3377,
+			para_id: PARA_ID,
 		},
 	)
 	.with_name("Mosaic")
@@ -189,33 +224,14 @@ pub fn live_config() -> ChainSpec {
 	.with_genesis_config_patch(testnet_genesis(
 		// initial collators.
 		vec![
-			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed("Alice"),
-			),
-			(
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_collator_keys_from_seed("Bob"),
-			),
+			(get_account_id(accounts[0]), aura_ids[0].clone()),
+			(get_account_id(accounts[1]), aura_ids[1].clone()),
 		],
-		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-		],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		accounts.iter().map(|pubkey| get_account_id(*pubkey)).collect(),
+		get_account_id(accounts[0]),
 		PARA_ID.into(),
 	))
-	.with_protocol_id("mosaic")
+	.with_protocol_id("mosaic-chain")
 	.with_properties(properties)
 	.build()
 }
@@ -228,7 +244,7 @@ fn testnet_genesis(
 ) -> serde_json::Value {
 	serde_json::json!({
 		"balances": {
-			"balances": endowed_accounts.iter().cloned().map(|k| (k, 10000000000000000000u64)).collect::<Vec<_>>(),
+			"balances": endowed_accounts.iter().cloned().map(|k| (k, 10_000_000_000_000_000_000_u64)).collect::<Vec<_>>(),
 		},
 		"parachainInfo": {
 			"parachainId": id,
@@ -243,9 +259,9 @@ fn testnet_genesis(
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
-						acc.clone(),                 // account id
-						acc,                         // validator id
-						template_session_keys(aura), // session keys
+						acc.clone(),                // account id
+						acc,                        // validator id
+						session_keys(aura), 		// session keys
 					)
 				})
 			.collect::<Vec<_>>(),
