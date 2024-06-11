@@ -32,7 +32,7 @@ run_collator() {
 
 }
 
-for i in $(seq 0 1); do 
+for i in $(seq 0 5); do 
   run_collator $i
 done
 
