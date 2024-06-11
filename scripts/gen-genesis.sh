@@ -1,3 +1,6 @@
+#!/bin/env bash
+
+CHAIN=${1:-local}
 NODE="./target/release/parachain-template-node"
 
 if [ ! -f $NODE ]; then
@@ -6,6 +9,10 @@ if [ ! -f $NODE ]; then
 fi;
 
 # TODO: change this to live!!
-$NODE build-spec --chain local --disable-default-bootnode --raw > parachain.json
-$NODE export-genesis-wasm --chain parachain.json para-2000-wasm
-$NODE export-genesis-state --chain parachain.json para-2000-genesis-state
+$NODE build-spec --chain $CHAIN > $CHAIN-plain.json
+
+read -r -p 'Waiting for you to add bootstrap nodes.'
+
+$NODE build-spec --chain $CHAIN-plain.json --raw > $CHAIN-raw.json
+$NODE export-genesis-wasm --chain $CHAIN-raw.json $CHAIN-wasm
+$NODE export-genesis-state --chain $CHAIN-raw.json $CHAIN-genesis-state
