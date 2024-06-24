@@ -20,12 +20,10 @@ buildInputs = [
   ] ++ (with pkgs; [
     clang
     pkg-config
-    bacon
-    just
     cargo-nextest
     dpkg
   ]);
-
+ 
   LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
   PROTOC = "${pkgs.protobuf}/bin/protoc";
   ROCKSDB_LIB_DIR = "${pkgs.rocksdb}/lib";
