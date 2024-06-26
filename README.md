@@ -9,31 +9,6 @@ Alternatively, you can use one of the [alternative installation](#alternative-in
 A `shell.nix` file is also included using which a complete development environment can be spawned.
 It also serves as a complete list of dependencies together with `toolchain.toml`
 
-### justfile
-
-The project provides a `justfile` which contains regurarly used actions.
-After installing [just](https://github.com/casey/just) these actions can be easily ran.
-
-For example:
-
-```bash
-just test-all
-```
-
-```bash
-Available recipes:
-    build         # build debug versions of Mosaic-testnet-solo
-    build-release # build release versions of Mosaic-testnet-solo
-    clippy        # run clippy for lints
-    format        # format the code
-    install-nix   # install the nix package manager to make your life easier*
-    run-network   # run a temporary test network with alice, bob and the others (6 nodes)
-    test $PACKAGE # test a specified package (eg.: a pallet)
-    test-all      # test every package
-```
-
-In case `just` isn't being used the commands in the `justfile` are recommended to be issued manually.
-
 ### Build
 
 Use the following command to build the node without launching it:
@@ -106,13 +81,7 @@ After you start the node locally, you can interact with it using the hosted vers
 A hosted version is also available on [IPFS (redirect) here](https://dotapps.io/) or [IPNS (direct) here](ipns://dotapps.io/?rpc=ws%3A%2F%2F127.0.0.1%3A9944#/explorer).
 You can also find the source code and instructions for hosting your own instance on the [polkadot-js/apps](https://github.com/polkadot-js/apps) repository.
 
-### Multi-Node Local Testnet
-
-```bash
-just run-network
-```
-
-The above command runs this script:
+### Multi-node local testnet
 
 ```bash
 #!/usr/bin/env bash
@@ -209,4 +178,4 @@ Mosaic Chain implements it's business logic in custom built pallets:
 - [`pallet-validator-subset-selection`](./pallets/validator-subset-selection/README.md) selects the active subset of validators who produce the block in the current session and drives session progression.
 - [`pallet-nft-permission`](./pallets/nft-permission/README.md) owns permission NFTs and handles it's attributes.
 - [`pallet-nft-delegation`](./pallets/nft-delegation/README.md) owns delegator NFTs and handles it's attributes.
-  
+
