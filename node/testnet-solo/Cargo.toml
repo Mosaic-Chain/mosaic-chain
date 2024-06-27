@@ -51,7 +51,6 @@ sp-keyring = { workspace = true }
 sp-runtime = { workspace = true }
 sp-timestamp = { workspace = true }
 substrate-frame-rpc-system = { workspace = true }
-try-runtime-cli = { workspace = true, optional = true }                    # CLI-specific dependencies
 
 # Local Dependencies
 mosaic-testnet-solo-runtime.workspace = true
@@ -73,5 +72,4 @@ runtime-benchmarks = [
 # in the near future.
 try-runtime = [
 	"mosaic-testnet-solo-runtime/try-runtime",
-	"try-runtime-cli/try-runtime",
 ]
