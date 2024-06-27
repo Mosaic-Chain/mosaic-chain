@@ -21,6 +21,7 @@ buildInputs = [
     clang
     pkg-config
     cargo-nextest
+    cargo-watch
     dpkg
   ]);
  
