@@ -54,7 +54,7 @@ use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use polkadot_runtime_common::{prod_or_fast, BlockHashCount, SlowAdjustingFeeUpdate};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -354,10 +354,66 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OperationalFeeMultiplier = ConstU8<5>;
 }
 
-impl pallet_sudo::Config for Runtime {
+impl pallet_doas::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type WeightInfo = (); // Configure based on benchmarking results.
+	// NOTE: changing this to a type which won't check if a vote happened is a risk, because
+	// pallet_collective::Call::propose{} with < 2 threshold will result in an immediate pallet_collective::Call::execute{}
+	// basically turning all of the council members into a root account.
+	//
+	// This ensures that a vote with 2/3 aye ratio is needed for a doas proposal to be accepted.
+	type EnsureOrigin = pallet_collective::EnsureProportionAtLeast<AccountId, Council, 2, 3>;
+}
+
+// TODO: review these values
+parameter_types! {
+	/// The time-out for council motions.
+	pub const MotionDuration: BlockNumber = prod_or_fast!(24 * HOURS, MINUTES);
+	pub const MaxProposals: u32 = 16;
+
+	// (from docs) NOTE:
+	// + Benchmarks will need to be re-run and weights adjusted if this changes.
+	// + This pallet assumes that dependents keep to the limit without enforcing it.
+	pub const MaxMembers: u32 = 100;
+	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
+}
+
+type Council = pallet_collective::Instance1;
+impl pallet_collective::Config<Council> for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	/// The runtime call dispatch type.
+	type Proposal = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+
+	type MotionDuration = MotionDuration;
+	type MaxProposals = MaxProposals;
+	type MaxMembers = MaxMembers;
+
+	// TODO: check and see which is good for us
+	// type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = frame_system::EnsureRoot<AccountId>;
+	type MaxProposalWeight = MaxProposalWeight;
+}
+
+type EnsureRootOrTwoThirdCouncil = EitherOfDiverse<
+	frame_system::EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionAtLeast<AccountId, Council, 2, 3>,
+>;
+
+type CouncilMembership = pallet_membership::Instance1;
+impl pallet_membership::Config<CouncilMembership> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = EnsureRootOrTwoThirdCouncil;
+	type RemoveOrigin = EnsureRootOrTwoThirdCouncil;
+	type SwapOrigin = EnsureRootOrTwoThirdCouncil;
+	type ResetOrigin = EnsureRootOrTwoThirdCouncil;
+	type PrimeOrigin = EnsureRootOrTwoThirdCouncil;
+	type MembershipInitialized = CouncilCollective;
+	type MembershipChanged = CouncilCollective;
+	type MaxMembers = MaxMembers;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
 
 #[derive(
@@ -380,6 +436,8 @@ pub enum ProxyType {
 	/// Allow any type of transaction except the balance transfer functionality.
 	/// This proxy does not have permission to access calls in the Balances and XCM pallet.
 	NonTransfer,
+	/// Allow to make transactions related to only for governance.
+	Governance,
 	/// Allow to reject and remove any time-delay proxy announcements.
 	/// This proxy can only access the “reject_announcement” call from the Proxy pallet.
 	Cancel,
@@ -407,8 +465,19 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						| RuntimeCall::Timestamp(..)
 						| RuntimeCall::Proxy(..) | RuntimeCall::Session(..)
 						| RuntimeCall::Multisig(..)
+						| RuntimeCall::CouncilCollective(..)
+						| RuntimeCall::CouncilCollectiveMembership(..)
 				)
 			},
+
+			ProxyType::Governance => {
+				matches!(
+					c,
+					RuntimeCall::CouncilCollective(..)
+						| RuntimeCall::CouncilCollectiveMembership(..)
+				)
+			},
+
 			ProxyType::Cancel => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
@@ -620,6 +689,7 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
+#[rustfmt::skip::macros(construct_runtime)]
 construct_runtime!(
 	// While this macro defines the pallets conforming the runtime,
 	// the ones to be benchmarked need to be explicitly passed to `define_benchmarks!`.
@@ -635,7 +705,9 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment = 11,
 
 		// Governance
-		Sudo: pallet_sudo = 15,
+		CouncilCollective: pallet_collective::<Instance1> = 16,
+		CouncilCollectiveMembership: pallet_membership::<Instance1> = 17,
+		DoAs: pallet_doas = 18,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -664,13 +736,14 @@ mod benches {
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[pallet_timestamp, Timestamp]
 		[pallet_balances, Balances]
-		[pallet_sudo, Sudo]
 		[pallet_collator_selection, CollatorSelection]
 		[pallet_session, SessionBench::<Runtime>]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_message_queue, MessageQueue]
 		[pallet_proxy, Proxy]
 		[pallet_multisig, Multisig]
+		[pallet_collective, CouncilCollective]
+		[pallet_membership, CouncilCollectiveMembership]
 	);
 }
 

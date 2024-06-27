@@ -17,6 +17,9 @@ hex-literal = { workspace = true }
 log = { workspace = true, default-features = false }
 scale-info = { workspace = true, features = ["derive"] }
 
+# Local
+pallet-doas = { workspace = true, default-features = false }
+
 # Substrate
 frame-benchmarking = { workspace = true, optional = true, default-features = false }
 frame-executive = { workspace = true, default-features = false }
@@ -31,12 +34,13 @@ pallet-authorship = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-message-queue = { workspace = true, default-features = false }
 pallet-session = { workspace = true, default-features = false }
-pallet-sudo = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
 pallet-transaction-payment = { workspace = true, default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = false }
-pallet-proxy = { workspace = true }
-pallet-multisig = { workspace = true }
+pallet-proxy = { workspace = true, default-features = false }
+pallet-multisig = { workspace = true, default-features = false }
+pallet-membership = { workspace = true, default-features = false }
+pallet-collective = { workspace = true, default-features = false }
 
 sp-api = { workspace = true, default-features = false }
 sp-block-builder = { workspace = true, default-features = false }
@@ -104,13 +108,15 @@ std = [
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
 	"pallet-session/std",
-	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-xcm/std",
 	"pallet-proxy/std",
 	"pallet-multisig/std",
+	"pallet-membership/std",
+	"pallet-collective/std",
+	"pallet-doas/std",
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
@@ -146,11 +152,13 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
+	"pallet-collective/runtime-benchmarks",
+	"pallet-doas/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
@@ -174,12 +182,14 @@ try-runtime = [
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-xcm/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-membership/try-runtime",
+	"pallet-collective/try-runtime",
+	"pallet-doas/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",

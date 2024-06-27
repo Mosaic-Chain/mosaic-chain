@@ -119,7 +119,6 @@ pub fn development_config() -> ChainSpec {
 			get_account_id(from_seed::<sr25519::Public>("Eve//stash")),
 			get_account_id(from_seed::<sr25519::Public>("Ferdie//stash")),
 		],
-		get_account_id(from_seed::<sr25519::Public>("Alice")),
 		TEST_PARA_ID.into(),
 	))
 	.build()
@@ -171,7 +170,6 @@ pub fn local_testnet_config() -> ChainSpec {
 			get_account_id(from_seed::<sr25519::Public>("Eve//stash")),
 			get_account_id(from_seed::<sr25519::Public>("Ferdie//stash")),
 		],
-		get_account_id(from_seed::<sr25519::Public>("Alice")),
 		TEST_PARA_ID.into(),
 	))
 	.with_protocol_id("template-local")
@@ -228,7 +226,6 @@ pub fn live_config() -> ChainSpec {
 			(get_account_id(accounts[1]), aura_ids[1].clone()),
 		],
 		accounts.iter().map(|pubkey| get_account_id(*pubkey)).collect(),
-		get_account_id(accounts[0]),
 		PARA_ID.into(),
 	))
 	.with_protocol_id("mosaic-chain")
@@ -239,7 +236,6 @@ pub fn live_config() -> ChainSpec {
 fn testnet_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
-	root: AccountId,
 	id: ParaId,
 ) -> serde_json::Value {
 	serde_json::json!({
@@ -256,7 +252,8 @@ fn testnet_genesis(
 		},
 		"session": {
 			"keys": invulnerables
-				.into_iter()
+				.iter()
+				.cloned()
 				.map(|(acc, aura)| {
 					(
 						acc.clone(),                // account id
@@ -269,6 +266,8 @@ fn testnet_genesis(
 		"polkadotXcm": {
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
-		"sudo": { "key": Some(root) }
+		"council_collective_membership": {
+			"members": invulnerables
+		},
 	})
 }
