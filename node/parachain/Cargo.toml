@@ -74,6 +74,10 @@ substrate-build-script-utils = { workspace = true }
 
 [features]
 default = []
+
+fast-runtime = ["parachain-template-runtime/fast-runtime"]
+local = ["parachain-template-runtime/local"]
+
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",

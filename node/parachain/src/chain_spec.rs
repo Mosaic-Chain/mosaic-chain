@@ -74,6 +74,7 @@ pub fn session_keys(keys: AuraId) -> parachain_template_runtime::SessionKeys {
 	parachain_template_runtime::SessionKeys { aura: keys }
 }
 
+#[cfg(feature = "local")]
 pub fn development_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -124,6 +125,7 @@ pub fn development_config() -> ChainSpec {
 	.build()
 }
 
+#[cfg(feature = "local")]
 pub fn local_testnet_config() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
@@ -177,6 +179,7 @@ pub fn local_testnet_config() -> ChainSpec {
 	.build()
 }
 
+#[cfg(not(feature = "local"))]
 pub fn live_config() -> ChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "MOS".into());

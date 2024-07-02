@@ -83,6 +83,10 @@ parachain-info = { workspace = true }
 
 [features]
 default = ["std"]
+fast-runtime = []
+local = ["fast-runtime"]
+
+
 std = [
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
