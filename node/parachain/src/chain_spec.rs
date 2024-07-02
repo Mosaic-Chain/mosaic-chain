@@ -3,27 +3,41 @@ use parachain_template_runtime::{AccountId, AuraId, Signature, EXISTENTIAL_DEPOS
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_core::{bytes, sr25519, Pair, Public};
+use sp_core::sr25519;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
-/// Specialized `ChainSpec` for the normal parachain runtime.
+#[cfg(feature = "local")]
+use sp_core::{Pair, Public};
+
+#[cfg(not(feature = "local"))]
+use sp_core::bytes;
+
+// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-const TEST_PARA_ID: u32 = 2000;
-const TEST_RELAY_CHAIN: &str = "paseo-local";
+#[cfg(feature = "local")]
+const PARA_ID: u32 = 2000;
 
+#[cfg(feature = "local")]
+const RELAY_CHAIN: &str = "paseo-local";
+
+#[cfg(not(feature = "local"))]
 const PARA_ID: u32 = 3377;
+
+#[cfg(not(feature = "local"))]
 const RELAY_CHAIN: &str = "polkadot";
 
 /// Helper function to generate a crypto pair from seed
+#[cfg(feature = "local")]
 pub fn from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{seed}"), None)
 		.expect("static values are valid; qed")
 		.public()
 }
 
+#[cfg(not(feature = "local"))]
 pub fn from_hex(hex: &str) -> sr25519::Public {
 	let data: [u8; 32] = bytes::from_hex(hex)
 		.expect("static values are valid hex")
@@ -55,6 +69,7 @@ type AccountPublic = <Signature as Verify>::Signer;
 /// Generate collator keys from seed.
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
+#[cfg(feature = "local")]
 pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
 	from_seed::<AuraId>(seed)
 }
@@ -86,9 +101,9 @@ pub fn development_config() -> ChainSpec {
 		parachain_template_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions {
-			relay_chain: TEST_RELAY_CHAIN.into(),
+			relay_chain: RELAY_CHAIN.into(),
 			// You MUST set this to the correct network!
-			para_id: TEST_PARA_ID,
+			para_id: PARA_ID,
 		},
 	)
 	.with_name("Development")
@@ -120,7 +135,7 @@ pub fn development_config() -> ChainSpec {
 			get_account_id(from_seed::<sr25519::Public>("Eve//stash")),
 			get_account_id(from_seed::<sr25519::Public>("Ferdie//stash")),
 		],
-		TEST_PARA_ID.into(),
+		PARA_ID.into(),
 	))
 	.build()
 }
@@ -138,9 +153,9 @@ pub fn local_testnet_config() -> ChainSpec {
 		parachain_template_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions {
-			relay_chain: TEST_RELAY_CHAIN.into(),
+			relay_chain: RELAY_CHAIN.into(),
 			// You MUST set this to the correct network!
-			para_id: TEST_PARA_ID,
+			para_id: PARA_ID,
 		},
 	)
 	.with_name("Local Testnet")
@@ -172,7 +187,7 @@ pub fn local_testnet_config() -> ChainSpec {
 			get_account_id(from_seed::<sr25519::Public>("Eve//stash")),
 			get_account_id(from_seed::<sr25519::Public>("Ferdie//stash")),
 		],
-		TEST_PARA_ID.into(),
+		PARA_ID.into(),
 	))
 	.with_protocol_id("template-local")
 	.with_properties(properties)
