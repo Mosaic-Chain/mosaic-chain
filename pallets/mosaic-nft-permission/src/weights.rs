@@ -8,7 +8,7 @@
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
-// ../../target/release/node-template
+// ../../target/release/mosaic-testnet-solo
 // benchmark
 // pallet
 // --chain
@@ -19,6 +19,7 @@
 // *
 // --steps=50
 // --repeat=20
+// --execution=wasm
 // --wasm-execution=compiled
 // --output
 // pallets/template/src/weights.rs
@@ -51,6 +52,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(9_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
 	/// Storage: TemplateModule Something (r:1 w:1)
 	/// Proof: TemplateModule Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn cause_error() -> Weight {
@@ -76,6 +78,7 @@ impl WeightInfo for () {
 		Weight::from_parts(9_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+
 	/// Storage: TemplateModule Something (r:1 w:1)
 	/// Proof: TemplateModule Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn cause_error() -> Weight {
