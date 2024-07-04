@@ -1,35 +1,28 @@
 let
-  mozillaOverlay =
+  rust_overlay =
     import (builtins.fetchGit {
-      url = "https://github.com/mozilla/nixpkgs-mozilla.git";
-      rev = "57c8084c7ef41366993909c20491e359bbb90f54";
+      url = "https://github.com/oxalica/rust-overlay";
+      ref = "refs/heads/master"; # to make sure rust version is available from toolchain.toml
     });
+
   pinned = builtins.fetchGit {
-    # Descriptive name to make the store path easier to identify
     url = "https://github.com/nixos/nixpkgs/";
-    # Commit hash for nixos-unstable as of 2020-04-26
-    # `git ls-remote https://github.com/nixos/nixpkgs nixos-unstable`
-    ref = "refs/heads/nixos-unstable";
-    rev = "1fe6ed37fd9beb92afe90671c0c2a662a03463dd";
+    ref = "refs/tags/24.05";
   };
-  nixpkgs = import pinned { overlays = [ mozillaOverlay ]; };
-  toolchain = with nixpkgs; (rustChannelOf { date = "2021-09-14"; channel = "nightly"; });
-  rust-wasm = toolchain.rust.override {
-    targets = [ "wasm32-unknown-unknown" ];
-  };
+
+  pkgs = import pinned { overlays = [ rust_overlay ]; };
+
+  rust = pkgs.rust-bin.fromRustupToolchainFile ./toolchain.toml;
 in
-with nixpkgs; pkgs.mkShell {
-  buildInputs = [
+pkgs.mkShell {
+buildInputs = [
+    rust
+  ] ++ (with pkgs; [
     clang
     pkg-config
-    rust-wasm
-  ] ++ stdenv.lib.optionals stdenv.isDarwin [
-    darwin.apple_sdk.frameworks.Security
-  ];
-
-  LIBCLANG_PATH = "${llvmPackages.libclang}/lib";
-  PROTOC = "${protobuf}/bin/protoc";
-  RUST_SRC_PATH = "${toolchain.rust-src}/lib/rustlib/src/rust/library/";
-  ROCKSDB_LIB_DIR = "${rocksdb}/lib";
-
+  ]);
+ 
+  LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+  PROTOC = "${pkgs.protobuf}/bin/protoc";
+  ROCKSDB_LIB_DIR = "${pkgs.rocksdb}/lib";
 }

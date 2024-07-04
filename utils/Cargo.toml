@@ -1,0 +1,12 @@
+[package]
+name = "utils"
+version.workspace = true
+repository.workspace = true
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+frame-support = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+sp-staking = { workspace = true }

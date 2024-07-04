@@ -1,19 +1,8 @@
-# Substrate Node Template
+# Mosaic Node Template
 
-A fresh [Substrate](https://substrate.io/) node, ready for hacking :rocket:
+A fresh [Substrate](https://substrate.io/) node, ready for hacking, now including mosaic pallets :rocket:
 
-A standalone version of this template is available for each release of Polkadot
-in the [Substrate Developer Hub Parachain
-Template](https://github.com/substrate-developer-hub/substrate-parachain-template/)
-repository. The parachain template is generated directly at each Polkadot
-release branch from the [Node Template in
-Substrate](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node-template)
-upstream
-
-It is usually best to use the stand-alone version to start a new project. All
-bugs, suggestions, and feature requests should be made upstream in the
-[Substrate](https://github.com/paritytech/polkadot-sdk/tree/master/substrate)
-repository.
+_NOTE:_ mosaic pallets are not production ready yet.
 
 ## Getting Started
 
@@ -72,7 +61,6 @@ RUST_BACKTRACE=1 ./target/release/node-template -ldebug --dev
 Development chains:
 
 - Maintain state in a `tmp` folder while the node is running.
-- Use the **Alice** and **Bob** accounts as default validator authorities.
 - Use the **Alice** account as the default `sudo` account.
 - Are preconfigured with a genesis state (`/node/src/chain_spec.rs`) that
   includes several prefunded development accounts.
@@ -109,8 +97,8 @@ also find the source code and instructions for hosting your own instance on the
 
 ### Multi-Node Local Testnet
 
-If you want to see the multi-node consensus algorithm in action, see [Simulate a
-network](https://docs.substrate.io/tutorials/build-a-blockchain/simulate-network/).
+Executing `run-local.sh` will spawn 6 nodes out of which 5 are block producers
+with bound permission nfts.
 
 ## Template Structure
 
