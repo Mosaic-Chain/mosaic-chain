@@ -155,7 +155,9 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node_impl(
+async fn start_node_impl<
+	N: sc_network::NetworkBackend<Block, <Block as sp_runtime::traits::Block>::Hash>,
+>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -166,11 +168,8 @@ async fn start_node_impl(
 
 	let params = new_partial(&parachain_config)?;
 	let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
-	let net_config = sc_network::config::FullNetworkConfiguration::<
-		_,
-		_,
-		sc_network::NetworkWorker<Block, Hash>,
-	>::new(&parachain_config.network);
+	let net_config =
+		sc_network::config::FullNetworkConfiguration::<_, _, N>::new(&parachain_config.network);
 
 	let client = params.client.clone();
 	let backend = params.backend.clone();
@@ -435,12 +434,15 @@ fn start_consensus(
 }
 
 /// Start a parachain node.
-pub async fn start_parachain_node(
+pub async fn start_parachain_node<
+	N: sc_network::NetworkBackend<Block, <Block as sp_runtime::traits::Block>::Hash>,
+>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient>)> {
-	start_node_impl(parachain_config, polkadot_config, collator_options, para_id, hwbench).await
+	start_node_impl::<N>(parachain_config, polkadot_config, collator_options, para_id, hwbench)
+		.await
 }
