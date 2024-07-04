@@ -27,8 +27,8 @@ run_collator() {
   local base_path="/tmp/parachain/$iden"
 
   $NODE --$(echo $iden) --collator --chain local-raw.json --base-path $base_path \
-  --pruning archive --port $((40333 + $1)) --rpc-port $((8844 + $1)) -- \
-  --chain "$RELAY_SPEC" --port $((30343 + $1)) --rpc-port $((9977 + $1)) &
+  --pruning archive --port $((40333 + $1)) --rpc-port $((8844 + $1)) --unsafe-force-node-key-generation -- \
+  --chain "$RELAY_SPEC" --port $((30343 + $1)) --rpc-port $((9977 + $1)) --unsafe-force-node-key-generation&
 
 }
 

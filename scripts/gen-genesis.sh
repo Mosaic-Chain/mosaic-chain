@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 CHAIN=${1:-local}
 NODE="./target/release/parachain-template-node"

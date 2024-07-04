@@ -284,8 +284,8 @@ fn testnet_genesis(
 		"polkadotXcm": {
 			"safeXcmVersion": Some(SAFE_XCM_VERSION),
 		},
-		"council_collective_membership": {
-			"members": invulnerables
+		"councilCollectiveMembership": {
+			"members": invulnerables.into_iter().map(|(acc, _)| acc).collect::<Vec<_>>(),
 		},
 	})
 }

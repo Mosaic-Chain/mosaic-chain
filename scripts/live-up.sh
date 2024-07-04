@@ -28,7 +28,7 @@ run_collator() {
 
   $NODE --collator --chain live-raw.json --base-path $base_path \
   --pruning archive --port $((50333 + $1)) --rpc-port $((7744 + $1)) -- \
-  --chain "$RELAY_SPEC" --port $((50343 + $1)) --rpc-port $((7754 + $1)) &
+  --chain "$RELAY_SPEC" --port $((50343 + $1)) --rpc-port $((7754 + $1))&
 
 }
 
