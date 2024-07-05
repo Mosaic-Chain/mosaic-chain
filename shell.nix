@@ -22,7 +22,7 @@ buildInputs = [
     pkg-config
     cargo-nextest
     cargo-watch
-    dpkg
+    cargo-deb
   ]);
  
   LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";

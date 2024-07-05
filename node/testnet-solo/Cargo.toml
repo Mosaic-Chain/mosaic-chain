@@ -1,14 +1,29 @@
 [package]
 name = "mosaic-testnet-solo-node"
+description = "Mosaic Chain testnet solo node"
 version.workspace = true
-edition = "2021"
-license = "MIT-0"
+edition.workspace = true
+license.workspace = true
 publish = false
 repository.workspace = true
+authors.workspace = true
 build = "build.rs"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
+
+[package.metadata.deb]
+depends = "ca-certificates"
+
+[package.metadata.deb.variants.rc]
+name = "mosaic-testnet-solo-rc"
+conflicts = "mosaic-testnet-solo"
+suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
+
+[package.metadata.deb.variants.release]
+name = "mosaic-testnet-solo"
+conflicts = "mosaic-testnet-solo-rc"
+suggests = "mosaic-explorer, mosaic-admin, mosaic-announcer"
 
 [[bin]]
 name = "mosaic-testnet-solo"

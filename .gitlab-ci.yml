@@ -1,5 +1,4 @@
 stages:
-  - build
   - test
   - release
 
@@ -12,16 +11,6 @@ stages:
     - rustup target add wasm32-unknown-unknown
     - rustup component add rust-src --toolchain 1.78.0-x86_64-unknown-linux-gnu
 
-build:
-  stage: build
-  extends: .build-deps
-  script:
-   - cargo build --release
-  artifacts:
-    expire_in: 1h
-    paths:
-      - target/release/mosaic-testnet-solo
-
 test:
   stage: test
   extends: .build-deps
@@ -32,73 +21,48 @@ test:
     - cargo clippy --color=always --tests --examples --bins --benches --release --features runtime-benchmarks,try-runtime --no-deps -- -D warnings
     - cargo nextest run --release --features try-runtime -E "not (test(test_genesis_config_builds))" # These tests fail if mock runtime can't be built from *default* genesis config
 
+
 .debian-repo-setup:
   stage: release
-  image: google/cloud-sdk:latest
-  dependencies:
-   - build
+  extends: .build-deps
   before_script:
+   - apt install apt-transport-https ca-certificates gnupg curl -y
+   - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+   - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+   - apt update -y && apt install google-cloud-cli -y
    - gcloud auth activate-service-account --key-file $GCP_DEB_DEPLOY_JSON_KEY
    - gcloud config set core/project dlabs-317612
    - gcloud config set artifacts/location europe-west3
    - gcloud config set artifacts/repository deb-repo
 
-debian-rc:
+debian-solo-rc:
   extends: .debian-repo-setup
   only:
     - develop
   script:
-    - cd packaging/release-candidate
-    - PKG=$(./make-package.sh)
+    - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release --variant rc --deb-version $(./debian/rc-ver.sh))
     - gcloud artifacts apt upload deb-repo --source $PKG
-    
-debian-latest:
+
+debian-solo-release:
   extends: .debian-repo-setup
   only:
     - main
   script:
-    - cd packaging/release
-    - PKG=$(./make-package.sh)
+    - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release --variant release)
     - gcloud artifacts apt upload deb-repo --source $PKG
-
-docker-rc:
-  stage: release
-  image: docker:stable
+   
+debian-para-rc:
+  extends: .debian-repo-setup
   only:
     - develop
-  dependencies:
-    - build
-  services:
-    - docker:dind
   script:
-    # Gitlab images
-    - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
-    - docker build -f Dockerfile -t $CI_REGISTRY_IMAGE/app:rc .
-    - docker build -f Dockerfile.local-testnet -t $CI_REGISTRY_IMAGE/app:rc-local-testnet .
-    - docker push $CI_REGISTRY_IMAGE/app:rc
-    - docker push $CI_REGISTRY_IMAGE/app:rc-local-testnet
-    # GCP images
-    - docker tag $CI_REGISTRY_IMAGE/app:rc europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-testnet-solo:rc
-    - cat $GCP_DEPLOY_JSON_KEY | docker login -u _json_key --password-stdin https://europe-west3-docker.pkg.dev
-    - docker push europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-testnet-solo:rc
+    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant rc --deb-version $(./debian/rc-ver.sh))
+    - gcloud artifacts apt upload deb-repo --source $PKG
 
-docker-latest:
-  stage: release
-  image: docker:stable
-  dependencies:
-    - build
-  services:
-    - docker:dind
+debian-para-release:
+  extends: .debian-repo-setup
   only:
     - main
   script:
-    # Gitlab images
-    - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
-    - docker build -f Dockerfile -t $CI_REGISTRY_IMAGE/app:latest .
-    - docker build -f Dockerfile.local-testnet -t $CI_REGISTRY_IMAGE/app:latest-local-testnet .
-    - docker push $CI_REGISTRY_IMAGE/app:latest
-    - docker push $CI_REGISTRY_IMAGE/app:latest-local-testnet
-    # GCP images
-    - docker tag $CI_REGISTRY_IMAGE/app:latest europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-testnet-solo:latest
-    - cat $GCP_DEPLOY_JSON_KEY | docker login -u _json_key --password-stdin https://europe-west3-docker.pkg.dev
-    - docker push europe-west3-docker.pkg.dev/dlabs-317612/docker-registry/mosaic-testnet-solo:latest
+    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant release)
+    - gcloud artifacts apt upload deb-repo --source $PKG

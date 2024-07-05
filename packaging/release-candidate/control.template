@@ -1,8 +1,0 @@
-Package: mosaic-testnet-solo-rc
-Version: xVERSION
-Maintainer: dlabs
-Architecture: amd64
-Description: Mosaic Chain node binary release candidate
-Depends: ca-certificates
-Conflicts: mosaic-testnet-solo
-Suggests: mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc

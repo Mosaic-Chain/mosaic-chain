@@ -1,12 +1,33 @@
 [package]
-name = "parachain-template-node"
-version = "0.1.0"
-description = "Parachain node template"
+name = "mosaic-chain-node"
+description = "Mosaic Chain node"
+version.workspace = true
 repository.workspace = true
 edition.workspace = true
-
+license.workspace = true
+authors.workspace = true
 build = "build.rs"
 publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[package.metadata.deb]
+depends = "ca-certificates"
+
+[package.metadata.deb.variants.rc]
+name = "mosaic-chain-rc"
+conflicts = "mosaic-chain"
+suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
+
+[package.metadata.deb.variants.release]
+name = "mosaic-chain"
+conflicts = "mosaic-chain-rc"
+suggests = "mosaic-explorer, mosaic-admin, mosaic-announcer"
+
+[[bin]]
+name = "mosaic-chain"
+path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true, features = ["derive"] }

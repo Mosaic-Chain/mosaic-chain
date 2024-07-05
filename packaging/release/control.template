@@ -1,7 +1,0 @@
-Package: mosaic-testnet-solo
-Version: xVERSION
-Maintainer: dlabs
-Architecture: amd64
-Description: Mosaic Chain solo testnet node binary
-Depends: ca-certificates, librocksdb-dev
-Conflicts: mosaic-testnet-solo-rc
