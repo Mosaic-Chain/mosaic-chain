@@ -2,7 +2,7 @@
 authors = ["Mosaic Team <https://github.com/Mosaic-Chain>"]
 edition = "2021"
 repository = "https://github.com/Mosaic-Chain/mosaic-chain/"
-license = "MIT-0"
+license = "Apache-2.0 OR (GPL-3.0-or-later WITH Classpath-exception-2.0)"
 version = "0.1.0"
 
 [workspace]
