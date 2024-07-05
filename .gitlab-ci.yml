@@ -1,20 +1,19 @@
 stages:
   - test
   - release
-
-.build-deps:
-  image: rust:1.78-bookworm
-  before_script:
-    - apt update -y
-    - apt upgrade -y
-    - apt install build-essential git librocksdb-dev libsnappy-dev libclang-dev clang g++-multilib protobuf-compiler -y
-    - rustup target add wasm32-unknown-unknown
-    - rustup component add rust-src --toolchain 1.78.0-x86_64-unknown-linux-gnu
+  
+.build-deps: &build-deps
+  - apt update -y
+  - apt upgrade -y
+  - apt install build-essential git librocksdb-dev libsnappy-dev libclang-dev clang g++-multilib protobuf-compiler -y
+  - rustup target add wasm32-unknown-unknown
+  - rustup component add rust-src --toolchain 1.78.0-x86_64-unknown-linux-gnu
 
 test:
   stage: test
-  extends: .build-deps
+  image: rust:1.78-bookworm
   script:
+    - *build-deps
     - rustup component add rustfmt clippy
     - cargo install cargo-nextest
     - cargo fmt -- --check
@@ -24,8 +23,9 @@ test:
 
 .debian-repo-setup:
   stage: release
-  extends: .build-deps
+  image: rust:1.78-bookworm
   before_script:
+   - *build-deps
    - apt install apt-transport-https ca-certificates gnupg curl -y
    - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
    - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
