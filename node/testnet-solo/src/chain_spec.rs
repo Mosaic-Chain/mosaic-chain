@@ -184,15 +184,15 @@ fn testnet_genesis(
 			// Configure endowed accounts with initial balance of 1 << 60.
 			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
-		"nft_permission": {
-			"unstaked_permission_holders": initial_permission_holders
+		"nftPermission": {
+			"unstakedPermissionHolders": initial_permission_holders
 				.iter()
 				.cloned()
 				.filter_map(|(acc, perm, bound, nominal)| (!bound).then_some((acc, perm, nominal)))
 				.collect::<Vec<_>>(),
 		},
-		"nft_staking": {
-			"initial_staking_validators": initial_permission_holders
+		"nftStaking": {
+			"initialStakingValidators": initial_permission_holders
 				.into_iter()
 				.filter_map(|(acc, perm, bound, nominal)| bound.then_some((acc, perm, nominal)))
 				.collect::<Vec<_>>(),
@@ -213,10 +213,10 @@ fn testnet_genesis(
 				})
 				.collect::<Vec<_>>(),
 		},
-		"validator_subset_selection": {
-			"initial_subset_size": initial_subset_size,
+		"validatorSubsetSelection": {
+			"initialSubsetSize": initial_subset_size,
 		},
-		"council_collective_membership": {
+		"councilCollectiveMembership": {
 			"members": vec![
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				get_account_id_from_seed::<sr25519::Public>("Bob"),
