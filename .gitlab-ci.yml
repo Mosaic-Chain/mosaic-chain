@@ -30,6 +30,7 @@ test:
    - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
    - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
    - apt update -y && apt install google-cloud-cli -y
+   - cargo install cargo-deb
    - gcloud auth activate-service-account --key-file $GCP_DEB_DEPLOY_JSON_KEY
    - gcloud config set core/project dlabs-317612
    - gcloud config set artifacts/location europe-west3
