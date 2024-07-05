@@ -1,11 +1,9 @@
 [package]
 name = "mosaic-nft-staking"
-version = "0.1.0"
-description = "FRAME pallet template for defining custom runtime logic."
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
-homepage = "https://substrate.io"
-edition = "2021"
-license = "MIT-0"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 publish = false
 
 [package.metadata.docs.rs]
