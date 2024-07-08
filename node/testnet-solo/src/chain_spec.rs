@@ -53,16 +53,8 @@ pub fn properties() -> Properties {
 	properties
 }
 
-pub fn development_config() -> Result<ChainSpec, String> {
-	Ok(ChainSpec::builder(
-		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
-		None,
-	)
-	.with_properties(properties())
-	.with_name("Development")
-	.with_id("dev")
-	.with_chain_type(ChainType::Development)
-	.with_genesis_config_patch(testnet_genesis(
+pub fn mock_config() -> serde_json::Value {
+	testnet_genesis(
 		// Initial PoA authorities
 		vec![
 			authority_keys_from_seed("Alice"),
@@ -107,7 +99,19 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		],
 		3,
 		true,
-	))
+	)
+}
+
+pub fn development_config() -> Result<ChainSpec, String> {
+	Ok(ChainSpec::builder(
+		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
+		None,
+	)
+	.with_properties(properties())
+	.with_name("Development")
+	.with_id("dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(mock_config())
 	.with_properties(properties())
 	.build())
 }
@@ -121,52 +125,22 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(testnet_genesis(
-		// Initial PoA authorities
-		vec![
-			authority_keys_from_seed("Alice"),
-			authority_keys_from_seed("Bob"),
-			authority_keys_from_seed("Charlie"),
-			authority_keys_from_seed("Dave"),
-			authority_keys_from_seed("Eve"),
-			authority_keys_from_seed("Ferdie"),
-		],
-		vec![
-			(get_account_id_from_seed::<sr25519::Public>("Alice"), PermissionType::DPoS, true, 100),
-			(get_account_id_from_seed::<sr25519::Public>("Bob"), PermissionType::DPoS, true, 100),
-			(
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				PermissionType::DPoS,
-				true,
-				100,
-			),
-			(get_account_id_from_seed::<sr25519::Public>("Dave"), PermissionType::DPoS, true, 100),
-			(get_account_id_from_seed::<sr25519::Public>("Eve"), PermissionType::DPoS, true, 100),
-			(
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				PermissionType::DPoS,
-				false,
-				100,
-			),
-		],
-		// Pre-funded accounts
-		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-		],
-		3,
-		true,
-	))
+	.with_genesis_config_patch(mock_config())
+	.with_properties(properties())
+	.build())
+}
+
+pub fn testnet_config() -> Result<ChainSpec, String> {
+	Ok(ChainSpec::builder(
+		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
+		None,
+	)
+	.with_properties(properties())
+	.with_name("Testnet")
+	.with_id("testnet")
+	.with_protocol_id("solo-testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(mock_config())
 	.with_properties(properties())
 	.build())
 }
