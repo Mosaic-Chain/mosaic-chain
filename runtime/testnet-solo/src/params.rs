@@ -151,3 +151,13 @@ pub mod dynamic {
 		pub static MotionDuration: BlockNumber = MINUTES;
 	}
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::NftStaking(dynamic::nft_staking::Parameters::MinimumStakingAmount(
+			dynamic::nft_staking::MinimumStakingAmount,
+			Some(50 * currency::MOSAIC),
+		))
+	}
+}
