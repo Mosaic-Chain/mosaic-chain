@@ -8,8 +8,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use core::num::NonZeroU32;
-
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -70,13 +68,18 @@ pub use pallet_validator_subset_selection;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
-pub use mosaic_testnet_solo_constants::currency::{deposit, Balance, CENTS, MOSAIC};
+pub use params::{
+	currency::{deposit, Balance, CENTS, MOSAIC},
+	time::{DAYS, MINUTES, SLOT_DURATION},
+};
 
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
+
+mod params;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -139,23 +142,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 	state_version: 1,
 };
-
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -263,50 +249,44 @@ impl frame_system::Config for Runtime {
 	type PostTransactions = ();
 }
 
-parameter_types! {
-	// TODO: Review the amount and adjust it to the desired one if necessary
-	pub const AssetDeposit: Balance = deposit(1, 0);
-	pub const AssetAccountDeposit: Balance = deposit(1, 16);
-	pub const MetadataDepositBase: Balance = deposit(1, 68);
-	pub const MetadataDepositPerByte: Balance = deposit(0, 1);
-	pub const ApprovalDeposit: Balance = CENTS/100;
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeParameters = params::RuntimeParameters;
+	type AdminOrigin = EnsureRootOrTwoThirdCouncil;
+	type WeightInfo = ();
 }
 
 impl pallet_assets::Config for Runtime {
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	// Max number of items to destroy per destroy_accounts and destroy_approvals call.
-	type RemoveItemsLimit = ConstU32<32>;
 	type AssetId = u64;
 	type AssetIdParameter = u64;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	// See macros above for the amounts
-	// The basic amount of funds that must be reserved for an asset.
-	type AssetDeposit = AssetDeposit;
-	// The amount of funds that must be reserved for a non-provider asset account to be maintained.
-	type AssetAccountDeposit = AssetAccountDeposit;
-	// The basic amount of funds that must be reserved when adding metadata to your asset.
-	type MetadataDepositBase = MetadataDepositBase;
-	// The additional funds that must be reserved for the number of bytes you store in your metadata.
-	type MetadataDepositPerByte = MetadataDepositPerByte;
-	// The amount of funds that must be reserved when creating a new approval.
-	type ApprovalDeposit = ApprovalDeposit;
-	type StringLimit = ConstU32<256>;
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
-	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+
+	type AssetDeposit = params::dynamic::assets::AssetDeposit;
+	type AssetAccountDeposit = params::dynamic::assets::AssetAccountDeposit;
+	type MetadataDepositBase = params::dynamic::assets::MetadataDepositBase;
+	type MetadataDepositPerByte = params::dynamic::assets::MetadataDepositPerByte;
+	type ApprovalDeposit = params::dynamic::assets::ApprovalDeposit;
+
+	type StringLimit = ConstU32<64>;
+	type RemoveItemsLimit = ConstU32<32>;
 }
 
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
-	type MaxAuthorities = ConstU32<32>;
+	// TODO: figure out how to set this safely given subset sizes are not exact.
+	type MaxAuthorities = ConstU32<350>;
 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
@@ -314,7 +294,7 @@ impl pallet_aura::Config for Runtime {
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type MaxAuthorities = ConstU32<32>;
+	type MaxAuthorities = ConstU32<350>;
 	type MaxSetIdSessionEntries = ConstU64<0>;
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
@@ -331,11 +311,11 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = ();
 }
 
-/// Existential deposit.
-pub const EXISTENTIAL_DEPOSIT: u128 = 500;
+pub const EXISTENTIAL_DEPOSIT: u128 = 1;
 
 impl pallet_balances::Config for Runtime {
-	type MaxLocks = ConstU32<50>;
+	type MaxLocks = ConstU32<64>;
+	type MaxFreezes = ConstU32<64>;
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 
@@ -345,11 +325,10 @@ impl pallet_balances::Config for Runtime {
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
+	type ExistentialDeposit = ConstU128<{ EXISTENTIAL_DEPOSIT }>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Self>;
 	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<50>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeHoldReason;
 }
@@ -408,14 +387,7 @@ impl pallet_nft_permission::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MinimumCommission: Perbill = Perbill::from_percent(1);
 	pub const StakingPalletId: PalletId = PalletId(*b"mstaking");
-	pub const MinimumStakingAmount: Balance = 10;
-	pub const MinimumStakingPeriod: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(200) }; // approx. 1 week
-	pub const NominalValueThreshold: Perbill = Perbill::from_percent(80);
-	// TODO: revise this value
-	pub const MaximumStakePercentage: Perbill = Perbill::from_percent(1);
-	pub const MaximumContractsPerValidator: u32 = 1000;
 }
 
 pub struct IdTupleToValidatorId;
@@ -434,52 +406,49 @@ impl pallet_nft_staking::Config for Runtime {
 	type Balance = Balance;
 	type ItemId = <Self as pallet_nfts::Config>::ItemId;
 	type PalletId = StakingPalletId;
-
-	type SlackingPeriod = ConstU32<10>; // approx. 8hrs
-	type NominalValueThreshold = NominalValueThreshold;
-	type MinimumStakingPeriod = MinimumStakingPeriod;
-	type MinimumCommissionRate = MinimumCommission;
-	type MinimumStakingAmount = MinimumStakingAmount;
-	type MaximumStakePercentage = MaximumStakePercentage;
-	type MaximumContractsPerValidator = MaximumContractsPerValidator;
-
-	type SessionReward = ConstU128<1000>; // TODO: substitue with mechanism based on "eras/sections". (ever-decreasing rewards)
-	type OnReward = ();
-
 	type OffenderToValidatorId = IdTupleToValidatorId;
+
+	type SlackingPeriod = params::dynamic::nft_staking::SlackingPeriod;
+	type NominalValueThreshold = params::dynamic::nft_staking::NominalValueThreshold;
+	type MinimumStakingPeriod = params::dynamic::nft_staking::MinimumStakingPeriod;
+	type MinimumCommissionRate = params::dynamic::nft_staking::MinimumCommission;
+	type MinimumStakingAmount = params::dynamic::nft_staking::MinimumStakingAmount;
+	type MaximumStakePercentage = params::dynamic::nft_staking::MaximumStakePercentage;
+
+	// TODO: substitue with mechanism based on "eras/sections".
+	type SessionReward = ConstU128<1000>;
+	type MaximumContractsPerValidator = ConstU32<1000>;
+	type OnReward = ();
 }
 
 parameter_types! {
-	// TODO: review these
-	pub const ByteDeposit: Balance = deposit(0, 1);
-	pub const BasicDeposit: Balance = deposit(1, 258);
-	pub const SubAccountDeposit: Balance = deposit(1, 53);
-	pub const MaxSubAccounts: u32 = 100;
-	pub const MaxAdditionalFields: u32 = 100;
-	pub const MaxRegistrars: u32 = 20;
-	pub const MaxSuffixLength: u32 = 20;
-	pub const MaxUsernameLength: u32 = 20;
+	pub const MaxSubAccounts: u32 = 16;
+	pub const MaxAdditionalFields: u32 = 16;
+	pub const MaxRegistrars: u32 = 32;
+	pub const MaxSuffixLength: u32 = 32;
+	pub const MaxUsernameLength: u32 = 32;
 }
 
 impl pallet_identity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type BasicDeposit = BasicDeposit;
-	type SubAccountDeposit = SubAccountDeposit;
-	type MaxSubAccounts = MaxSubAccounts;
-	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type RegistrarOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
-	type ByteDeposit = ByteDeposit;
+	type MaxSubAccounts = MaxSubAccounts;
+	type MaxRegistrars = MaxRegistrars;
+	type MaxSuffixLength = MaxSuffixLength;
+	type MaxUsernameLength = MaxUsernameLength;
 	type IdentityInformation = pallet_identity::legacy::IdentityInfo<MaxAdditionalFields>;
 	type OffchainSignature = Signature;
 	type SigningPublicKey = <Signature as Verify>::Signer;
 	type UsernameAuthorityOrigin = frame_system::EnsureRoot<AccountId>;
 	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
-	type MaxSuffixLength = MaxSuffixLength;
-	type MaxUsernameLength = MaxUsernameLength;
+
+	type ByteDeposit = params::dynamic::identity::ByteDeposit;
+	type BasicDeposit = params::dynamic::identity::BasicDeposit;
+	type SubAccountDeposit = params::dynamic::identity::SubAccountDeposit;
 }
 
 parameter_types! {
@@ -502,8 +471,6 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -516,7 +483,11 @@ impl pallet_preimage::Config for Runtime {
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+		LinearStoragePrice<
+			params::dynamic::preimage::BaseDeposit,
+			params::dynamic::preimage::ByteDeposit,
+			Balance,
+		>,
 	>;
 }
 
@@ -658,14 +629,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	}
 }
 
-parameter_types! {
-	// went with the documentation on the values
-	pub const ProxyDepositBase: Balance = deposit(1, 8);
-	pub const ProxyDepositFactor: Balance = deposit(0, 33);
-	pub const AnnouncementDepositBase: Balance = deposit(1, 16);
-	pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
-}
-
 impl pallet_proxy::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -675,10 +638,10 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type MaxProxies = ConstU32<32>;
 	type MaxPending = ConstU32<32>;
-	type ProxyDepositBase = ProxyDepositBase;
-	type ProxyDepositFactor = ProxyDepositFactor;
-	type AnnouncementDepositBase = AnnouncementDepositBase;
-	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type ProxyDepositBase = params::dynamic::proxy::DepositBase;
+	type ProxyDepositFactor = params::dynamic::proxy::DepositFactor;
+	type AnnouncementDepositBase = params::dynamic::proxy::AnnouncementDepositBase;
+	type AnnouncementDepositFactor = params::dynamic::proxy::AnnouncementDepositFactor;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -689,11 +652,7 @@ impl pallet_utility::Config for Runtime {
 }
 
 parameter_types! {
-	// TODO: review these
-	pub const ConfigDepositBase: Balance = 500 * CENTS;
-	pub const FriendDepositFactor: Balance = 50 * CENTS;
 	pub const MaxFriends: u16 = 9;
-	pub const RecoveryDeposit: Balance = 500 * CENTS;
 }
 
 impl pallet_recovery::Config for Runtime {
@@ -701,10 +660,10 @@ impl pallet_recovery::Config for Runtime {
 	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
 	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
+	type ConfigDepositBase = params::dynamic::recovery::ConfigDepositBase;
+	type FriendDepositFactor = params::dynamic::recovery::FriendDepositFactor;
+	type RecoveryDeposit = params::dynamic::recovery::RecoveryDeposit;
 }
 
 impl pallet_doas::Config for Runtime {
@@ -719,13 +678,7 @@ impl pallet_doas::Config for Runtime {
 }
 
 parameter_types! {
-	/// The time-out for council motions.
-	pub const MotionDuration: BlockNumber = MINUTES;
 	pub const MaxProposals: u32 = 10;
-
-	// (from docs) NOTE:
-	// + Benchmarks will need to be re-run and weights adjusted if this changes.
-	// + This pallet assumes that dependents keep to the limit without enforcing it.
 	pub const MaxMembers: u32 = 100;
 	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
@@ -737,7 +690,7 @@ impl pallet_collective::Config<Council> for Runtime {
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 
-	type MotionDuration = MotionDuration;
+	type MotionDuration = params::dynamic::council::MotionDuration;
 	type MaxProposals = MaxProposals;
 	type MaxMembers = MaxMembers;
 
@@ -919,6 +872,7 @@ impl pallet_nft_delegation::Config for Runtime {
 construct_runtime!(
 	pub struct Runtime {
 		System: frame_system,
+		Parameters: pallet_parameters,
 		Timestamp: pallet_timestamp,
 		Aura: pallet_aura,
 		Grandpa: pallet_grandpa,
@@ -1003,6 +957,7 @@ mod benches {
 		[pallet_membership, CouncilCollectiveMembership]
 		[pallet_scheduler, Scheduler]
 		[pallet_preimage, Preimage]
+		[pallet_parameters, Parameters]
 	);
 }
 

@@ -5743,10 +5743,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mosaic-testnet-solo-constants"
-version = "0.1.0"
-
-[[package]]
 name = "mosaic-testnet-solo-node"
 version = "0.1.0"
 dependencies = [
@@ -5804,7 +5800,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "log",
- "mosaic-testnet-solo-constants",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -5821,6 +5816,7 @@ dependencies = [
  "pallet-nft-staking",
  "pallet-nfts",
  "pallet-offences",
+ "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-recovery",

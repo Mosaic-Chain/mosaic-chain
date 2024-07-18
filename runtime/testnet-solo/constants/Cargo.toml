@@ -1,6 +1,0 @@
-[package]
-name = "mosaic-testnet-solo-constants"
-version.workspace = true
-repository.workspace = true
-
-[dependencies]

@@ -12,7 +12,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
 frame-executive = { workspace = true }
-frame-support = { workspace = true }
+frame-support = { workspace = true, features = ["experimental"] }
 frame-system = { workspace = true }
 frame-try-runtime = { workspace = true, optional = true }
 log = { workspace = true }
@@ -37,6 +37,7 @@ pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
+pallet-parameters = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -64,7 +65,6 @@ frame-system-benchmarking = { workspace = true, optional = true }
 
 # Local Dependencies
 pallet-doas.workspace = true
-mosaic-testnet-solo-constants.workspace = true
 pallet-nft-delegation.workspace = true
 pallet-nft-permission.workspace = true
 pallet-nft-staking.workspace = true
@@ -112,6 +112,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
+	"pallet-parameters/std",
 	"pallet-validator-subset-selection/std",
 	"scale-info/std",
 	"sp-api/std",
@@ -147,6 +148,7 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks",
 	"pallet-validator-subset-selection/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -179,5 +181,6 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-parameters/try-runtime",
 	"pallet-validator-subset-selection/try-runtime",
 ]
