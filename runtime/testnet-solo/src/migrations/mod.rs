@@ -1,12 +1,13 @@
 pub mod v101 {
 	use crate::{
 		opaque::SessionKeys, AccountId, Aura, CouncilMembership, Grandpa, ImOnlineId, Runtime,
-		Signature, System,
+		Signature, System, VERSION,
 	};
 
 	use frame_support::{
 		pallet_prelude::BuildGenesisConfig, traits::OnRuntimeUpgrade, weights::Weight,
 	};
+	use frame_system::LastRuntimeUpgradeInfo;
 	use pallet_nft_staking::PermissionType;
 	use sp_core::{crypto::Ss58Codec, Pair};
 	use sp_runtime::{
@@ -29,6 +30,23 @@ pub mod v101 {
 
 	impl OnRuntimeUpgrade for MigrateV100ToV101 {
 		fn on_runtime_upgrade() -> Weight {
+			let Some(LastRuntimeUpgradeInfo {
+				spec_version: codec::Compact(old_spec_version), ..
+			}) = frame_system::LastRuntimeUpgrade::<Runtime>::get()
+			else {
+				log::error!("Runtime version info not available: skipping runtime state migration");
+				return Weight::zero();
+			};
+
+			if old_spec_version != 100 || VERSION.spec_version != 101 {
+				log::error!(
+					"Improper runtime state migration: {} -> {}",
+					old_spec_version,
+					VERSION.spec_version
+				);
+				return Weight::zero();
+			}
+
 			let alice = account("//Alice");
 			let bob = account("//Bob");
 			let charlie = account("//Charlie");
