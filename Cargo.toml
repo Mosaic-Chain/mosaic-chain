@@ -7,6 +7,7 @@ members = [
     "pallets/nft-permission",
     "pallets/nft-staking",
     "pallets/validator-subset-selection",
+    "pallets/im-online",
     "runtime/parachain",
     "runtime/testnet-solo",
 ]
@@ -42,6 +43,7 @@ pallet-nft-staking = { default-features = false, path = "pallets/nft-staking" }
 pallet-nft-delegation = { default-features = false, path = "pallets/nft-delegation" }
 pallet-nft-permission = { default-features = false, path = "pallets/nft-permission" }
 pallet-validator-subset-selection = { default-features = false, path = "pallets/validator-subset-selection" }
+pallet-im-online = { default_features = false, path = "pallets/im-online" }
 utils = { path = "utils" }
 parachain-template-runtime = { path = "runtime/parachain" }
 
@@ -69,7 +71,6 @@ pallet-assets = { git = "https://github.com/paritytech/polkadot-sdk", branch = "
 pallet-collator-selection = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 pallet-identity = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
-pallet-im-online = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 pallet-insecure-randomness-collective-flip = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 pallet-nfts = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 pallet-offences = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }

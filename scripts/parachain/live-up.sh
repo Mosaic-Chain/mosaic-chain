@@ -24,7 +24,7 @@ fi;
 run_collator() {
   local ids=(alice bob charlie dave eve ferdie)
   local iden=${ids[$1]}
-  local base_path="/tmp/parachain2/$iden"
+  local base_path="/tmp/live-parachain/$iden"
 
   $NODE --collator --chain live-raw.json --base-path $base_path \
   --pruning archive --port $((50333 + $1)) --rpc-port $((7744 + $1)) --network-backend litep2p -- \

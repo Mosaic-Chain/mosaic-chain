@@ -8,7 +8,6 @@ if [ ! -f $NODE ]; then
   exit 3
 fi;
 
-# TODO: change this to live!!
 $NODE build-spec --chain $CHAIN > $CHAIN-plain.json
 
 read -r -p 'Waiting for you to add bootstrap nodes.'

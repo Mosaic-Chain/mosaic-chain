@@ -723,10 +723,8 @@ impl pallet_membership::Config<CouncilMembership> for Runtime {
 
 parameter_types! {
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
-	pub const MaxAuthorities: u32 = 100;
-	pub const MaxKeys: u32 = 10_000;
-	pub const MaxPeerInHeartbeats: u32 = 10_000;
+	pub const MaxAuthorities: u32 = 350;
+	pub const MaxPeerInHeartbeats: u32 = 32;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -837,15 +835,13 @@ impl ReportOffence<AccountId, IdTuple, ImOnlineOffence> for ImOnlineReporter {
 }
 
 impl pallet_im_online::Config for Runtime {
-	type AuthorityId = ImOnlineId;
+	type AuthorityKey = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
-	type NextSessionRotation = ValidatorSubsetSelection;
 	type ValidatorSet = pallet_nft_staking::SlashableValidators<Runtime>;
 	type ReportUnresponsiveness = ImOnlineReporter;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
-	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
-	type MaxKeys = MaxKeys;
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
+	type WeightInfo = (); //pallet_im_online::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_authorship::Config for Runtime {
