@@ -1,0 +1,156 @@
+use std::marker::PhantomData;
+
+use crate::{
+	common::{mainnet_accounts, properties, public_from_seed, testnet_accounts, AccountId},
+	runtime_builder::RuntimeBuilder,
+};
+
+use anyhow::Context;
+use cumulus_primitives_core::ParaId;
+use hex_literal::hex;
+use parachain_template_runtime::{
+	RuntimeGenesisConfig, SS58Prefix, SessionKeys, EXISTENTIAL_DEPOSIT,
+};
+use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
+use sc_service::ChainType;
+use serde::{Deserialize, Serialize};
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::{sr25519, ByteArray};
+
+/// The extensions for the [`ChainSpec`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+#[serde(deny_unknown_fields)]
+pub struct Extensions {
+	pub relay_chain: String,
+	pub para_id: u32,
+}
+
+pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+
+pub fn local_config(
+	builder: &dyn RuntimeBuilder,
+) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
+	let wasm = builder.build("parachain-template-runtime", Some("-F include-wasm -F local"))?;
+	let relay_chain = "paseo-local";
+	let para_id = 2000;
+
+	let genesis_config = genesis(
+		vec![
+			(
+				public_from_seed::<sr25519::Public>("Alice").into(),
+				public_from_seed::<AuraId>("Alice"),
+			),
+			(public_from_seed::<sr25519::Public>("Bob").into(), public_from_seed::<AuraId>("Bob")),
+		],
+		testnet_accounts(),
+		para_id.into(),
+	)?;
+
+	Ok(Box::new(
+		ChainSpec::builder(&wasm, Extensions { relay_chain: relay_chain.into(), para_id })
+			.with_properties(properties(SS58Prefix::get()))
+			.with_name("Mosaic Local Para Testnet")
+			.with_id("mosaic-para-local")
+			.with_protocol_id("mosaic-para-local")
+			.with_chain_type(ChainType::Local)
+			.with_genesis_config(genesis_config)
+			.build(),
+	))
+}
+
+pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
+	let wasm = builder.build("parachain-template-runtime", Some("-F include-wasm"))?;
+	let relay_chain = "polkadot";
+	let para_id = 3377;
+
+	let accounts = mainnet_accounts();
+
+	let genesis_config = genesis(
+		vec![
+			(
+				accounts[0].clone(),
+				AuraId::from_slice(&hex!(
+					"c09b26e7a448f367fe51012fb697ee1a7d3735b1915ba2b3e3c1371686bd797d"
+				))
+				.expect("Constant value is correct"),
+			),
+			(
+				accounts[1].clone(),
+				AuraId::from_slice(&hex!(
+					"e28984679daf4acb81cf7d5f6f18e6742beb94ae4535e80450a2db9ecfde2243"
+				))
+				.expect("Constant value is correct"),
+			),
+		],
+		accounts,
+		para_id.into(),
+	)?;
+
+	Ok(Box::new(
+		ChainSpec::builder(&wasm, Extensions { relay_chain: relay_chain.into(), para_id })
+			.with_properties(properties(SS58Prefix::get()))
+			.with_name("Mosaic")
+			.with_id("mosaic-para-live")
+			.with_protocol_id("mosaic-para-live")
+			.with_chain_type(ChainType::Live)
+			.with_genesis_config(genesis_config)
+			.build(),
+	))
+}
+
+fn genesis(
+	invulnerables: Vec<(AccountId, AuraId)>,
+	endowed_accounts: Vec<AccountId>,
+	para_id: ParaId,
+) -> anyhow::Result<serde_json::Value> {
+	let parachain_info =
+		parachain_info::GenesisConfig { parachain_id: para_id, _config: PhantomData };
+
+	let balances = pallet_balances::GenesisConfig {
+		balances: endowed_accounts
+			.into_iter()
+			.map(|acc| (acc, 10_000_000_000_000_000_000))
+			.collect(),
+	};
+
+	let council_collective_membership = pallet_membership::GenesisConfig {
+		members: invulnerables
+			.iter()
+			.cloned()
+			.map(|(acc, _)| acc)
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("members are fewer than MaxMembers"),
+		phantom: PhantomData,
+	};
+
+	let collator_selection = pallet_collator_selection::GenesisConfig {
+		invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+		candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
+		desired_candidates: 0,
+	};
+
+	let session = pallet_session::GenesisConfig {
+		keys: invulnerables
+			.into_iter()
+			.map(|(acc, aura)| (acc.clone(), acc, SessionKeys { aura }))
+			.collect(),
+	};
+
+	let polkadot_xcm = pallet_xcm::GenesisConfig {
+		safe_xcm_version: Some(xcm::prelude::XCM_VERSION),
+		_config: PhantomData,
+	};
+
+	let genesis_config = RuntimeGenesisConfig {
+		parachain_info,
+		balances,
+		council_collective_membership,
+		collator_selection,
+		session,
+		polkadot_xcm,
+		..Default::default()
+	};
+
+	serde_json::to_value(genesis_config).context("Could not represent genesis config as json value")
+}

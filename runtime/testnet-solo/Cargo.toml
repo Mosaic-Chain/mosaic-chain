@@ -79,6 +79,8 @@ sp-io = { workspace = true }
 
 [features]
 default = ["std"]
+include-wasm = ["substrate-wasm-builder"]
+
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -128,7 +130,6 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

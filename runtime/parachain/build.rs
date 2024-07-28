@@ -1,4 +1,4 @@
-#[cfg(feature = "std")]
+#[cfg(feature = "include-wasm")]
 fn main() {
 	substrate_wasm_builder::WasmBuilder::new()
 		.with_current_project()
@@ -9,5 +9,5 @@ fn main() {
 
 /// The wasm builder is deactivated when compiling
 /// this crate for wasm to speed up the compilation.
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "include-wasm"))]
 fn main() {}

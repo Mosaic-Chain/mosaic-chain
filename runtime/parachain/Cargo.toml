@@ -8,7 +8,7 @@ publish = false
 
 
 [build-dependencies]
-substrate-wasm-builder = { workspace = true }
+substrate-wasm-builder = { workspace = true, optional = true }
 
 [dependencies]
 smallvec = { workspace = true }
@@ -83,6 +83,7 @@ parachain-info = { workspace = true }
 
 [features]
 default = ["std"]
+include-wasm = ["substrate-wasm-builder"]
 fast-runtime = []
 local = ["fast-runtime"]
 

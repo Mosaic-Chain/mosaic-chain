@@ -39,7 +39,7 @@ futures = { workspace = true }
 serde_json = { workspace = true }
 
 # Local
-parachain-template-runtime = { workspace = true }
+parachain-template-runtime = { workspace = true, features = ["std", "include-wasm"] }
 
 # Substrate
 frame-benchmarking = { workspace = true }

@@ -68,8 +68,8 @@ sp-timestamp = { workspace = true }
 substrate-frame-rpc-system = { workspace = true }
 
 # Local Dependencies
-mosaic-testnet-solo-runtime.workspace = true
-pallet-nft-staking.workspace = true
+mosaic-testnet-solo-runtime = { workspace = true, features = ["std", "include-wasm"] }
+pallet-nft-staking = { workspace = true }
 serde_json = { workspace = true }
 
 [build-dependencies]

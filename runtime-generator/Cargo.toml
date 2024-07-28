@@ -1,0 +1,45 @@
+[package]
+name = "runtime-generator"
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[dependencies]
+clap = { workspace = true, features = ["derive"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex-literal = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true, default-features = true }
+srtool-lib = { workspace = true }
+ctrlc = { workspace = true }
+cargo_metadata = { workspace = true }
+anyhow = { workspace = true }
+
+mosaic-testnet-solo-runtime = { workspace = true, features = ["std"] }
+parachain-template-runtime = { workspace = true, features = ["std"] }
+
+pallet-im-online = { workspace = true }
+pallet-nft-staking = { workspace = true }
+pallet-nft-permission = { workspace = true }
+pallet-validator-subset-selection = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-session = { workspace = true }
+pallet-membership = { workspace = true }
+pallet-collator-selection = { workspace = true }
+parachain-info = { workspace = true }
+pallet-xcm = { workspace = true }
+
+sp-core = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
+sp-runtime = { workspace = true }
+
+sc-chain-spec = { workspace = true }
+sc-service = { workspace = true }
+
+cumulus-primitives-core = { workspace = true }
+xcm = { workspace = true }

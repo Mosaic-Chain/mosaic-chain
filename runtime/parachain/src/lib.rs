@@ -3,7 +3,7 @@
 #![recursion_limit = "256"]
 
 // Make the WASM binary available.
-#[cfg(feature = "std")]
+#[cfg(feature = "include-wasm")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod migrations;
