@@ -100,6 +100,7 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 			.build(),
 	))
 }
+
 fn genesis(
 	initial_authorities: Vec<(AuraId, GrandpaId, ImOnlineId, AccountId)>,
 	initial_permission_holders: Vec<(AccountId, PermissionType, bool, Balance)>,

@@ -6,14 +6,14 @@ authors: ['vismate']
 reviewers: ['wigy']
 ---
 
-# Problem
+## Problem
 
 When registering parathread on polkadot we mistakenly generated the `genesis-state` from the wrong chainspec.
 The chainspec used was modified for local testing as follows:
 
 - Bootnodes were added with ip `localhost`
 - Relaychain was set to "paseo-local"
-- ParaId was set to 2000 
+- ParaId was set to 2000
 - ParaId in parachain_info's genesis config was set to 2000
 
 The first three modifications do not result in any change in the produced genesis-state.
@@ -36,7 +36,7 @@ Then we use this raw chainspec to export the genesis-state and the runtime code.
 
 Thus we can conclude that only genesis configuration values contribute to the generated genesis-state.
 
-# Solution
+## Solution
 
 The first solution that comes to mind is to just correct the chainspec and rebuild the genesis-state with the
 version of the code tagged with `mosaic-mainnet-runtime-v100`.
@@ -58,7 +58,7 @@ and modify the relevant parts.
 
 Since I'm more comfortable with editing a few lines than 3kb's of code, I chose to replace the storage value.
 
-# Original raw chainspec
+## Original raw chainspec
 
 Upon discovering we've made a mistake I've gathered the raw chainspec and the uploaded files and saved them to a .zip file.
 I'll make this file available for the reader.
@@ -73,25 +73,29 @@ To confirm these are the files used for parathread registration I checked three 
   - used node to export code and state
   - these matched the ones we have
 
-# Determining what needs to be changed
+## Determining what needs to be changed
 
 In the mosaic-chain repo:
+
 ```sh
 git checkout tags/mosaic-mainnet-runtime-v100
 cargo b -r  
 ```
 
 Now generate a test chainspec:
+
 ```sh
 ./target/release/parachain-template-node build-spec --chain live > plain.json  
 ```
 
 Generate control raw spec:
+
 ```sh
 ./target/release/parachain-template-node build-spec --chain plain.json --raw > control.json
 ```
 
 Now change `plain.json`:
+
 ```json
 ...
 "parachainInfo": {
@@ -102,7 +106,6 @@ Now change `plain.json`:
 
 to
 
-
 ```json
 ...
 "parachainInfo": {
@@ -112,17 +115,20 @@ to
 ```
 
 Now generate new raw chainspec:
+
 ```sh
 ./target/release/parachain-template-node build-spec --chain plain.json --raw > modified.json  
 ```
 
 Comparing two raw chainspecs:
+
 ```sh
 diff control.json modified.json
 ```
 
 Expected output:
-```
+
+```diff
   21c21
 <         "0x0d715f2646c8f85767b5d2764bb2782604a74d81251e398fd8a0a4d55023bb3f": "0x310d0000",
 ---
@@ -139,94 +145,99 @@ corresponds to "2000".
 ## Producing correct chainspec
 
 In the client config section we change:
+
 - "bootNodes": ip needs to be set to deployed nodes' ip.
 - "relay-chain": from "paseo-local" to "polkadot"
 - "para_id": from 2000 to 3377
 
 In the genesis section:
+
 - "0x0d715f2646c8f85767b5d2764bb2782604a74d81251e398fd8a0a4d55023bb3f": from "0xd0070000" to "0x310d0000"
 
 Now a new genesis-state can be built using the modified raw chainspec:
+
 ```sh
 ./target/release/parachain-template-node export-genesis-head --chain live-raw.json > genesis-state
 ```
 
 _NOTE: this chainspec is the one that nodes must use on our mainnet._
 
-# Updating genesis-state on polkadot
+## Updating genesis-state on polkadot
 
 With our multisig account we call `registrar_setCurrentHead` with `para` 3377 and the newly
 generated genesis-state.
 
-# Testing
+## Testing
 
 **Goal:** by fixing genesis state parachain nodes running the **correct**
 chainspec start producing blocks and these blocks are finalized.
 
 **Non goal:** test running **incorrect** chainspec.
 
-## Dependencies:
- - `mosaic-chain` repo (+build-deps)
- - `paseo-runtimes` repo (own fork, +build-deps)
- - `polkadot` v1.11.0 (main binary + workers)
+### Dependencies
 
-## Test log:
+- `mosaic-chain` repo (+build-deps)
+- `paseo-runtimes` repo (own fork, +build-deps)
+- `polkadot` v1.11.0 (main binary + workers)
+
+### Test log
 
 1. **checkout the `mosaic-mainnet-runtime-v100` tag of mosaic-chain**
- - `git checkout tags/mosaic-mainnet-runtime-v100`
+  - `git checkout tags/mosaic-mainnet-runtime-v100`
 2. compile `parachain-template-node` in release mode
- - `cargo b -r -p parachain-template-node`
+  - `cargo b -r -p parachain-template-node`
 3. **produce local plain chainspec**
- - `./target/release/parachain-template-node build-spec --chain local > test-plain.json`
+  - `./target/release/parachain-template-node build-spec --chain local > test-plain.json`
 4. **produce correct raw chainspec and genesis state**
- - `./target/release/parachain-template-node build-spec --chain test-plain.json --raw > test-correct.json`
- - `./target/release/parachain-template-node export-genesis-head --chain test-correct.json > test-correct-head`
+  - `./target/release/parachain-template-node build-spec --chain test-plain.json --raw > test-correct.json`
+  - `./target/release/parachain-template-node export-genesis-head --chain test-correct.json > test-correct-head`
 5. **produce incorrect raw chainspec and genesis state**
- - edit `test-plain.json` "parachainInfo": { "parachainId": 2001 }
- - (client options can be edited too, but not necessary)
- - `./target/release/parachain-template-node build-spec --chain test-plain.json --raw > test-incorrect.json`
- - `./target/release/parachain-template-node export-genesis-head --chain test-incorrect.json > test-incorrect-head`
- - (notice that the only difference between `test-correct-head` and `test-incorrect-head` is one storage entry)
+  - edit `test-plain.json` "parachainInfo": { "parachainId": 2001 }
+  - (client options can be edited too, but not necessary)
+  - `./target/release/parachain-template-node build-spec --chain test-plain.json --raw > test-incorrect.json`
+  - `./target/release/parachain-template-node export-genesis-head --chain test-incorrect.json > test-incorrect-head`
+  - (notice that the only difference between `test-correct-head` and `test-incorrect-head` is one storage entry)
 6. **generate genesis-wasm**
- - `./target/release/parachain-template-node export-genesis-wasm --chain test-correct.json > test-wasm`
+  - `./target/release/parachain-template-node export-genesis-wasm --chain test-correct.json > test-wasm`
 7. **compile `paseo-runtimes` in release mode with the `fast-runtime` feature turned on.**
- - `cargo b -r -F fast-runtime`
+  - `cargo b -r -F fast-runtime`
 8. **generate relay chainspec**
- - `./scripts/gen-chainspec.sh`
+  - `./scripts/gen-chainspec.sh`
 9. **start relaychain**
- - `./scripts/relay-chain-up.sh <polkadot binary> paseo-local.json`
+  - `./scripts/relay-chain-up.sh <polkadot binary> paseo-local.json`
 10. **register parathread with wrong genesis state**
- - connect to a relaychain node with polkadot.js (localhost:9945)
- - navigate to Network > Parachains > Parathreads
- - claim paraid (eg. with bob's account, "+ ParaId" button)
- - register parathread ("+ ParaThread" button)
- - upload `test-wasm` and `test-incorrect-head`
- - wait for onboarding (approx. 3 mins, can be tracked: Network > Parachains > Parathreads)
+  - connect to a relaychain node with polkadot.js (localhost:9945)
+  - navigate to Network > Parachains > Parathreads
+  - claim paraid (eg. with bob's account, "+ ParaId" button)
+  - register parathread ("+ ParaThread" button)
+  - upload `test-wasm` and `test-incorrect-head`
+  - wait for onboarding (approx. 3 mins, can be tracked: Network > Parachains > Parathreads)
 11. **start auction**
- - navigate to Developer > Sudo
- - using Alice's account call `auctions_newAuction` with default params
+  - navigate to Developer > Sudo
+  - using Alice's account call `auctions_newAuction` with default params
 12. **bid**
- - quickly navigate to Network > Parachains > Auctions
- - bid for bob's 2000 paraid on period 0-7 with some PAS ("+Bid" button)
- - wait for auction to end (30 sec ending period +length of session, approx 3 minutes)
- - after winning auction it takes around 3 mins to activate (upgrade) parathread
+  - quickly navigate to Network > Parachains > Auctions
+  - bid for bob's 2000 paraid on period 0-7 with some PAS ("+Bid" button)
+  - wait for auction to end (30 sec ending period +length of session, approx 3 minutes)
+  - after winning auction it takes around 3 mins to activate (upgrade) parathread
 13. **start parachain with correct chainspec**
- - on the checked out tag the helper script uses `local-raw.json`,
-   so either the script needs a touch up, or `test-correct.json` should be renamed.
- - `./scripts/test-up.sh <paseo-local.json>`
- - (`paseo-local.json` was generated in step 8.)
+  - on the checked out tag the helper script uses `local-raw.json`,
+    so either the script needs a touch up, or `test-correct.json` should be renamed.
+  - `./scripts/test-up.sh <paseo-local.json>`
+  - (`paseo-local.json` was generated in step 8.)
 14. **observe blocks are not produced**
- - after the 3 min upgrade period ends the parachain should complain about genesis-state mismatch
-   and should not produce blocks (best height remains 0)
+  - after the 3 min upgrade period ends the parachain should complain about genesis-state mismatch
+    and should not produce blocks (best height remains 0)
 15. **fix genesis head**
- - (still connected to relaychain on polkadot.js)
- - navigate to Developer > Extrinsics
- - call (using Bob's account) `registrar_setCurrentHead` with paraid 2000 and upload `test-correct-head`.
+  - (still connected to relaychain on polkadot.js)
+  - navigate to Developer > Extrinsics
+  - call (using Bob's account) `registrar_setCurrentHead` with paraid 2000 and upload `test-correct-head`.
 16. **observe blocks are produced**
- - Now the parachain should start producing blocks
- - Finalization should also happen
+  - Now the parachain should start producing blocks
+  - Finalization should also happen
 
-## Conclusion
+### Conclusion
+
 Using the above method we changed the value in storage of parachain_info
 (genesis.runtimeGenesis.patch.parachainInfo.parachainId) from 0xd0070000 to 0x310d0000.
 
@@ -238,12 +249,13 @@ Then we re-ran the test again and confirmed the fix will work.
 **raw-chainspec (SHA256):**
 fbad4de9c906bb447aae1a5b4b714ece33fa691714729be3a40b27f35fc89348
 
-### Initial call:
+#### Initial call
+
 **Sender:** 1saFMaLSrzaG4sC7n2eaZhm2QT4fFWopBM1j4rMNNZ76pM3 (vismate)
 **Block:** #21671803
 **Block hash:** 0x2fbba283a1ca2a7102487dbf334341b0dc8656abfe4f6b945915375af0797738
 **Timestamp:** 2024-07-16 13:00:30 (+UTC)
-**Subscan: https://polkadot.subscan.io/extrinsic/21671803-3**
+**Subscan: <https://polkadot.subscan.io/extrinsic/21671803-3>**
 
 **Call data:**
 0x1d0000f25418311f6f3b70b3ebe74fc714aba44e177d104b6c2defb27f9b9936da17b9004608310d000089010000000000000000000000000000000000000000000000000000000000000000001f9d7cd4f90f072af243082040b30097a498cc426b67e278bb91071901f0974c03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c11131400
@@ -294,13 +306,14 @@ fbad4de9c906bb447aae1a5b4b714ece33fa691714729be3a40b27f35fc89348
 ]
 ```
 
-## Approval:
+### Approval
+
 **Sender:** 1569NpEohXAJXJucn2hTeBXcJaFtD5eWittZ4iYPiCHo47PD (mudlee)
 **Block:** #21671886
 **Block hash:**
 0x47eb6707016fa0d5f6b9478b51ac3651b6a909ea9fb3a7869c8dccd716526f0f
 **Timestamp:** 2024-07-16 13:08:48 (+UTC)
-**Subscan:** https://polkadot.subscan.io/extrinsic/21671886-2
+**Subscan:** <https://polkadot.subscan.io/extrinsic/21671886-2>
 
 ```json
 [
