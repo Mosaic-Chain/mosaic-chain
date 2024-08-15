@@ -75,13 +75,21 @@ local-testnet-docker:
     - develop
   services:
     - docker:dind
+  variables:
+    GCP_URL: europe-west3-docker.pkg.dev
+    GCP_REGISTRY: $GCP_URL/dlabs-317612/docker-registry
   script:
     # Build GitLab images
-    - docker build -f Dockerfile.testnet-solo-local -t $CI_REGISTRY_IMAGE/testnet-solo-local:latest .
+    - docker build -f Dockerfile.testnet-solo-local -t $CI_REGISTRY_IMAGE/testnet-solo-local:latest -t $GCP_REGISTRY/testnet-solo-local:latest.
    
     # Login to GitLab registry
     - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
 
-    # Push GitLab images
+    # Push GitLab image
     - docker push $CI_REGISTRY_IMAGE/testnet-solo-local:latest
- 
+
+    # Login to GCP registry
+    - docker login -u _json_key --password-stdin https://$GCP_URL <$GCP_DEPLOY_JSON_KEY
+
+    # Push GCP image
+    - docker push $GCP_REGISTRY/testnet-solo-local:latest
