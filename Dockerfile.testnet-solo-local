@@ -1,4 +1,4 @@
-FROM rust:bookworm AS builder
+FROM rust:1.78-bookworm AS builder
 
 WORKDIR /app
 
@@ -7,10 +7,11 @@ RUN apt update -y \
     && apt install build-essential libsnappy-dev librocksdb-dev libclang-dev clang cmake g++-multilib protobuf-compiler -y
 
 RUN rustup target add wasm32-unknown-unknown
+RUN rustup component add rust-src
 
 COPY . .
 
-RUN cargo build --release
+RUN cargo build -r -p mosaic-testnet-solo-node
 
 FROM bitnami/minideb:bookworm AS runtime
 RUN apt update -y \
@@ -18,24 +19,30 @@ RUN apt update -y \
     && apt install curl ca-certificates librocksdb-dev -y \
     && rm -rf /var/lib/apt/lists/* /var/lib/dpkg/* /var/cache/*
 
-EXPOSE 30333-30339 30333-30339/udp 9944-9950 9933-9939
+EXPOSE 30333-30339 30333-30339/udp 9945-9951
 
 COPY --from=builder /app/target/release/mosaic-testnet-solo /usr/local/bin/
 
 CMD bash -c 'ids=(alice bob charlie dave eve ferdie) && \
-max=6 && \
-for (( i=0; i < $max; i++ )); do \
+  max=6 && \
+  for (( i=0; i < $max; i++ )); do \
+    mosaic-testnet-solo purge-chain \
+    --base-path /tmp/${ids[i]} \
+    --chain local -y && \
+
     mosaic-testnet-solo \
-    --base-path /app/chain-state/${ids[i]} \
+    --base-path /tmp/${ids[i]} \
     --chain local \
+    --network-backend litep2p \
     --${ids[i]} \
     --port $((30333 + i)) \
     --unsafe-rpc-external \
-    --rpc-port $((9945 + i)) \
+    --rpc-port $((9945 +i)) \
     --node-key 000000000000000000000000000000000000000000000000000000000000000$((1 + i)) \
+    --bootnodes "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp" \
     --validator \
     --rpc-methods=Unsafe \
     --rpc-cors=all \
     --state-pruning archive-canonical & \
-done && \
-while true; do read; done'
+  done && \
+  while true; do read; done'

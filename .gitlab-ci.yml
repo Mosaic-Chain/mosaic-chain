@@ -67,3 +67,21 @@ debian-para-release:
   script:
     - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant release)
     - gcloud artifacts apt upload deb-repo --source $PKG
+
+local-testnet-docker:
+  stage: release
+  image: docker:stable
+  only:
+    - develop
+  services:
+    - docker:dind
+  script:
+    # Build GitLab images
+    - docker build -f Dockerfile.testnet-solo-local -t $CI_REGISTRY_IMAGE/testnet-solo-local:latest .
+   
+    # Login to GitLab registry
+    - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
+
+    # Push GitLab images
+    - docker push $CI_REGISTRY_IMAGE/testnet-solo-local:latest
+ 
