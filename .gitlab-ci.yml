@@ -41,7 +41,7 @@ debian-solo-rc:
   only:
     - develop
   script:
-    - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release --variant rc --deb-version $(./debian/rc-ver.sh))
+    - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release --variant rc --deb-version $(git describe --tags --match "[0-9]*" --always --dirty | sed "s/-/+/g"))
     - gcloud artifacts apt upload deb-repo --source $PKG
 
 debian-solo-release:
@@ -57,7 +57,7 @@ debian-para-rc:
   only:
     - develop
   script:
-    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant rc --deb-version $(./debian/rc-ver.sh))
+    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant rc --deb-version $(git describe --tags --match "[0-9]*" --always --dirty | sed "s/-/+/g"))
     - gcloud artifacts apt upload deb-repo --source $PKG
 
 debian-para-release:
