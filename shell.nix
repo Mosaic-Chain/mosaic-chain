@@ -7,7 +7,7 @@ let
 
   pinned = builtins.fetchGit {
     url = "https://github.com/nixos/nixpkgs/";
-    ref = "refs/tags/23.11";
+    ref = "refs/tags/24.05";
   };
 
   pkgs = import pinned { overlays = [ rust_overlay ]; };
@@ -21,7 +21,8 @@ buildInputs = [
     clang
     pkg-config
     cargo-nextest
-    cargo-watch
+    git-cliff
+    toml-cli
     cargo-deb
   ]);
  

@@ -1,22 +1,10 @@
 [workspace]
-members = [
-    "node/parachain",
-    "node/testnet-solo",
-    "pallets/nft-delegation",
-    "pallets/nft-permission",
-    "pallets/nft-staking",
-    "pallets/validator-subset-selection",
-    "pallets/im-online",
-    "pallets/doas",
-    "runtime/parachain",
-    "runtime/testnet-solo", 
-    "runtime-generator",
-]
+members = ["node/parachain", "node/testnet-solo", "pallets/nft-delegation", "pallets/nft-permission", "pallets/nft-staking", "pallets/validator-subset-selection", "pallets/im-online", "pallets/doas", "runtime/parachain", "runtime/testnet-solo", "runtime-generator"]
 resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
-repository = "https://gitlab.com/dlabs1/mozaik-chain"
+repository = "https://gitlab.dlabs.hu/mosaic-chain/mosaic-chain"
 edition = "2021"
 authors = ["Mosaic Team"]
 license = "Apache-2.0 OR (GPL-3.0-or-later WITH Classpath-exception-2.0)"

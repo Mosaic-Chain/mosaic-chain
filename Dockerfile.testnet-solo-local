@@ -29,7 +29,7 @@ CMD bash -c 'ids=(alice bob charlie dave eve ferdie) && \
     mosaic-testnet-solo purge-chain \
     --base-path /tmp/${ids[i]} \
     --chain local -y && \
-
+    \
     mosaic-testnet-solo \
     --base-path /tmp/${ids[i]} \
     --chain local \
