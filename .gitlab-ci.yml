@@ -70,11 +70,9 @@ debian-para-release:
     - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant release)
     - gcloud artifacts apt upload deb-repo --source $PKG
 
-local-testnet-docker:
+.docker:
   stage: release
   image: docker:stable
-  only:
-    - develop
   services:
     - docker:dind
   variables:
@@ -82,16 +80,32 @@ local-testnet-docker:
     GCP_REGISTRY: $GCP_URL/dlabs-317612/docker-registry
   script:
     # Build GitLab images
-    - docker build -f Dockerfile.testnet-solo-local -t $CI_REGISTRY_IMAGE/testnet-solo-local:latest -t $GCP_REGISTRY/testnet-solo-local:latest .
+    - docker build -f Dockerfile.testnet-solo-local -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG -t $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
    
     # Login to GitLab registry
     - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
 
     # Push GitLab image
-    - docker push $CI_REGISTRY_IMAGE/testnet-solo-local:latest
+    - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG
 
     # Login to GCP registry
     - docker login -u _json_key --password-stdin https://$GCP_URL <$GCP_DEPLOY_JSON_KEY
 
     # Push GCP image
-    - docker push $GCP_REGISTRY/testnet-solo-local:latest
+    - docker push $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+
+solo-local-docker-rc:
+  extends: .docker
+  variables:
+    IMAGE_NAME: mosaic-chain-solo-local
+    IMAGE_TAG: rc
+  only:
+    - develop
+
+solo-local-docker-latest:
+  extends: .docker
+  variables:
+    IMAGE_NAME: mosaic-chain-solo-local
+    IMAGE_TAG: latest
+  only:
+    - main
