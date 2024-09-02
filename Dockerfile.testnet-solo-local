@@ -26,12 +26,8 @@ COPY --from=builder /app/target/release/mosaic-testnet-solo /usr/local/bin/
 CMD bash -c 'ids=(alice bob charlie dave eve ferdie) && \
   max=6 && \
   for (( i=0; i < $max; i++ )); do \
-    mosaic-testnet-solo purge-chain \
-    --base-path /tmp/${ids[i]} \
-    --chain local -y && \
-    \
     mosaic-testnet-solo \
-    --base-path /tmp/${ids[i]} \
+    --base-path /data/${ids[i]} \
     --chain local \
     --network-backend litep2p \
     --${ids[i]} \
