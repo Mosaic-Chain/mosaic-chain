@@ -4,7 +4,6 @@
 
 Depending on your operating system and Rust version, there might be additional packages required to compile the project.
 Check the [installation](https://docs.substrate.io/install/) instructions for your platform for the most common dependencies.
-Alternatively, you can use one of the [alternative installation](#alternative-installations) options.
 
 A `shell.nix` file is also included using which a complete development environment can be spawned.
 It also serves as a complete list of dependencies together with `toolchain.toml`
@@ -81,37 +80,6 @@ After you start the node locally, you can interact with it using the hosted vers
 A hosted version is also available on [IPFS (redirect) here](https://dotapps.io/) or [IPNS (direct) here](ipns://dotapps.io/?rpc=ws%3A%2F%2F127.0.0.1%3A9944#/explorer).
 You can also find the source code and instructions for hosting your own instance on the [polkadot-js/apps](https://github.com/polkadot-js/apps) repository.
 
-### Multi-node local testnet
-
-```bash
-#!/usr/bin/env bash
-ids=(alice bob charlie dave eve ferdie)
-
-max=6
-for (( i=0; i < $max; i++ ))
-  do
-    ./target/release/mosaic-testnet-solo purge-chain \
-    --base-path /tmp/${ids[i]} \
-    --chain local -y \
-
-    ./target/release/mosaic-testnet-solo \
-    --base-path /tmp/${ids[i]} \
-    --chain local \
-    --${ids[i]} \
-    --port $((30333 + i)) \
-    --unsafe-rpc-external \
-    --rpc-port $((9945 +i)) \
-    --node-key 000000000000000000000000000000000000000000000000000000000000000$((1 + i)) \
-    --validator \
-    --rpc-methods=Unsafe \
-    --rpc-cors=all \
-   &
-done
-
-trap "trap - SIGTERM && kill -9 -- $$" SIGINT SIGTERM EXIT
-while true; do read; done
-```
-
 ## Project Structure
 
 A Substrate project such as this consists of a number of components that are spread across a few directories.
@@ -178,3 +146,123 @@ Mosaic Chain implements it's business logic in custom built pallets:
 - [`pallet-validator-subset-selection`](./pallets/validator-subset-selection/README.md) selects the active subset of validators who produce the block in the current session and drives session progression.
 - [`pallet-nft-permission`](./pallets/nft-permission/README.md) owns permission NFTs and handles it's attributes.
 - [`pallet-nft-delegation`](./pallets/nft-delegation/README.md) owns delegator NFTs and handles it's attributes.
+
+## Setting up Solochain
+
+To set up our solochain we generally need to agree upon a few things:
+- The chain specification with runtime and genesis state
+- Who are the bootnodes
+
+### Generating chainspec with `runtime-generator`
+
+Build runtime generator:
+
+```sh
+  cargo b -r -p runtime-generator
+```
+
+Pull builder image (srtool):
+
+```sh
+./target/release/runtime-generator pull
+  
+```
+
+Build the runtime and generate raw chainspec:
+
+```sh
+./target/release/runtime-generator build --raw mosaic-solo-local > raw_chainspec.json  
+```
+
+Distribute the file amongst the nodes!
+
+NOTE: available chainspec presets: mosaic-solo-local, mosaic-solo-live, mosaic-para-local, mosaic-para-live
+NOTE: once a chain is started consequent nodes must also join with the same chainspec as the genesis hash must match.
+
+### Generating node keys
+
+These keys are used on the libp2p layer and the public part is used to generate the node id.
+For bootnodes knowing this id is important as it's part of their [multiaddress](https://docs.libp2p.io/concepts/fundamentals/addressing/).
+
+```sh
+  mosaic-testnet-solo key generate-node-key > nodekey
+```
+
+The above command generates a new node key and writes it to the `nodekey` file.
+It also displays the derived node identity as well on `stderr`.
+
+NOTE: `nodekey` is a private key and should handled as such
+
+### Scenario 1: development accounts spread across different servers
+
+In this scenario we run **six** nodes across multiple machines.
+We use the `mosaic-solo-local` chainspec preset with 6 dev accounts (alice, bob, charlie, dave, eve, ferdie).
+
+NOTE: currently our chainspec presets only support running a minimum of 6 nodes.
+
+1. generate chainspec as seen above and copy it to all machines
+2. generate nodekeys as seen above and pick one to be the bootnode
+   - I recommend naming nodekey files like this: `nodekey.alice`, `nodekey.bob`, ...
+   - Let's pick alice to be the bootnode and note down her node id (printed to `stderr`) when
+     generating `nodekey.alice`
+3. define bootnode multiaddress: `/ip4/<ip>/tcp/<p2p port>/p2p/<node id>`
+   - protocols can be mixed and mached, so a node can have multiple valid multiaddrs
+   - we can also use dns name instead of raw ip: `/dns4/boot1.example.com/tcp/<p2p port>/p2p/<node id>`
+4. start bootnode (for example):
+
+```sh
+mosaic-testnet-solo --chain <chainspec> --name <node name> --base-path <basepath> --execution wasm \
+  --validator --rpc-port <rpc port> --listen-addr /ip4/<ip>/tcp/<p2p port> --node-key-file <nodekey file>
+```
+
+5. start other nodes: same as starting the bootnode but additionally provide the boot multiaddr: `--bootnodes /ip4/<ip>/tcp/<p2p port>/p2p/<node id>`
+
+NOTES:
+  - `<node name>` in this case is one of: Alice, Bob, Charlie, Dave, Eve, Ferdie.
+  - `<basepath>` should be unique to each node
+  - if listening on an address that belongs to a VPN add these extra args: `--allow-private-ip --discover-local --no-mdns`
+  - further options can be found with `mosaic-testnet-solo --help` for example ones related to rpc availability.
+
+### Scenario 2: real accounts spread accross different servers
+
+In this scenario we run **six** nodes across multiple machines.
+We use the `mosaic-solo-live` chainspec preset with baked in initial authorities.
+
+Our runtime generator is not yet templatable, so we presume the `mosaic-solo-live`
+preset already has the proper accounts and starter session keys. We also presume, that
+the deployer has access to these secrets (suri) in form of files for each node's each session key like so:
+
+```
+  node1/aura
+  node1/gran
+  node1/imon
+  node2/aura
+  ...
+```
+
+1. generate chainspec as seen above and copy it to all machines
+2. for each node, insert session keys into the node's local keystore:
+
+```sh
+mosaic-testnet-solo key insert --chain <chainspec> --base-path <basepath> --scheme <scheme> --key-type <key type> --suri <suri file>
+```
+
+| Key Type | Scheme  |
+|----------|---------|
+| aura     | sr25519 |
+| imon     | sr25519 |
+| gran     | ed25519 |
+
+NOTES: 
+- when definding these keys in the chainspec (currently manually in `runtime-generator`'s source)
+we can use `mosaic-testnet-solo key generate` to do so.
+- currently only the solochain node has functionality related to key handling, parachain node needs to be updated.
+
+3. follow steps from `Scenario 1`, but **DO NOT** use dev account names as node names!
+
+### Useful links:
+
+- https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot
+- https://docs.substrate.io/deploy/keys-and-network-operations/
+- https://multiformats.io/multiaddr/
+- https://docs.libp2p.io/concepts/fundamentals/addressing/
