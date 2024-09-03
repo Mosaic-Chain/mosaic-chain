@@ -1,7 +1,16 @@
 use crate::BlockNumber;
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::num::NonZeroU32;
 use frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
+use scale_info::TypeInfo;
 use sp_runtime::{Perbill, Permill};
+
+#[derive(Debug, Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
+pub struct PaymentRatio {
+	pub validator: u32,
+	pub treasury: u32,
+	pub burn: u32,
+}
 
 pub mod currency {
 	pub type Balance = u128;
@@ -178,6 +187,14 @@ pub mod dynamic {
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
 		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 8)]
+	pub mod transaction_payment {
+		#[codec(index = 0)]
+		pub static FeePaymentRatio: PaymentRatio =
+			PaymentRatio { validator: 1, treasury: 1, burn: 1 };
 	}
 }
 

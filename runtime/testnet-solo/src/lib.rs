@@ -13,11 +13,12 @@ use sp_std::prelude::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
+	pallet_prelude::TransactionValidityError,
 	traits::{
-		fungible::HoldConsideration,
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		AsEnsureOriginWithArg, EitherOfDiverse, EqualPrivilegeOnly, InstanceFilter,
-		LinearStoragePrice,
+		fungible::{Balanced, Credit, Debt, HoldConsideration},
+		tokens::{PayFromAccount, Precision, UnityAssetBalanceConversion},
+		AsEnsureOriginWithArg, Currency, EitherOfDiverse, EqualPrivilegeOnly, Imbalance,
+		InstanceFilter, LinearStoragePrice,
 	},
 	PalletId,
 };
@@ -32,8 +33,9 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentifyAccount,
-		IdentityLookup, NumberFor, One, OpaqueKeys, Verify,
+		IdentityLookup, NumberFor, One, OpaqueKeys, Verify, Zero,
 	},
+	transaction_validity::InvalidTransaction,
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, MultiSignature, SaturatedConversion,
 };
@@ -59,7 +61,7 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier, OnChargeTransaction};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -81,6 +83,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod charge_transaction;
 mod params;
 
 /// An index to a block.
@@ -341,7 +344,7 @@ parameter_types! {
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
+	type OnChargeTransaction = charge_transaction::ChargeTransaction;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
