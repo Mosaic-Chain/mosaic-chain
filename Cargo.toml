@@ -1,5 +1,20 @@
 [workspace]
-members = ["node/parachain", "node/testnet-solo", "pallets/nft-delegation", "pallets/nft-permission", "pallets/nft-staking", "pallets/validator-subset-selection", "pallets/im-online", "pallets/doas", "runtime/parachain", "runtime/testnet-solo", "runtime-generator"]
+
+members = [
+  "node/parachain",
+  "node/testnet-solo",
+  "pallets/nft-delegation",
+  "pallets/nft-permission",
+  "pallets/nft-staking",
+  "pallets/validator-subset-selection",
+  "pallets/im-online",
+  "pallets/doas",
+  "pallets/treasury",
+  "runtime/parachain",
+  "runtime/testnet-solo",
+  "runtime-generator",
+]
+
 resolver = "2"
 
 [workspace.package]
@@ -28,6 +43,7 @@ srtool-lib = { version = "0.12.0" }
 ctrlc = { version = "3.4.4", default-features = false }
 cargo_metadata = { version = "0.18.1", default-features = false }
 anyhow = { version = "1.0.86" }
+docify = { version = "0.2.8" }
 
 # Local
 mosaic-testnet-solo-runtime = { default-features = false, path = "runtime/testnet-solo" }
@@ -38,6 +54,7 @@ pallet-nft-delegation = { default-features = false, path = "pallets/nft-delegati
 pallet-nft-permission = { default-features = false, path = "pallets/nft-permission" }
 pallet-validator-subset-selection = { default-features = false, path = "pallets/validator-subset-selection" }
 pallet-im-online = { default-features = false, path = "pallets/im-online" }
+pallet-treasury = { default-features = false, path = "pallets/treasury" }
 utils = { path = "utils" }
 
 # Substrate

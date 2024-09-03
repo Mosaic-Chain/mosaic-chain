@@ -38,6 +38,8 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-parameters = { workspace = true }
+pallet-treasury = { workspace = true }
+
 scale-info = { workspace = true, features = ["derive"] }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -116,6 +118,7 @@ std = [
 	"pallet-utility/std",
 	"pallet-parameters/std",
 	"pallet-validator-subset-selection/std",
+	"pallet-treasury/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -151,6 +154,7 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"pallet-parameters/runtime-benchmarks",
 	"pallet-validator-subset-selection/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -184,4 +188,5 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"pallet-parameters/try-runtime",
 	"pallet-validator-subset-selection/try-runtime",
+	"pallet-treasury/try-runtime"
 ]

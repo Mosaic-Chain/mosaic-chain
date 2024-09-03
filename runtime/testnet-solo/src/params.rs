@@ -1,7 +1,7 @@
 use crate::BlockNumber;
 use core::num::NonZeroU32;
 use frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
-use sp_runtime::Perbill;
+use sp_runtime::{Perbill, Permill};
 
 pub mod currency {
 	pub type Balance = u128;
@@ -30,7 +30,7 @@ pub mod time {
 pub mod dynamic {
 	use super::*;
 	use currency::*;
-	use time::MINUTES;
+	use time::*;
 
 	#[dynamic_pallet_params]
 	#[codec(index = 0)]
@@ -149,6 +149,35 @@ pub mod dynamic {
 		/// The time-out for council motions.
 		#[codec(index = 0)]
 		pub static MotionDuration: BlockNumber = MINUTES;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 7)]
+	pub mod treasury {
+		/// Fraction of a proposal's value that should be bonded in order to place the proposal.
+		/// An accepted proposal gets these back. A rejected proposal does not.
+		#[codec(index = 0)]
+		pub static ProposalBond: Permill = Permill::from_percent(5);
+
+		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
+		#[codec(index = 1)]
+		pub static ProposalBondMinimum: Balance = 10 * MOSAIC;
+
+		/// Maximum amount of funds that should be placed in a deposit for making a proposal.
+		#[codec(index = 2)]
+		pub static ProposalBondMaximum: Option<Balance> = None;
+
+		/// Period between successive spends.
+		#[codec(index = 3)]
+		pub static SpendPeriod: BlockNumber = 28 * DAYS;
+
+		/// Percentage of spare funds (if any) that are burnt per spend period.
+		#[codec(index = 4)]
+		pub static Burn: Permill = Permill::from_percent(1);
+
+		/// The period during which an approved treasury spend has to be claimed.
+		#[codec(index = 5)]
+		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
 	}
 }
 

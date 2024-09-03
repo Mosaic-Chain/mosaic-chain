@@ -14,12 +14,14 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	traits::{
-		fungible::HoldConsideration, AsEnsureOriginWithArg, EitherOfDiverse, EqualPrivilegeOnly,
-		InstanceFilter, LinearStoragePrice,
+		fungible::HoldConsideration,
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		AsEnsureOriginWithArg, EitherOfDiverse, EqualPrivilegeOnly, InstanceFilter,
+		LinearStoragePrice,
 	},
 	PalletId,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot};
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureWithSuccess};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -30,7 +32,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentifyAccount,
-		NumberFor, One, OpaqueKeys, Verify,
+		IdentityLookup, NumberFor, One, OpaqueKeys, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, MultiSignature, SaturatedConversion,
@@ -344,6 +346,42 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+}
+
+parameter_types! {
+	pub TreasuryPalletId: PalletId = PalletId(*b"treasury");
+	pub TreasuryMaxApprovals: u32 = 250;
+	pub MaxBalance: Balance = Balance::max_value();
+	pub TreasuryAccount: AccountId = Treasury::account_id();
+}
+
+type TreasuryOrigin = pallet_collective::EnsureProportionMoreThan<AccountId, Council, 1, 2>;
+
+impl pallet_treasury::Config for Runtime {
+	type Currency = Balances;
+	type ApproveOrigin = TreasuryOrigin;
+	type RejectOrigin = TreasuryOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = params::dynamic::treasury::ProposalBond;
+	type ProposalBondMinimum = params::dynamic::treasury::ProposalBondMinimum;
+	type ProposalBondMaximum = params::dynamic::treasury::ProposalBondMaximum;
+	type SpendPeriod = params::dynamic::treasury::SpendPeriod;
+	type Burn = params::dynamic::treasury::Burn;
+	type PalletId = TreasuryPalletId;
+	type BurnDestination = ();
+	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
+	type SpendFunds = ();
+	type MaxApprovals = TreasuryMaxApprovals;
+	type SpendOrigin = EnsureWithSuccess<TreasuryOrigin, AccountId, MaxBalance>;
+	type AssetKind = ();
+	type Beneficiary = AccountId;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
+	type BalanceConverter = UnityAssetBalanceConversion;
+	type PayoutPeriod = params::dynamic::treasury::PayoutPeriod;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_nfts::Config for Runtime {
@@ -894,6 +932,7 @@ construct_runtime!(
 		DoAs: pallet_doas,
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler,
+		Treasury: pallet_treasury,
 	}
 );
 
@@ -954,6 +993,7 @@ mod benches {
 		[pallet_scheduler, Scheduler]
 		[pallet_preimage, Preimage]
 		[pallet_parameters, Parameters]
+		[pallet_treasury, Treasury]
 	);
 }
 
