@@ -2,8 +2,23 @@
 
 ## Getting Started
 
-Depending on your operating system and Rust version, there might be additional packages required to compile the project.
-Check the [installation](https://docs.substrate.io/install/) instructions for your platform for the most common dependencies.
+Install the following dependencies from your preferred package manager:
+
+For compilation / testing:
+- `rust` (`rustup`)
+- `clang` / `libclang`
+- `pkg-config`
+- `protobuf` (`protoc`)
+- `librocksdb`
+- `cargo-nextest`
+
+For packaging:
+- `git-cliff`
+- `toml-cli`
+- `cargo-deb`
+
+NOTE: cargo-deb and cargo-nextest can be installed with `cargo install` if
+they are not available in your package manager.
 
 A `shell.nix` file is also included using which a complete development environment can be spawned.
 It also serves as a complete list of dependencies together with `toolchain.toml`
