@@ -150,6 +150,10 @@ pub mod v101 {
 				},
 			);
 
+			// A runtime upgrade clears the transaction pool, and consumes the entire block
+			// to ensure only one version of the runtime used per block.
+			// Megrations run before any extrinsic or `on_initialize` so in a simple case like this
+			// we can skip benchmarking.
 			Weight::zero()
 		}
 	}

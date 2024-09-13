@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-  
-  CHAIN=${1:-local}
-  
   ids=(alice bob charlie dave eve ferdie)
 
   max=6
@@ -9,11 +6,11 @@
   do
     ./target/release/mosaic-testnet-solo purge-chain \
     --base-path /tmp/${ids[i]} \
-    --chain $CHAIN -y \
+    --chain local -y \
 
     ./target/release/mosaic-testnet-solo \
     --base-path /tmp/${ids[i]} \
-    --chain $CHAIN \
+    --chain local \
     --network-backend litep2p \
     --${ids[i]} \
     --port $((30333 + i)) \

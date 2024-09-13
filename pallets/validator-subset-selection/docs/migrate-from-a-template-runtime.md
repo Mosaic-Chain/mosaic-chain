@@ -28,6 +28,8 @@ pallet_validator_subset_selection::CurrentSessionLength::<Runtime>::put(PERIOD);
 pallet_validator_subset_selection::AvgSessionLength::<Runtime>::put(PERIOD);  
 ```
 
+A full migration expamle is available in [migration.rs](migration.rs).
+
 These storage values make `ValidatorSubsetSelection` behave consistently after upgrade.
 Keep in mind, that right after the upgrade all rules from the new runtime apply to sessions started or
 planned before the upgrade.
