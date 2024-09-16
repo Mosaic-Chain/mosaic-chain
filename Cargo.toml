@@ -53,6 +53,8 @@ ctrlc = { version = "3.4.4", default-features = false }
 cargo_metadata = { version = "0.18.1", default-features = false }
 anyhow = { version = "1.0.86" }
 docify = { version = "0.2.8" }
+rstest = { version = "0.22.0" }
+rstest_reuse = { version = "0.7.0" }
 
 # Local
 mosaic-testnet-solo-runtime = { default-features = false, path = "runtime/testnet-solo" }

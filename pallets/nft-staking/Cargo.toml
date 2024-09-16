@@ -31,6 +31,8 @@ utils.workspace = true
 
 [dev-dependencies]
 sdk = { workspace = true, features = ["sp-core", "sp-io", "pallet-balances"] }
+rstest = { workspace = true }
+rstest_reuse = { workspace = true }
 
 [features]
 default = [ "std" ]

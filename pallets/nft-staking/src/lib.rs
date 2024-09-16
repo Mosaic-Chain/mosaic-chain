@@ -6,7 +6,7 @@ pub use impls::{SelectableValidators, SlashableValidators};
 /// Mosaic's very own staking pallet
 /// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.
 /// # Missing features:
-///   - Tests and benchmarks
+///   - benchmarks
 pub use pallet::*;
 pub use types::PermissionType;
 
@@ -14,6 +14,12 @@ mod impls;
 mod reward;
 mod slash;
 mod types;
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+mod mock;
 
 use sdk::{
 	frame_support, frame_system, pallet_offences, pallet_session, sp_runtime, sp_staking, sp_std,
