@@ -253,6 +253,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		AlreadyBound,
 		NotBound,
+		NftNotBound,
 		ValidatorAlreadySelected,
 		BindingContractExists,
 		TargetNotDPoS,
@@ -282,6 +283,7 @@ pub mod pallet {
 		OverdominantStake,
 		TooManyNftDelegatedToContract,
 		ContractLimitReached,
+		WouldDust,
 	}
 
 	#[pallet::genesis_config]
@@ -653,6 +655,12 @@ pub mod pallet {
 
 				contract.stake.currency = contract.stake.currency.saturating_sub(amount);
 
+				ensure!(
+					contract.stake.currency >= T::MinimumStakingAmount::get()
+						|| contract.stake.currency.is_zero(),
+					Error::<T>::WouldDust
+				);
+
 				Self::shrink_total_validator_stake_by(validator, amount);
 				Self::stage_unlock_currency(staker, amount);
 
@@ -670,6 +678,14 @@ pub mod pallet {
 					return Err(Error::<T>::NoContract.into());
 				};
 
+				if let Some(index) =
+					contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
+				{
+					contract.stake.delegated_nfts.remove(index);
+				} else {
+					return Err(Error::<T>::NftNotBound.into());
+				}
+
 				let session = SessionPallet::<T>::current_index();
 				ensure!(
 					session >= contract.min_staking_period_end
@@ -679,14 +695,6 @@ pub mod pallet {
 
 				let nominal_value = T::NftDelegationHandler::nominal_value(item_id)?;
 				UnlockingDelegatorNfts::<T>::insert(item_id.clone(), staker.clone());
-
-				if let Some(index) =
-					contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
-				{
-					contract.stake.delegated_nfts.remove(index);
-				} else {
-					return Err(Error::<T>::NotBound.into());
-				}
 
 				Self::shrink_total_validator_stake_by(validator, nominal_value);
 
