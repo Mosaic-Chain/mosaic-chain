@@ -112,10 +112,11 @@ impl<T: Config> Pallet<T> {
 					}
 
 					// set nft nominal value
-					if let Err(err) = T::NftDelegationHandler::set_nominal_value(nft, new_value) {
-						log::error!(
-							"Could not set delegator nft nominal value during slashing: {err:?}"
-						);
+					if T::NftDelegationHandler::is_bound(nft) {
+						if let Err(err) = T::NftDelegationHandler::set_nominal_value(nft, new_value)
+						{
+							log::error!("Could not set delegator nft nominal value during slashing: {err:?}");
+						}
 					}
 
 					slashed_delegator_nfts.push((nft.clone(), slashed_from_this));

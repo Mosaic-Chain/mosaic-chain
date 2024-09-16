@@ -75,5 +75,7 @@ pub trait NftDelegation<AccountId, Balance, ItemId, BindMetadata> {
 
 	fn nominal_value(item_id: &ItemId) -> Result<Balance, DispatchError>;
 
+	fn is_bound(item_id: &ItemId) -> bool;
+
 	fn set_nominal_value(item_id: &ItemId, new_value: Balance) -> DispatchResult;
 }

@@ -563,10 +563,13 @@ pub mod pallet {
 			Self::nominal_value_of(item_id)
 		}
 
+		fn is_bound(item_id: &T::ItemId) -> bool {
+			Self::is_bound(item_id)
+		}
+
 		fn set_nominal_value(item_id: &T::ItemId, new_value: T::Balance) -> DispatchResult {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
-			ensure!(Self::is_bound(item_id), Error::<T>::NotBound);
 			Self::encode_nominal_value(&collection_id, item_id, &new_value)
 		}
 	}
