@@ -354,7 +354,7 @@ impl pallet_transaction_payment::Config for Runtime {
 parameter_types! {
 	pub TreasuryPalletId: PalletId = PalletId(*b"treasury");
 	pub TreasuryMaxApprovals: u32 = 250;
-	pub MaxBalance: Balance = Balance::max_value();
+	pub MaxBalance: Balance = Balance::MAX;
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
@@ -763,7 +763,7 @@ impl pallet_membership::Config<CouncilMembership> for Runtime {
 }
 
 parameter_types! {
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	pub const MaxAuthorities: u32 = 350;
 	pub const MaxPeerInHeartbeats: u32 = 32;
 }
