@@ -226,7 +226,7 @@ NOTE: currently our chainspec presets only support running a minimum of 6 nodes.
 4. start bootnode (for example):
 
 ```sh
-mosaic-testnet-solo --chain <chainspec> --name <node name> --base-path <basepath> --execution wasm \
+mosaic-testnet-solo --chain <chainspec> --name <node name> --base-path <basepath> --execution wasm --state-pruning <pruning mode> \
   --validator --rpc-port <rpc port> --listen-addr /ip4/<ip>/tcp/<p2p port> --node-key-file <nodekey file>
 ```
 
@@ -235,6 +235,9 @@ mosaic-testnet-solo --chain <chainspec> --name <node name> --base-path <basepath
 NOTES:
   - `<node name>` in this case is one of: Alice, Bob, Charlie, Dave, Eve, Ferdie.
   - `<basepath>` should be unique to each node
+  - `<pruning mode>` should be `archive` for our nodes and `archive-canonical` for the validator nodes
+    - `archive` keeps all state forever
+    - `archive-canonical` only keeps data of finalized blocks 
   - if listening on an address that belongs to a VPN add these extra args: `--allow-private-ip --discover-local --no-mdns`
   - further options can be found with `mosaic-testnet-solo --help` for example ones related to rpc availability.
 
