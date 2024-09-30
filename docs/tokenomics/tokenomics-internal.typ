@@ -3,7 +3,7 @@
 #let date = datetime.today()
 
 #set text(font: "Fira Sans")
-#show heading: it => pad(bottom: 0.5em, top: 0.5em, it)
+#show heading: it => pad(bottom: 0.25em, top: 0.25em, it)
 
 
 #set page(
@@ -12,7 +12,7 @@
     #h(1fr)
     #text(size: 12pt, fill: red.darken(20%), [For internal use only])
   ],
-  margin: 4em
+  margin: 3.5em
 )
 
 #align(center, [
@@ -41,6 +41,8 @@
 - global minimum staking amount = 1 MOS\
 - max contracts per validator: 1000\
 - max stake per validator = 5% of total supply
+- treasury / fund spending period = 28 days = 672 sessions
+- validator subset selection target = 200 validator / session
 
 = Premined token allocation
 
@@ -137,8 +139,18 @@ There are two changes we make to the staking specification:
 
 = Expansion
 
-Expansion is synonymous with average _block reward_ per block and we calculate it as such:
-$ 12.5 * sqrt(("max_supply" - max("circulating_supply", 100,000,000)) / ("max_supply" - 100,000,000)) $
+Expansion is synonymous with average _block reward_ per block and we define it as such:
+$ F = 12.5 * sqrt(("max_supply" - max("circulating_supply", 100,000,000)) / ("max_supply" - 100,000,000)) $
+
+To achieve this target we have to consider the fact that in any given session
+we only pay reward after the currently active validators' stake. To counteract this we consider the number of bound validators ($B$) and the number of currently active validators ($A$):
+
+$  (B F) / A $
+
+This yields the corrected _reward per block_ for the given session. To calculate the reward proportional to the total stake for a given session we
+multiply be the session length ($L$).
+
+$  (L B F) / A $
 
 At the end of each session we evaluate this function and reward active validators for all blocks they produced in 
 the past session.
