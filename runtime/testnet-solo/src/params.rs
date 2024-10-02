@@ -87,6 +87,10 @@ pub mod dynamic {
 		/// A percent under which a validator is disqualified
 		#[codec(index = 5)]
 		pub static NominalValueThreshold: Perbill = Perbill::from_percent(80);
+
+		/// A percent of the distributed session reward that goes somewhere other than the stakers
+		#[codec(index = 6)]
+		pub static ContributionPercentage: Perbill = Perbill::from_percent(20);
 	}
 
 	#[dynamic_pallet_params]

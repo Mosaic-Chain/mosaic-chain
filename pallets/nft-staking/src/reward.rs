@@ -5,8 +5,8 @@ use sp_runtime::{
 };
 
 use super::{
-	Config, Contract, Contracts, Event, Pallet, PositiveImbalanceOf, TotalValidatorStakes,
-	ValidatorState, ValidatorStates,
+	Config, Contract, Contracts, Event, Get, NegativeImbalanceOf, Pallet, PositiveImbalanceOf,
+	TotalValidatorStakes, ValidatorState, ValidatorStates,
 };
 
 #[inline]
@@ -17,8 +17,18 @@ fn rmul(a: u128, b: u128, c: u128) -> Option<u128> {
 struct ContractReward<Balance> {
 	pub validator_reward: Balance,
 	pub staker_reward: Balance,
+	pub contribution: Balance,
 }
 
+/// Calculates how much is rewarded in a session for a given staking contract to the validator, the delegator and the treasury.
+///
+/// ```
+/// contract_reward = session_reward * contract.stake.total / total_stake
+///
+/// contribution = ContributionPercentage * contract_reward
+/// validator_reward = contract.commission * (contract_reward - contribution)
+/// staker_reward = contract_reward - contribution - validator_reward
+/// ```
 fn calculate_contract_reward<T: Config>(
 	total_stake: u128,
 	session_reward: u128,
@@ -26,6 +36,9 @@ fn calculate_contract_reward<T: Config>(
 ) -> ContractReward<T::Balance> {
 	let contract_reward = rmul(session_reward, contract.stake.total().into(), total_stake)
 		.expect("contract.stake <= total_stake ==> contract_reward <= session_reward");
+
+	let contribution = T::ContributionPercentage::get() * contract_reward;
+	let contract_reward = contract_reward.saturating_sub(contribution);
 
 	let (nominator, denominator) = (contract.commission.deconstruct(), Perbill::ACCURACY);
 
@@ -36,6 +49,7 @@ fn calculate_contract_reward<T: Config>(
 	ContractReward {
 		validator_reward: validator_reward.into(),
 		staker_reward: staker_reward.into(),
+		contribution: contribution.into(),
 	}
 }
 
@@ -57,6 +71,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut total_rewarded = PositiveImbalanceOf::<T>::default();
+		let mut total_contribution = NegativeImbalanceOf::<T>::default();
 
 		for validator in rewarded_validators {
 			ValidatorStates::<T>::mutate_extant(&validator, |vstate| {
@@ -74,6 +89,9 @@ impl<T: Config> Pallet<T> {
 					session_reward,
 					&contract,
 				);
+
+				let contribution = <T as Config>::Currency::issue(reward.contribution);
+				total_contribution.subsume(contribution);
 
 				let v_imbalance =
 					<T as Config>::Currency::deposit_creating(&validator, reward.validator_reward);
@@ -118,5 +136,6 @@ impl<T: Config> Pallet<T> {
 		}
 
 		T::OnReward::on_unbalanced(total_rewarded);
+		T::ContributionDestination::on_unbalanced(total_contribution);
 	}
 }

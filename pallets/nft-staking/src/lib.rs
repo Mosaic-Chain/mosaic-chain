@@ -32,8 +32,8 @@ use sp_runtime::{
 use sp_staking::SessionIndex;
 
 use types::{
-	ChillReason, Contract, KickReason, PositiveImbalanceOf, Staging, Stake, TotalValidatorStake,
-	ValidatorDetails, ValidatorState,
+	ChillReason, Contract, KickReason, NegativeImbalanceOf, PositiveImbalanceOf, Staging, Stake,
+	TotalValidatorStake, ValidatorDetails, ValidatorState,
 };
 use utils::traits::{NftDelegation, NftStaking};
 
@@ -102,6 +102,12 @@ pub mod pallet {
 		// Amount of **Tiles** to be rewarded in a given session.
 		type SessionReward: Get<u128>;
 		type OnReward: OnUnbalanced<PositiveImbalanceOf<Self>>;
+
+		/// A percent of the distributed session reward that goes somewhere other than the stakers
+		type ContributionPercentage: Get<Perbill>;
+
+		/// Where the contribution part of distributed reward goes
+		type ContributionDestination: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 		#[pallet::constant]
 		type PalletId: Get<frame_support::PalletId>;
@@ -510,6 +516,8 @@ pub mod pallet {
 				.unwrap_or(Zero::zero())
 				.saturating_add(amount);
 
+			// TODO: add on_hold balance to free
+			// see: https://wiki.polkadot.network/docs/learn-account-balances for why
 			let free_balance = <T as pallet::Config>::Currency::free_balance(account_id);
 			ensure!(locked <= free_balance, Error::<T>::InsufficientFunds);
 
