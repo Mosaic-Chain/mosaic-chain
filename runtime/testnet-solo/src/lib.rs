@@ -88,6 +88,7 @@ mod params;
 
 pub mod collectives;
 pub mod funds;
+pub mod staking_reward;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -423,8 +424,7 @@ impl pallet_nft_staking::Config for Runtime {
 	type MinimumStakingAmount = params::dynamic::nft_staking::MinimumStakingAmount;
 	type MaximumStakePercentage = params::dynamic::nft_staking::MaximumStakePercentage;
 
-	// TODO: substitue with mechanism based on "eras/sections".
-	type SessionReward = ConstU128<1000>;
+	type SessionReward = staking_reward::SessionReward;
 	type MaximumContractsPerValidator = ConstU32<1000>;
 	type ContributionPercentage = params::dynamic::nft_staking::ContributionPercentage;
 	type ContributionDestination = Treasury;
