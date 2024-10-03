@@ -14,10 +14,8 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-nfts = { workspace = true }
-pallet-session = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-sp-staking = { workspace = true }
 
 utils.workspace = true
 
@@ -37,6 +35,7 @@ std = [
 	"frame-system/std",
 	"pallet-session/std",
 	"pallet-nfts/std",
+	"pallet-balances/std",
 	"scale-info/std",
 ]
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]

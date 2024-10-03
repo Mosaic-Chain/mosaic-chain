@@ -5,7 +5,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use pallet_nfts::Error as NftsError;
 
-use crate::{mock::*, Error, Event};
+use crate::{mock::*, Error, Event, Status};
 use utils::traits::NftDelegation as TNftDelegation; // This alias is needed to distingish between the runtime definition and the utils trait
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
@@ -30,7 +30,7 @@ fn mint_delegator_token_should_work() {
 
 		System::assert_last_event(Event::TokenCreated { account: owner, item_id }.into());
 
-		assert_ok!(NftDelegation::expiration_of(&item_id), expiration);
+		assert_ok!(NftDelegation::status_of(&item_id), Status::Inactive { expiration });
 		assert_ok!(NftDelegation::nominal_value_of(&item_id), nominal_value);
 	});
 }
@@ -113,19 +113,60 @@ fn expiration_should_work() {
 		let nominal_value = 100;
 
 		for i in 1..11 {
-			NftDelegation::do_mint_delegator_token(&owner, i, &nominal_value).unwrap();
+			let item_id =
+				NftDelegation::do_mint_delegator_token(&owner, i, &nominal_value).unwrap();
+
+			NftDelegation::bind(&owner, &item_id, account(42)).unwrap();
 		}
 
 		// Each block is a session in this case.
 		run_to_block(11, |n| {
 			System::assert_has_event(Event::TokensExpired { items: vec![n - 1] }.into());
+			assert_ok!(NftDelegation::status_of(&(n - 1)), Status::Expired { expired_on: n });
 		});
 
 		for i in 1..11 {
 			let expired = ExpirationHandler::expired_on(i);
-
 			assert_eq!(expired, Some(vec![i - 1]));
 		}
+	});
+}
+
+#[test]
+fn status_change_should_work() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let nominal_value = 100;
+
+		let item_id = NftDelegation::do_mint_delegator_token(&owner, 10, &nominal_value).unwrap();
+		assert_ok!(NftDelegation::status_of(&item_id), Status::Inactive { expiration: 10 });
+
+		// nth session = n+1 block
+		run_to_block(11, |_| {});
+
+		NftDelegation::bind(&owner, &item_id, account(42)).unwrap();
+		assert_ok!(NftDelegation::status_of(&item_id), Status::Active { expires_on: 20 });
+
+		run_to_block(21, |_| {});
+
+		assert_ok!(NftDelegation::status_of(&item_id), Status::Expired { expired_on: 20 });
+	});
+}
+
+#[test]
+fn expires_even_if_unbound() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let nominal_value = 100;
+
+		let item_id = NftDelegation::do_mint_delegator_token(&owner, 10, &nominal_value).unwrap();
+
+		NftDelegation::bind(&owner, &item_id, account(42)).unwrap();
+		assert_ok!(NftDelegation::status_of(&item_id), Status::Active { expires_on: 10 });
+
+		NftDelegation::unbind(&owner, &item_id).unwrap();
+		run_to_block(11, |_| {});
+		assert_ok!(NftDelegation::status_of(&item_id), Status::Expired { expired_on: 10 });
 	});
 }
 

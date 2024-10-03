@@ -217,9 +217,17 @@ impl ExpirationHandler {
 	}
 }
 
+pub struct CurrentSession;
+impl sp_core::Get<SessionIndex> for CurrentSession {
+	fn get() -> SessionIndex {
+		Session::current_index()
+	}
+}
+
 impl nft_delegation::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = NftPermissionPalletId;
+	type CurrentSession = CurrentSession;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type NftExpirationHandler = ExpirationHandler;
 	type Balance = u64;

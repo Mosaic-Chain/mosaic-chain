@@ -76,6 +76,7 @@ pub use params::{
 	currency::{deposit, Balance, CENTS, MOSAIC},
 	time::{DAYS, HOURS, MINUTES, SLOT_DURATION},
 };
+use utils::SessionIndex;
 
 #[cfg(test)]
 mod mock;
@@ -790,13 +791,13 @@ pub struct ImOnlineReporter;
 
 impl Offence<IdTuple> for ImOnlineOffenceAdapter {
 	const ID: sp_staking::offence::Kind = *b"mos:imon-offline";
-	type TimeSlot = sp_staking::SessionIndex;
+	type TimeSlot = SessionIndex;
 
 	fn offenders(&self) -> Vec<IdTuple> {
 		self.0.offenders()
 	}
 
-	fn session_index(&self) -> sp_staking::SessionIndex {
+	fn session_index(&self) -> SessionIndex {
 		self.0.session_index()
 	}
 
@@ -828,7 +829,7 @@ impl ReportOffence<AccountId, IdTuple, ImOnlineOffence> for ImOnlineReporter {
 		)
 	}
 
-	fn is_known_offence(offenders: &[IdTuple], time_slot: &sp_staking::SessionIndex) -> bool {
+	fn is_known_offence(offenders: &[IdTuple], time_slot: &SessionIndex) -> bool {
 		<Offences as ReportOffence<AccountId, IdTuple, ImOnlineOffenceAdapter>>::is_known_offence(
 			offenders, time_slot,
 		)
@@ -854,9 +855,17 @@ parameter_types! {
 	pub const NftDelegationPalletId: PalletId = PalletId(*b"delegati");
 }
 
+pub struct CurrentSession;
+impl sp_core::Get<SessionIndex> for CurrentSession {
+	fn get() -> SessionIndex {
+		Session::current_index()
+	}
+}
+
 impl pallet_nft_delegation::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = NftDelegationPalletId;
+	type CurrentSession = CurrentSession;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Balance = Balance;
 	type NftExpirationHandler = NftStaking;
