@@ -309,11 +309,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// The amount which has been reported as inactive to Currency.
-	#[pallet::storage]
-	pub type Deactivated<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BalanceOf<T, I>, ValueQuery>;
-
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
 	#[pallet::getter(fn approvals)]
@@ -383,8 +378,6 @@ pub mod pallet {
 			amount: BalanceOf<T, I>,
 			beneficiary: T::AccountId,
 		},
-		/// The inactive funds of the pallet have been updated.
-		UpdatedInactive { reactivated: BalanceOf<T, I>, deactivated: BalanceOf<T, I> },
 		/// A new asset spend proposal has been approved.
 		AssetSpendApproved {
 			index: SpendIndex,
@@ -440,18 +433,6 @@ pub mod pallet {
 		/// ## Complexity
 		/// - `O(A)` where `A` is the number of approvals
 		fn on_initialize(n: frame_system::pallet_prelude::BlockNumberFor<T>) -> Weight {
-			let pot = Self::pot();
-			let deactivated = Deactivated::<T, I>::get();
-			if pot != deactivated {
-				T::Currency::reactivate(deactivated);
-				T::Currency::deactivate(pot);
-				Deactivated::<T, I>::put(pot);
-				Self::deposit_event(Event::<T, I>::UpdatedInactive {
-					reactivated: deactivated,
-					deactivated: pot,
-				});
-			}
-
 			// Check to see if we should spend some funds!
 			if (n % T::SpendPeriod::get()).is_zero() {
 				Self::spend_funds()
