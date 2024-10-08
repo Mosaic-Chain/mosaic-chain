@@ -1,7 +1,7 @@
 use sp_core::Get;
 use sp_runtime::helpers_128bit::sqrt;
 
-use super::{Balance, Balances, Runtime, Session, ValidatorSubsetSelection, MOSAIC};
+use super::{Balance, Balances, Currency, Runtime, Session, ValidatorSubsetSelection, MOSAIC};
 
 pub struct SessionReward;
 
@@ -26,7 +26,7 @@ impl SessionReward {
 
 impl Get<Balance> for SessionReward {
 	fn get() -> Balance {
-		let circulating = Balances::total_issuance(); // TODO: replace this
+		let circulating = Balances::active_issuance();
 		let bound_validators =
 			pallet_nft_staking::Validators::<Runtime>::iter_keys().count() as u128;
 		let active_set_size = Session::validators().len() as u128;
