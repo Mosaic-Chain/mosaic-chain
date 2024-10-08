@@ -906,6 +906,7 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 
 			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
+			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::CallerNotDPoS);
 
 			Self::do_stake_currency(&caller, details, &caller, amount)?;
 
@@ -923,6 +924,7 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 
 			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
+			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::CallerNotDPoS);
 
 			Self::do_stake_nft(&caller, details, &caller, &item_id)?;
 
@@ -954,7 +956,9 @@ pub mod pallet {
 		#[pallet::call_index(9)]
 		pub fn self_unstake_nft(origin: OriginFor<T>, item_id: T::ItemId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
+
+			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
+			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::CallerNotDPoS);
 
 			Self::do_unstake_nft(&caller, &caller, &item_id)?;
 

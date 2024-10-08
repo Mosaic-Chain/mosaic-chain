@@ -61,7 +61,7 @@
 
 There are about four distinct cases of staking:
 
-- One can stake **currency** _or_ **nft** on themselves.
+- A DPOS validator can stake **currency** _or_ **nft** on themselves.
 - One can delegate **currency** _or_ **nft** to DPOS validators.
 
 We can represent all these cases seperately in our public API, as these could be completely distinct functionalities of the frontend.
@@ -156,6 +156,7 @@ Effects:
 Preconditions:
 
 - `caller` is a bound, not chilled validator
+- `caller` is a DPOS validator
 - `amount` is greater or equal to the minimum staking amount
 - `caller` has at least `amount` of free and lockable balance
 - This stake doesn't make validator overdominant (see later)
@@ -174,6 +175,7 @@ Here, because the staking period is scheduled to be reset a subsequent call to `
 Preconditions:
 
 - `caller` is a bound, not chilled validator
+- `caller` is a DPOS validator
 - `item` is an existing delegator nft owned by `caller`
 - `item` is not bound to another validator
 - the nominal value of `item` is greater or equal to the minimum staking amount
@@ -206,6 +208,7 @@ Effects:
 Preconditions:
 
 - `caller` is a bound validator
+- `caller` is a DPOS validator
 - `item` is an existing delegator nft owned by `caller`
 - `item` is bound to `caller`
 - the `caller`'s staking period is greater or equal to the minimum staking period
