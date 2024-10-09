@@ -5,7 +5,9 @@ use crate::{
 
 use anyhow::Context;
 
-use mosaic_testnet_solo_runtime::{opaque::SessionKeys, Balance, RuntimeGenesisConfig, SS58Prefix};
+use mosaic_testnet_solo_runtime::{
+	funds, opaque::SessionKeys, Balance, Runtime, RuntimeGenesisConfig, SS58Prefix, MOSAIC,
+};
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nft_staking::PermissionType;
@@ -101,6 +103,16 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 	))
 }
 
+fn membership_config<I>(members: &[AccountId]) -> pallet_membership::GenesisConfig<Runtime, I>
+where
+	Runtime: pallet_membership::Config<I>,
+{
+	pallet_membership::GenesisConfig {
+		members: members.to_vec().try_into().expect("members are fewer than MaxMembers"),
+		phantom: PhantomData,
+	}
+}
+
 fn genesis(
 	initial_authorities: Vec<(AuraId, GrandpaId, ImOnlineId, AccountId)>,
 	initial_permission_holders: Vec<(AccountId, PermissionType, bool, Balance)>,
@@ -108,9 +120,20 @@ fn genesis(
 	endowed_accounts: Vec<AccountId>,
 	initial_subset_size: u64,
 ) -> anyhow::Result<serde_json::Value> {
-	let balances = pallet_balances::GenesisConfig {
-		balances: endowed_accounts.into_iter().map(|k| (k, 10_000_000_000_000_000_000)).collect(),
-	};
+	let endowed = endowed_accounts.into_iter().map(|k| (k, 100 * MOSAIC));
+
+	let funds = [
+		(funds::treasury::Account::get(), 10_000_000 * MOSAIC),
+		(funds::development_fund::Account::get(), 24_000_000 * MOSAIC),
+		(funds::financial_fund::Account::get(), 20_000_000 * MOSAIC),
+		(funds::community_fund::Account::get(), 20_000_000 * MOSAIC),
+		(funds::team_and_advisors_fund::Account::get(), 8_000_000 * MOSAIC),
+		(funds::security_fund::Account::get(), 4_000_000 * MOSAIC),
+		(funds::education_fund::Account::get(), 2_400_000 * MOSAIC),
+	]
+	.into_iter();
+
+	let balances = pallet_balances::GenesisConfig { balances: endowed.chain(funds).collect() };
 
 	let session = pallet_session::GenesisConfig {
 		keys: initial_authorities
@@ -123,11 +146,6 @@ fn genesis(
 				)
 			})
 			.collect(),
-	};
-
-	let council_collective_membership = pallet_membership::GenesisConfig {
-		members: council_members.try_into().expect("members are fewer than MaxMembers"),
-		phantom: PhantomData,
 	};
 
 	let nft_permission = pallet_nft_permission::GenesisConfig {
@@ -156,7 +174,13 @@ fn genesis(
 		nft_staking,
 		validator_subset_selection,
 		session,
-		council_collective_membership,
+		council_membership: membership_config(&council_members),
+		development_membership: membership_config(&council_members),
+		financial_membership: membership_config(&council_members),
+		community_membership: membership_config(&council_members),
+		team_and_advisors_membership: membership_config(&council_members),
+		security_membership: membership_config(&council_members),
+		education_membership: membership_config(&council_members),
 		..Default::default()
 	};
 

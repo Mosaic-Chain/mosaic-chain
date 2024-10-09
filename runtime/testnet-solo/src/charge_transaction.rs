@@ -1,9 +1,9 @@
 use sp_core::Get;
 
 use super::{
-	params, AccountId, Balance, Balanced, Balances, Credit, Currency, Debt, Imbalance,
-	InvalidTransaction, OnChargeTransaction, Precision, Runtime, RuntimeCall,
-	TransactionValidityError, TreasuryAccount, Zero,
+	funds::treasury::Account as TreasuryAccount, params, AccountId, Balance, Balanced, Balances,
+	Credit, Currency, Debt, Imbalance, InvalidTransaction, OnChargeTransaction, Precision, Runtime,
+	RuntimeCall, TransactionValidityError, Zero,
 };
 
 pub struct ChargeTransaction;

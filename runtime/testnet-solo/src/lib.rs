@@ -86,6 +86,9 @@ mod tests;
 mod charge_transaction;
 mod params;
 
+pub mod collectives;
+pub mod funds;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -257,7 +260,7 @@ impl frame_system::Config for Runtime {
 impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeParameters = params::RuntimeParameters;
-	type AdminOrigin = EnsureRootOrTwoThirdCouncil;
+	type AdminOrigin = collectives::CouncilOrigin;
 	type WeightInfo = ();
 }
 
@@ -351,42 +354,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
-parameter_types! {
-	pub TreasuryPalletId: PalletId = PalletId(*b"treasury");
-	pub TreasuryMaxApprovals: u32 = 250;
-	pub MaxBalance: Balance = Balance::MAX;
-	pub TreasuryAccount: AccountId = Treasury::account_id();
-}
-
-type TreasuryOrigin = pallet_collective::EnsureProportionMoreThan<AccountId, Council, 1, 2>;
-
-impl pallet_treasury::Config for Runtime {
-	type Currency = Balances;
-	type ApproveOrigin = TreasuryOrigin;
-	type RejectOrigin = TreasuryOrigin;
-	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
-	type ProposalBond = params::dynamic::treasury::ProposalBond;
-	type ProposalBondMinimum = params::dynamic::treasury::ProposalBondMinimum;
-	type ProposalBondMaximum = params::dynamic::treasury::ProposalBondMaximum;
-	type SpendPeriod = params::dynamic::treasury::SpendPeriod;
-	type Burn = params::dynamic::treasury::Burn;
-	type PalletId = TreasuryPalletId;
-	type BurnDestination = ();
-	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
-	type SpendFunds = ();
-	type MaxApprovals = TreasuryMaxApprovals;
-	type SpendOrigin = EnsureWithSuccess<TreasuryOrigin, AccountId, MaxBalance>;
-	type AssetKind = ();
-	type Beneficiary = AccountId;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
-	type BalanceConverter = UnityAssetBalanceConversion;
-	type PayoutPeriod = params::dynamic::treasury::PayoutPeriod;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-
 impl pallet_nfts::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type CollectionId = u32;
@@ -415,7 +382,7 @@ impl pallet_nfts::Config for Runtime {
 }
 
 parameter_types! {
-	pub const NftPermissionPalletId: PalletId = PalletId(*b"nft_perm");
+	pub const NftPermissionPalletId: PalletId = PalletId(*b"permissi");
 }
 
 impl pallet_nft_permission::Config for Runtime {
@@ -607,6 +574,51 @@ impl Default for ProxyType {
 
 impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
+		fn is_governance(c: &RuntimeCall) -> bool {
+			matches!(
+				c,
+				RuntimeCall::CouncilCollective(..)
+					| RuntimeCall::CouncilMembership(..)
+					| RuntimeCall::DevelopmentCollective(..)
+					| RuntimeCall::DevelopmentMembership(..)
+					| RuntimeCall::FinancialCollective(..)
+					| RuntimeCall::FinancialMembership(..)
+					| RuntimeCall::CommunityCollective(..)
+					| RuntimeCall::CommunityMembership(..)
+					| RuntimeCall::TeamAndAdvisorsCollective(..)
+					| RuntimeCall::TeamAndAdvisorsMembership(..)
+					| RuntimeCall::SecurityCollective(..)
+					| RuntimeCall::SecurityMembership(..)
+					| RuntimeCall::EducationCollective(..)
+					| RuntimeCall::EducationMembership(..)
+			)
+		}
+
+		fn nft_non_transfer(c: &RuntimeCall) -> bool {
+			let RuntimeCall::Nfts(x) = c else {
+				return false;
+			};
+
+			matches!(
+				x,
+				pallet_nfts::Call::create { .. }
+					| pallet_nfts::Call::force_create { .. }
+					| pallet_nfts::Call::mint { .. }
+					| pallet_nfts::Call::force_mint { .. }
+					| pallet_nfts::Call::lock_item_transfer { .. }
+					| pallet_nfts::Call::lock_collection { .. }
+					| pallet_nfts::Call::mint_pre_signed { .. }
+			)
+		}
+
+		if let ProxyType::Cancel = self {
+			return matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }));
+		};
+
+		if let RuntimeCall::Utility(..) = c {
+			return true;
+		}
+
 		match self {
 			ProxyType::Any => true,
 			ProxyType::NonTransfer => {
@@ -617,45 +629,31 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 
 					// As we add more pallets to the chain this needs to be extended as well.
 					RuntimeCall::System(..)
-						| RuntimeCall::Scheduler(..)
 						| RuntimeCall::Timestamp(..)
 						| RuntimeCall::Grandpa(..)
 						| RuntimeCall::ImOnline(..)
-						| RuntimeCall::Proxy(..) | RuntimeCall::NftDelegation(..)
+						| RuntimeCall::NftDelegation(..)
 						| RuntimeCall::NftPermission(..)
 						| RuntimeCall::NftStaking(..)
-						| RuntimeCall::Nfts(..) | RuntimeCall::Session(..)
-						| RuntimeCall::Utility(..)
-						// Excluding set_recovered(), create_recovery() and initiate_recovery()
-						| RuntimeCall::Recovery(pallet_recovery::Call::as_recovered{..})
-						| RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery{..})
-						| RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery{..})
-						| RuntimeCall::Recovery(pallet_recovery::Call::close_recovery{..})
-						| RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery{..})
-						| RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered{..})
-						| RuntimeCall::Identity(..)
-						| RuntimeCall::CouncilCollective(..)
-						| RuntimeCall::CouncilCollectiveMembership(..)
-				)
+						| RuntimeCall::Session(..)
+						| RuntimeCall::Recovery(
+							// TODO reevaluate if this is dangerous
+							pallet_recovery::Call::as_recovered { .. }
+								| pallet_recovery::Call::vouch_recovery { .. }
+								| pallet_recovery::Call::claim_recovery { .. }
+								| pallet_recovery::Call::close_recovery { .. }
+								| pallet_recovery::Call::remove_recovery { .. }
+								| pallet_recovery::Call::cancel_recovered { .. }
+						) | RuntimeCall::Identity(..)
+				) || nft_non_transfer(c)
+					|| is_governance(c)
 			},
-			ProxyType::Governance => {
-				matches!(
-					c,
-					RuntimeCall::Utility(..)
-						| RuntimeCall::CouncilCollective(..)
-						| RuntimeCall::CouncilCollectiveMembership(..)
-				)
+			ProxyType::Governance => is_governance(c),
+			ProxyType::Identity => matches!(c, RuntimeCall::Identity(..)),
+			ProxyType::Staking => {
+				matches!(c, RuntimeCall::NftStaking(..) | RuntimeCall::Session(..))
 			},
-			ProxyType::Identity => {
-				matches!(c, RuntimeCall::Utility(..) | RuntimeCall::Identity(..))
-			},
-			ProxyType::Staking => matches!(
-				c,
-				RuntimeCall::Utility(..) | RuntimeCall::NftStaking(..) | RuntimeCall::Session(..)
-			),
-			ProxyType::Cancel => {
-				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
-			},
+			ProxyType::Cancel => unreachable!("Handled already"),
 		}
 	}
 
@@ -715,51 +713,12 @@ impl pallet_doas::Config for Runtime {
 	// basically turning all of the council members into a doas account.
 	//
 	// This ensures that a vote with 2/3 aye ratio is needed for a doas proposal to be accepted.
-	type EnsureOrigin = pallet_collective::EnsureProportionAtLeast<AccountId, Council, 2, 3>;
-}
-
-parameter_types! {
-	pub const MaxProposals: u32 = 10;
-	pub const MaxMembers: u32 = 100;
-	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
-}
-
-type Council = pallet_collective::Instance1;
-impl pallet_collective::Config<Council> for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	/// The runtime call dispatch type.
-	type Proposal = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-
-	type MotionDuration = params::dynamic::council::MotionDuration;
-	type MaxProposals = MaxProposals;
-	type MaxMembers = MaxMembers;
-
-	// also check and see which is good for us
-	// type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
-	type DefaultVote = pallet_collective::PrimeDefaultVote;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = frame_system::EnsureRoot<AccountId>;
-	type MaxProposalWeight = MaxProposalWeight;
-}
-
-type EnsureRootOrTwoThirdCouncil = EitherOfDiverse<
-	frame_system::EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionAtLeast<AccountId, Council, 2, 3>,
->;
-
-type CouncilMembership = pallet_membership::Instance1;
-impl pallet_membership::Config<CouncilMembership> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type AddOrigin = EnsureRootOrTwoThirdCouncil;
-	type RemoveOrigin = EnsureRootOrTwoThirdCouncil;
-	type SwapOrigin = EnsureRootOrTwoThirdCouncil;
-	type ResetOrigin = EnsureRootOrTwoThirdCouncil;
-	type PrimeOrigin = EnsureRootOrTwoThirdCouncil;
-	type MembershipInitialized = CouncilCollective;
-	type MembershipChanged = CouncilCollective;
-	type MaxMembers = MaxMembers;
-	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
+	type EnsureOrigin = pallet_collective::EnsureProportionAtLeast<
+		AccountId,
+		collectives::council::CollectiveInstance,
+		2,
+		3,
+	>;
 }
 
 parameter_types! {
@@ -891,7 +850,7 @@ impl pallet_authorship::Config for Runtime {
 }
 
 parameter_types! {
-	pub const NftDelegationPalletId: PalletId = PalletId(*b"nft_perm");
+	pub const NftDelegationPalletId: PalletId = PalletId(*b"delegati");
 }
 
 impl pallet_nft_delegation::Config for Runtime {
@@ -930,12 +889,30 @@ construct_runtime!(
 		Recovery: pallet_recovery,
 		Identity: pallet_identity,
 		Assets: pallet_assets,
-		CouncilCollective: pallet_collective::<Instance1>,
-		CouncilCollectiveMembership: pallet_membership::<Instance1>,
 		DoAs: pallet_doas,
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler,
-		Treasury: pallet_treasury,
+		CouncilCollective: pallet_collective::<Instance1>,
+		CouncilMembership: pallet_membership::<Instance1>,
+		DevelopmentCollective: pallet_collective::<Instance2>,
+		DevelopmentMembership: pallet_membership::<Instance2>,
+		FinancialCollective: pallet_collective::<Instance3>,
+		FinancialMembership: pallet_membership::<Instance3>,
+		CommunityCollective: pallet_collective::<Instance4>,
+		CommunityMembership: pallet_membership::<Instance4>,
+		TeamAndAdvisorsCollective: pallet_collective::<Instance5>,
+		TeamAndAdvisorsMembership: pallet_membership::<Instance5>,
+		SecurityCollective: pallet_collective::<Instance6>,
+		SecurityMembership: pallet_membership::<Instance6>,
+		EducationCollective: pallet_collective::<Instance7>,
+		EducationMembership: pallet_membership::<Instance7>,
+		Treasury: pallet_treasury::<Instance1>,
+		DevelopmentFund: pallet_treasury::<Instance2>,
+		FinancialFund: pallet_treasury::<Instance3>,
+		CommunityFund: pallet_treasury::<Instance4>,
+		TeamAndAdvisorsFund: pallet_treasury::<Instance5>,
+		SecurityFund: pallet_treasury::<Instance6>,
+		EducationFund: pallet_treasury::<Instance7>,
 	}
 );
 
@@ -992,7 +969,19 @@ mod benches {
 		[pallet_utility, Utility]
 		[pallet_recovery, Recovery]
 		[pallet_collective, CouncilCollective]
-		[pallet_membership, CouncilCollectiveMembership]
+		[pallet_membership, CouncilMembership]
+		[pallet_collective, DevelopmentCollective]
+		[pallet_membership, DevelopmentMembership]
+		[pallet_collective, FinancialCollective]
+		[pallet_membership, FinancialMembership]
+		[pallet_collective, CommunityCollective]
+		[pallet_membership, CommunityMembership]
+		[pallet_collective, TeamAndAdvisorsCollective]
+		[pallet_membership, TeamAndAdvisorsMembership]
+		[pallet_collective, SecurityCollective]
+		[pallet_membership, SecurityMembership]
+		[pallet_collective, EducationCollective]
+		[pallet_membership, EducationMembership]
 		[pallet_scheduler, Scheduler]
 		[pallet_preimage, Preimage]
 		[pallet_parameters, Parameters]
