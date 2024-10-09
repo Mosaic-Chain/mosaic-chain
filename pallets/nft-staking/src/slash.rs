@@ -1,11 +1,11 @@
-use frame_support::traits::{Currency, Get, Imbalance};
+use frame_support::traits::{fungible::BalancedHold, Get, Imbalance};
 use sp_runtime::{traits::Zero, PerThing, Saturating};
 use sp_std::vec::Vec as SpVec;
 
 use utils::traits::{NftDelegation, NftStaking};
 
 use super::{
-	ChillReason, Config, Contracts, Event, InverseSlashes, Pallet, UnlockingCurrency,
+	ChillReason, Config, Contracts, Event, HoldReason, InverseSlashes, Pallet, UnlockingCurrency,
 	ValidatorState, ValidatorStates,
 };
 
@@ -70,9 +70,12 @@ impl<T: Config> Pallet<T> {
 					total_stake_slash = total_stake_slash.saturating_sub(rem);
 				}
 
-				Self::unlock_currency(&delegator, currency_slash);
-
-				let (actual_slash, _) = <T as Config>::Currency::slash(&delegator, currency_slash);
+				let (actual_slash, _) =
+					<<T as Config>::Fungible as BalancedHold<T::AccountId>>::slash(
+						&HoldReason::Staking.into(),
+						&delegator,
+						currency_slash,
+					);
 
 				if actual_slash.peek() != currency_slash {
 					log::debug!("actual slash did not match calculated currency slash");

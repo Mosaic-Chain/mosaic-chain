@@ -4,7 +4,10 @@ use codec::{Codec, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::{Decode, Encode, TypeInfo},
 	sp_runtime::RuntimeDebug,
-	traits::{Currency, Get},
+	traits::{
+		fungible::{Credit, Debt},
+		Get,
+	},
 };
 
 use sp_runtime::{
@@ -94,13 +97,11 @@ where
 	}
 }
 
-pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
+pub type PositiveImbalanceOf<T> =
+	Debt<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
 
-pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+pub type NegativeImbalanceOf<T> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
 
 #[derive(
 	Copy,

@@ -17,7 +17,11 @@ use core::num::NonZeroU32;
 use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Currency, ExistenceRequirement, LockableCurrency, OnUnbalanced, WithdrawReasons},
+	traits::{
+		fungible::{Balanced, BalancedHold, Credit, Inspect, InspectHold, MutateHold},
+		tokens::{Fortitude, Precision, Preservation},
+		OnUnbalanced,
+	},
 	Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
@@ -50,6 +54,8 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		type RuntimeHoldReason: From<HoldReason>;
+
 		/// Used for the nominal value of permission tokens
 		type Balance: Parameter
 			+ Member
@@ -67,11 +73,11 @@ pub mod pallet {
 
 		type ItemId: Parameter;
 
-		type Currency: frame_support::traits::LockableCurrency<
-			Self::AccountId,
-			Moment = BlockNumberFor<Self>,
-			Balance = Self::Balance,
-		>;
+		type Fungible: Inspect<Self::AccountId, Balance = Self::Balance>
+			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ Balanced<Self::AccountId>
+			+ MutateHold<Self::AccountId>
+			+ BalancedHold<Self::AccountId>;
 
 		type NftStakingHandler: NftStaking<
 			Self::AccountId,
@@ -107,10 +113,12 @@ pub mod pallet {
 		type ContributionPercentage: Get<Perbill>;
 
 		/// Where the contribution part of distributed reward goes
-		type ContributionDestination: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type ContributionDestination: OnUnbalanced<Credit<Self::AccountId, Self::Fungible>>;
+	}
 
-		#[pallet::constant]
-		type PalletId: Get<frame_support::PalletId>;
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		Staking,
 	}
 
 	#[pallet::storage]
@@ -340,7 +348,7 @@ pub mod pallet {
 
 			let ratio = Perbill::from_rational(
 				total_stake,
-				<T as pallet::Config>::Currency::total_issuance(),
+				<T as pallet::Config>::Fungible::total_issuance(),
 			);
 
 			ensure!(ratio <= T::MaximumStakePercentage::get(), Error::<T>::OverdominantStake);
@@ -477,70 +485,27 @@ pub mod pallet {
 			});
 		}
 
-		/// Updates currency lock to a new value
-		/// (immediate)
-		fn update_lock(account_id: &T::AccountId, amount: T::Balance) {
-			<T as pallet::Config>::Currency::set_lock(
-				<T as Config>::PalletId::get().0,
-				account_id,
-				amount,
-				WithdrawReasons::all(),
-			);
-
-			LockedCurrency::<T>::insert(account_id, amount);
-		}
-
-		/// Releases all locked currency and destroys lock
-		/// (immediate)
-		fn release_lock(account_id: &T::AccountId) {
-			<T as pallet::Config>::Currency::remove_lock(
-				<T as Config>::PalletId::get().0,
-				account_id,
-			);
-
-			LockedCurrency::<T>::remove(account_id);
-		}
-
 		/// Adds the provided amount to the account's lock.
-		/// Possible side-effects: creates an entry in LockedCurrency, locks currency
 		/// (immediate)
 		pub(crate) fn lock_currency(
 			account_id: &T::AccountId,
 			amount: T::Balance,
 		) -> DispatchResult {
-			if amount.is_zero() {
-				return Ok(());
-			}
-
-			let locked = LockedCurrency::<T>::get(account_id)
-				.unwrap_or(Zero::zero())
-				.saturating_add(amount);
-
-			// TODO: add on_hold balance to free
-			// see: https://wiki.polkadot.network/docs/learn-account-balances for why
-			let free_balance = <T as pallet::Config>::Currency::free_balance(account_id);
-			ensure!(locked <= free_balance, Error::<T>::InsufficientFunds);
-
-			Self::update_lock(account_id, locked);
-			Ok(())
+			<T as Config>::Fungible::hold(&HoldReason::Staking.into(), account_id, amount)
+				.map_err(|_| Error::<T>::InsufficientFunds.into())
 		}
 
 		/// Removes the provided amount from the account's lock.
 		/// (immediate)
+		/// PANIC: if trying to unlock more than there is locked
 		pub(crate) fn unlock_currency(account_id: &T::AccountId, amount: T::Balance) {
-			if amount.is_zero() {
-				return;
-			}
-
-			if let Some(locked) = LockedCurrency::<T>::get(account_id) {
-				let locked = locked.saturating_sub(amount);
-
-				if locked.is_zero() {
-					Self::release_lock(account_id);
-				} else {
-					Self::update_lock(account_id, locked);
-				}
-			}
+			<T as Config>::Fungible::release(
+				&HoldReason::Staking.into(),
+				account_id,
+				amount,
+				Precision::Exact,
+			)
+			.expect("no more unlocked than locked before");
 		}
 
 		/// Removes the provided amount from the account's lock.
@@ -1226,11 +1191,12 @@ pub mod pallet {
 				});
 			});
 
-			let withdrawn = <T as pallet::Config>::Currency::withdraw(
+			let withdrawn = <T as pallet::Config>::Fungible::withdraw(
 				&caller,
 				imbalance,
-				WithdrawReasons::all(),
-				ExistenceRequirement::KeepAlive,
+				Precision::Exact,
+				Preservation::Preserve,
+				Fortitude::Force,
 			)?;
 
 			// Modifies total issuance

@@ -396,10 +396,6 @@ impl pallet_nft_permission::Config for Runtime {
 	type Permission = pallet_nft_staking::PermissionType;
 }
 
-parameter_types! {
-	pub const StakingPalletId: PalletId = PalletId(*b"mstaking");
-}
-
 pub struct IdTupleToValidatorId;
 
 impl Convert<IdTuple, AccountId> for IdTupleToValidatorId {
@@ -410,12 +406,12 @@ impl Convert<IdTuple, AccountId> for IdTupleToValidatorId {
 
 impl pallet_nft_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Fungible = Balances;
 	type NftDelegationHandler = NftDelegation;
 	type NftStakingHandler = NftPermission;
 	type Balance = Balance;
 	type ItemId = <Self as pallet_nfts::Config>::ItemId;
-	type PalletId = StakingPalletId;
 	type OffenderToValidatorId = IdTupleToValidatorId;
 
 	type SlackingPeriod = params::dynamic::nft_staking::SlackingPeriod;

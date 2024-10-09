@@ -1,4 +1,4 @@
-use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use frame_support::traits::{fungible::Balanced, tokens::Precision, Imbalance, OnUnbalanced};
 use sp_runtime::{
 	helpers_128bit::multiply_by_rational_with_rounding, traits::Zero, PerThing, Perbill, Rounding,
 	Saturating,
@@ -90,16 +90,24 @@ impl<T: Config> Pallet<T> {
 					&contract,
 				);
 
-				let contribution = <T as Config>::Currency::issue(reward.contribution);
+				let contribution = <T as Config>::Fungible::issue(reward.contribution);
 				total_contribution.subsume(contribution);
 
-				let v_imbalance =
-					<T as Config>::Currency::deposit_creating(&validator, reward.validator_reward);
+				let v_imbalance = <T as Config>::Fungible::deposit(
+					&validator,
+					reward.validator_reward,
+					Precision::BestEffort,
+				)
+				.expect("BestEffort deposit should not fail");
 
 				total_v_imbalance.subsume(v_imbalance);
 
-				let s_imbalance =
-					<T as Config>::Currency::deposit_creating(&staker, reward.staker_reward);
+				let s_imbalance = <T as Config>::Fungible::deposit(
+					&staker,
+					reward.staker_reward,
+					Precision::BestEffort,
+				)
+				.expect("BestEffort deposit should not fail");
 
 				Self::lock_currency(&staker, s_imbalance.peek())
 					.expect("the reward is available as free balance");
