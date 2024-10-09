@@ -1,6 +1,7 @@
 use super::{
 	parameter_types, params, AccountId, Balance, Balances, EnsureWithSuccess, IdentityLookup,
-	PalletId, PayFromAccount, Runtime, RuntimeEvent, UnityAssetBalanceConversion,
+	PalletId, PayFromAccount, Runtime, RuntimeEvent, RuntimeHoldReason,
+	UnityAssetBalanceConversion,
 };
 
 // Shared values
@@ -31,10 +32,11 @@ macro_rules! impl_fund {
 		}
 
 		impl pallet_treasury::Config<$fund::Instance> for Runtime {
-			type Currency = Balances;
+			type Fungible = Balances;
 			type ApproveOrigin = $fund::FundOrigin;
 			type RejectOrigin = $fund::FundOrigin;
 			type RuntimeEvent = RuntimeEvent;
+			type RuntimeHoldReason = RuntimeHoldReason;
 			type OnSlash = ();
 			type ProposalBond = $fund::ProposalBond;
 			type ProposalBondMinimum = $fund::ProposalBondMinimum;

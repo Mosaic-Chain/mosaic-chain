@@ -92,27 +92,33 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
-	ensure, print,
+	dispatch_context::with_context,
+	ensure,
+	pallet_prelude::*,
+	print,
 	traits::{
-		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
-		ReservableCurrency, WithdrawReasons,
+		fungible::{
+			Balanced, BalancedHold, Credit, Debt, Inspect, InspectHold, Mutate, MutateHold,
+		},
+		tokens::{ConversionFromAssetBalance, Pay, PaymentStatus, Precision, Preservation},
+		Get, Imbalance, OnUnbalanced,
 	},
 	weights::Weight,
 	PalletId,
 };
 
+use frame_system::pallet_prelude::*;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
 pub type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config<I>>::Fungible as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 pub type AssetBalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
-pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+pub type PositiveImbalanceOf<T, I = ()> =
+	Debt<<T as frame_system::Config>::AccountId, <T as Config<I>>::Fungible>;
+pub type NegativeImbalanceOf<T, I = ()> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Fungible>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 
@@ -190,12 +196,6 @@ pub type SpendIndex = u32;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{
-		dispatch_context::with_context,
-		pallet_prelude::*,
-		traits::tokens::{ConversionFromAssetBalance, PaymentStatus},
-	};
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -203,7 +203,12 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The staking balance.
-		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+		type Fungible: Inspect<Self::AccountId, Balance = <Self::Paymaster as Pay>::Balance>
+			+ Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ MutateHold<Self::AccountId>
+			+ BalancedHold<Self::AccountId>;
 
 		/// Origin from which approvals must come.
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -214,6 +219,8 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		type RuntimeHoldReason: From<HoldReason<I>>;
 
 		/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
 		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
@@ -293,6 +300,11 @@ pub mod pallet {
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 	}
 
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		Proposal,
+	}
+
 	/// Number of proposals that have been made.
 	#[pallet::storage]
 	#[pallet::getter(fn proposal_count)]
@@ -348,9 +360,9 @@ pub mod pallet {
 		fn build(&self) {
 			// Create Treasury account
 			let account_id = <Pallet<T, I>>::account_id();
-			let min = T::Currency::minimum_balance();
-			if T::Currency::free_balance(&account_id) < min {
-				let _ = T::Currency::make_free_balance_be(&account_id, min);
+			let min = T::Fungible::minimum_balance();
+			if T::Fungible::balance(&account_id) < min {
+				let _ = T::Fungible::set_balance(&account_id, min);
 			}
 		}
 	}
@@ -488,7 +500,7 @@ pub mod pallet {
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
 
 			let bond = Self::calculate_bond(value);
-			T::Currency::reserve(&proposer, bond)
+			T::Fungible::hold(&HoldReason::Proposal.into(), &proposer, bond)
 				.map_err(|_| Error::<T, I>::InsufficientProposersBalance)?;
 
 			let c = Self::proposal_count();
@@ -529,7 +541,8 @@ pub mod pallet {
 			let proposal =
 				<Proposals<T, I>>::take(proposal_id).ok_or(Error::<T, I>::InvalidIndex)?;
 			let value = proposal.bond;
-			let imbalance = T::Currency::slash_reserved(&proposal.proposer, value).0;
+			let imbalance =
+				T::Fungible::slash(&HoldReason::Proposal.into(), &proposal.proposer, value).0;
 			T::OnSlash::on_unbalanced(imbalance);
 
 			Self::deposit_event(Event::<T, I>::Rejected {
@@ -944,11 +957,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						<Proposals<T, I>>::remove(index);
 
 						// return their deposit.
-						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
-						debug_assert!(err_amount.is_zero());
+						let res = T::Fungible::release(
+							&HoldReason::Proposal.into(),
+							&p.proposer,
+							p.bond,
+							Precision::Exact,
+						);
+
+						debug_assert!(res.is_ok_and(|a| a == p.bond));
+
+						let debt =
+							T::Fungible::deposit(&p.beneficiary, p.value, Precision::BestEffort)
+								.expect("BestEffort should not fail");
 
 						// provide the allocation.
-						imbalance.subsume(T::Currency::deposit_creating(&p.beneficiary, p.value));
+						imbalance.subsume(debt);
 
 						Self::deposit_event(Event::Awarded {
 							proposal_index: index,
@@ -982,19 +1005,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let burn = (T::Burn::get() * budget_remaining).min(budget_remaining);
 			budget_remaining -= burn;
 
-			let (debit, credit) = T::Currency::pair(burn);
-			imbalance.subsume(debit);
-			T::BurnDestination::on_unbalanced(credit);
-			Self::deposit_event(Event::Burnt { burnt_funds: burn })
+			if let Ok((debit, credit)) = T::Fungible::pair(burn) {
+				imbalance.subsume(debit);
+				T::BurnDestination::on_unbalanced(credit);
+				Self::deposit_event(Event::Burnt { burnt_funds: burn });
+			}
 		}
 
 		// Must never be an error, but better to be safe.
 		// proof: budget_remaining is account free balance minus ED;
 		// Thus we can't spend more than account free balance minus ED;
 		// Thus account is kept alive; qed;
-		if let Err(problem) =
-			T::Currency::settle(&account_id, imbalance, WithdrawReasons::TRANSFER, KeepAlive)
-		{
+		if let Err(problem) = T::Fungible::settle(&account_id, imbalance, Preservation::Preserve) {
 			print("Inconsistent state - couldn't settle imbalance for funds spent by treasury");
 			// Nothing else to do here.
 			drop(problem);
@@ -1008,9 +1030,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Return the amount of money in the pot.
 	// The existential deposit is not part of the pot so treasury account never gets deleted.
 	pub fn pot() -> BalanceOf<T, I> {
-		T::Currency::free_balance(&Self::account_id())
+		T::Fungible::balance(&Self::account_id())
 			// Must never be less than 0 but better be safe.
-			.saturating_sub(T::Currency::minimum_balance())
+			.saturating_sub(T::Fungible::minimum_balance())
 	}
 
 	/// Ensure the correctness of the state of this pallet.
@@ -1098,7 +1120,10 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 		let numeric_amount = amount.peek();
 
 		// Must resolve into existing but better to be safe.
-		T::Currency::resolve_creating(&Self::account_id(), amount);
+		if let Err(amount) = T::Fungible::resolve(&Self::account_id(), amount) {
+			print("Numeric overflow when resolving credit: {amount:?}");
+			drop(amount);
+		}
 
 		Self::deposit_event(Event::Deposit { value: numeric_amount });
 	}

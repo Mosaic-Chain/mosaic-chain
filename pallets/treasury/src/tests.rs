@@ -72,7 +72,7 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = ();
 }
 
@@ -173,10 +173,11 @@ impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
 
 impl Config for Test {
 	type PalletId = TreasuryPalletId;
-	type Currency = pallet_balances::Pallet<Test>;
+	type Fungible = pallet_balances::Pallet<Test>;
 	type ApproveOrigin = frame_system::EnsureRoot<u128>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type OnSlash = ();
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ConstU64<1>;
@@ -261,7 +262,7 @@ fn spend_local_origin_permissioning_works() {
 fn spend_local_origin_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 		// approve spend of some amount to beneficiary `6`.
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
@@ -285,7 +286,7 @@ fn spend_local_origin_works() {
 fn minting_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 	});
 }
@@ -330,7 +331,7 @@ fn spend_proposal_fails_when_proposer_poor() {
 #[test]
 fn accepted_spend_proposal_ignored_outside_spend_period() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 
 		assert_ok!({
 			#[allow(deprecated)]
@@ -351,7 +352,7 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 fn unused_pot_should_diminish() {
 	ExtBuilder::default().build().execute_with(|| {
 		let init_total_issuance = Balances::total_issuance();
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 		assert_eq!(Balances::total_issuance(), init_total_issuance + 100);
 
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
@@ -363,7 +364,7 @@ fn unused_pot_should_diminish() {
 #[test]
 fn rejected_spend_proposal_ignored_on_spend_period() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 
 		assert_ok!({
 			#[allow(deprecated)]
@@ -383,7 +384,7 @@ fn rejected_spend_proposal_ignored_on_spend_period() {
 #[test]
 fn reject_already_rejected_spend_proposal_fails() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 
 		assert_ok!({
 			#[allow(deprecated)]
@@ -432,7 +433,7 @@ fn accept_non_existent_spend_proposal_fails() {
 #[test]
 fn accept_already_rejected_spend_proposal_fails() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 
 		assert_ok!({
 			#[allow(deprecated)]
@@ -455,7 +456,7 @@ fn accept_already_rejected_spend_proposal_fails() {
 #[test]
 fn accepted_spend_proposal_enacted_on_spend_period() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
 		assert_ok!({
@@ -476,7 +477,7 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 #[test]
 fn pot_underflow_should_not_diminish() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
 		assert_ok!({
@@ -491,7 +492,7 @@ fn pot_underflow_should_not_diminish() {
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-		let _ = Balances::deposit_into_existing(&Treasury::account_id(), 100).unwrap();
+		let _ = Balances::deposit(&Treasury::account_id(), 100, Precision::Exact).unwrap();
 		<Treasury as OnInitialize<u64>>::on_initialize(4);
 		assert_eq!(Balances::free_balance(3), 150); // Fund has been spent
 		assert_eq!(Treasury::pot(), 25); // Pot has finally changed
@@ -503,7 +504,7 @@ fn pot_underflow_should_not_diminish() {
 #[test]
 fn treasury_account_doesnt_get_deleted() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 		let treasury_balance = Balances::free_balance(Treasury::account_id());
 
@@ -569,7 +570,7 @@ fn inexistent_account_works() {
 		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
 		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
 
-		Balances::make_free_balance_be(&Treasury::account_id(), 100);
+		Balances::set_balance(&Treasury::account_id(), 100);
 		assert_eq!(Treasury::pot(), 99); // Pot now contains funds
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 100); // Account does exist
 
@@ -602,10 +603,10 @@ fn genesis_funding_works() {
 #[test]
 fn max_approvals_limited() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), u64::MAX);
-		Balances::make_free_balance_be(&0, u64::MAX);
+		Balances::set_balance(&Treasury::account_id(), 1100);
+		Balances::set_balance(&0, 506);
 
-		for _ in 0..<Test as Config>::MaxApprovals::get() {
+		for _ in 0..<<Test as Config>::MaxApprovals as Get<_>>::get() {
 			assert_ok!({
 				#[allow(deprecated)]
 				Treasury::propose_spend(RuntimeOrigin::signed(0), 100, 3)
@@ -634,7 +635,7 @@ fn max_approvals_limited() {
 #[test]
 fn remove_already_removed_approval_fails() {
 	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::set_balance(&Treasury::account_id(), 101);
 
 		assert_ok!({
 			#[allow(deprecated)]
