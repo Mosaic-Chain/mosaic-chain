@@ -11,7 +11,7 @@ members = [
   "pallets/doas",
   "pallets/treasury",
   "pallets/airdrop",
-  "pallets/vesting",
+  "pallets/hold-vesting",
   "runtime/parachain",
   "runtime/testnet-solo",
   "runtime-generator",
@@ -58,7 +58,7 @@ pallet-validator-subset-selection = { default-features = false, path = "pallets/
 pallet-im-online = { default-features = false, path = "pallets/im-online" }
 pallet-treasury = { default-features = false, path = "pallets/treasury" }
 pallet-airdrop = { default-features = false, path = "pallets/airdrop" }
-pallet-vesting = { default-features = false, path = "pallets/vesting" }
+pallet-hold-vesting = { default-features = false, path = "pallets/hold-vesting" }
 utils = { path = "utils" }
 
 # Substrate

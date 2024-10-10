@@ -17,8 +17,6 @@
 
 //! Treasury pallet tests.
 
-#![cfg(test)]
-
 use core::{cell::RefCell, marker::PhantomData};
 use sp_runtime::{
 	traits::{BadOrigin, Dispatchable, IdentityLookup},
@@ -147,7 +145,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 	type Success = u64;
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(o).and_then(|o| match o {
-			frame_system::RawOrigin::Root => Ok(u64::max_value()),
+			frame_system::RawOrigin::Root => Ok(u64::MAX),
 			frame_system::RawOrigin::Signed(10) => Ok(5),
 			frame_system::RawOrigin::Signed(11) => Ok(10),
 			frame_system::RawOrigin::Signed(12) => Ok(20),

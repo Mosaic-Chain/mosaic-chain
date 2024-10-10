@@ -39,7 +39,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-parameters = { workspace = true }
 pallet-treasury = { workspace = true }
-pallet-vesting = { workspace = true }
+pallet-hold-vesting = { workspace = true }
 
 scale-info = { workspace = true, features = ["derive"] }
 sp-api = { workspace = true }
@@ -123,7 +123,7 @@ std = [
 	"pallet-validator-subset-selection/std",
 	"pallet-treasury/std",
 	"pallet-airdrop/std",
-	"pallet-vesting/std",
+	"pallet-hold-vesting/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -160,7 +160,7 @@ runtime-benchmarks = [
 	"pallet-parameters/runtime-benchmarks",
 	"pallet-validator-subset-selection/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
-	"pallet-vesting/runtime-benchmarks",
+	"pallet-hold-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -194,7 +194,7 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"pallet-parameters/try-runtime",
 	"pallet-airdrop/try-runtime",
-	"pallet-vesting/try-runtime",
+	"pallet-hold-vesting/try-runtime",
 	"pallet-validator-subset-selection/try-runtime",
 	"pallet-treasury/try-runtime"
 ]

@@ -2,8 +2,9 @@
 pub mod session_hook;
 pub mod staking;
 pub mod storage;
+pub mod vesting;
 pub mod traits {
-	pub use super::{session_hook::*, staking::*};
+	pub use super::{session_hook::*, staking::*, vesting::HoldVestingSchedule};
 }
 
 pub use sp_staking::SessionIndex;

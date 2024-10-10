@@ -18,7 +18,7 @@ use frame_support::{
 		fungible::{Balanced, Credit, Debt, HoldConsideration},
 		tokens::{PayFromAccount, Precision, UnityAssetBalanceConversion},
 		AsEnsureOriginWithArg, Currency, EitherOfDiverse, EqualPrivilegeOnly, Imbalance,
-		InstanceFilter, LinearStoragePrice, WithdrawReasons,
+		InstanceFilter, LinearStoragePrice, VariantCountOf, WithdrawReasons,
 	},
 	PalletId,
 };
@@ -325,7 +325,7 @@ pub const EXISTENTIAL_DEPOSIT: u128 = 1;
 
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = ConstU32<64>;
-	type MaxFreezes = ConstU32<64>;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 
@@ -338,7 +338,7 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ConstU128<{ EXISTENTIAL_DEPOSIT }>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Self>;
-	type FreezeIdentifier = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
@@ -556,10 +556,10 @@ pub enum ProxyType {
 	Governance,
 	/// Allow all staking-related transactions.
 	Staking,
-	/// Allow registrars to make judgments on an account’s identity.
+	/// Allow registrars to make judgments on an account's identity.
 	Identity,
 	/// Allow to reject and remove any time-delay proxy announcements.
-	/// This proxy can only access the “reject_announcement” call from the Proxy pallet.
+	/// This proxy can only access the "reject_announcement" call from the Proxy pallet.
 	Cancel,
 }
 
@@ -874,10 +874,10 @@ impl pallet_airdrop::Config for Runtime {
 	type PermissionType = pallet_nft_staking::PermissionType;
 	type ItemId = <Self as pallet_nfts::Config>::ItemId;
 	type NftStaking = NftPermission;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type DelegatorNftBindMetadata = AccountId;
 	type NftDelegation = NftDelegation;
-	type VestingSchedule = Vesting;
+	type VestingSchedule = HoldVesting;
 	type BaseTransactionPriority = ConstU64<{ TransactionPriority::MAX / 2 }>;
 	type MaxAirdropsInPool = ConstU64<12>;
 }
@@ -887,15 +887,27 @@ parameter_types! {
 	pub const UnvestedFundsAllowedWithdrawReasons: WithdrawReasons = WithdrawReasons::empty();
 }
 
-impl pallet_vesting::Config for Runtime {
+impl pallet_hold_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Balance = Balance;
+	type Fungible = Balances;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 	type WeightInfo = ();
 	const MAX_VESTING_SCHEDULES: u32 = 8;
+}
+
+impl pallet_vesting_to_freeze::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type Balance = Balance;
+	type Fungible = Balances;
+	type VestingSchedule = HoldVesting;
+	type BlockNumberToBalance = ConvertInto;
+	type BlockNumberProvider = System;
+	type MaxFrozenSchedules = ConstU32<8>;
 }
 
 // this is needed, otherwise fmt will remove the :: from ::<Instance1>
@@ -950,7 +962,8 @@ construct_runtime!(
 		SecurityFund: pallet_treasury::<Instance6>,
 		EducationFund: pallet_treasury::<Instance7>,
 		Airdrop: pallet_airdrop,
-		Vesting: pallet_vesting,
+		HoldVesting: pallet_hold_vesting,
+		VestingToFreeze: pallet_vesting_to_freeze,
 	}
 );
 
@@ -1024,7 +1037,6 @@ mod benches {
 		[pallet_preimage, Preimage]
 		[pallet_parameters, Parameters]
 		[pallet_treasury, Treasury]
-		[pallet_vesting, Vesting]
 	);
 }
 

@@ -7,7 +7,10 @@ use frame_support::{
 		TransactionValidity, ValidTransaction, ValueQuery,
 	},
 	sp_runtime::{traits::AccountIdConversion, DispatchResult},
-	traits::{Currency, IsType, VestingSchedule},
+	traits::{
+		fungible::{Inspect, Mutate},
+		IsType,
+	},
 	unsigned::ValidateUnsigned,
 	PalletId, Parameter,
 };
@@ -17,7 +20,8 @@ use sp_core::{crypto::Pair, sr25519, Get};
 use sp_std::{marker::PhantomData, vec::Vec as SpVec};
 
 use utils::{
-	traits::{NftDelegation, NftStaking},
+	traits::{HoldVestingSchedule, NftDelegation, NftStaking},
+	vesting::Schedule as VestingSchedule,
 	SessionIndex,
 };
 
@@ -47,12 +51,12 @@ pub mod pallet {
 			Self::ItemId,
 			Self::DelegatorNftBindMetadata,
 		>;
-		type VestingSchedule: VestingSchedule<
+		type VestingSchedule: HoldVestingSchedule<
 			Self::AccountId,
-			Currency = Self::Currency,
-			Moment = BlockNumberFor<Self>,
+			Fungible = Self::Fungible,
+			BlockNumber = BlockNumberFor<Self>,
 		>;
-		type Currency: Currency<Self::AccountId, Balance = Self::Balance>;
+		type Fungible: Inspect<Self::AccountId, Balance = Self::Balance> + Mutate<Self::AccountId>;
 
 		type MaxAirdropsInPool: Get<u64>;
 
@@ -111,6 +115,14 @@ pub mod pallet {
 		start_block: BlockNumber,
 	}
 
+	impl<Balance, BlockNumber> From<VestingInfo<Balance, BlockNumber>>
+		for VestingSchedule<Balance, BlockNumber>
+	{
+		fn from(v: VestingInfo<Balance, BlockNumber>) -> Self {
+			Self { locked: v.amount, per_block: v.unlock_per_block, starting_block: v.start_block }
+		}
+	}
+
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
 	pub struct Package<AccountId, Balance, PermissionType, BlockNumber> {
 		nonce: u64,
@@ -166,8 +178,7 @@ pub mod pallet {
 			}
 
 			if let Some(balance) = &package.balance {
-				let _deposited =
-					T::Currency::deposit_creating(&package.account_id, balance.clone());
+				T::Fungible::mint_into(&package.account_id, balance.clone())?;
 			}
 
 			if let Some(permission_nft) = &package.permission_nft {
@@ -188,23 +199,14 @@ pub mod pallet {
 				}
 			}
 
-			if let Some(vesting) = &package.vesting {
-				let _deposited =
-					T::Currency::deposit_creating(&package.account_id, vesting.amount.clone());
+			if let Some(vesting) = package.vesting.clone() {
+				T::Fungible::mint_into(&package.account_id, vesting.amount.clone())?;
 
-				T::VestingSchedule::can_add_vesting_schedule(
-					&package.account_id,
-					vesting.amount.clone(),
-					vesting.unlock_per_block.clone(),
-					vesting.start_block,
-				)?;
+				let schedule = VestingSchedule::from(vesting);
 
-				T::VestingSchedule::add_vesting_schedule(
-					&package.account_id,
-					vesting.amount.clone(),
-					vesting.unlock_per_block.clone(),
-					vesting.start_block,
-				)?;
+				T::VestingSchedule::can_add_vesting_schedule(&package.account_id, &schedule)?;
+
+				T::VestingSchedule::add_vesting_schedule(&package.account_id, schedule)?;
 			}
 
 			Self::deposit_event(Event::<T>::MintedPackage { account_id: package.account_id });

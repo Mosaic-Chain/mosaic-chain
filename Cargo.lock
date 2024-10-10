@@ -5855,6 +5855,7 @@ dependencies = [
  "pallet-collective",
  "pallet-doas",
  "pallet-grandpa",
+ "pallet-hold-vesting",
  "pallet-identity",
  "pallet-im-online 27.0.0",
  "pallet-insecure-randomness-collective-flip",
@@ -5877,7 +5878,6 @@ dependencies = [
  "pallet-treasury 27.0.0",
  "pallet-utility",
  "pallet-validator-subset-selection",
- "pallet-vesting 28.0.0",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -6978,6 +6978,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-hold-vesting"
+version = "28.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
+ "utils",
+]
+
+[[package]]
 name = "pallet-identity"
 version = "28.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0#8c8edacf8942298c3807a2e192860da9e7e4996a"
@@ -7761,23 +7779,6 @@ dependencies = [
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
  "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
  "utils",
-]
-
-[[package]]
-name = "pallet-vesting"
-version = "28.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
 ]
 
 [[package]]
@@ -9079,7 +9080,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-treasury 27.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
- "pallet-vesting 28.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
+ "pallet-vesting",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
@@ -9138,7 +9139,7 @@ dependencies = [
  "pallet-session",
  "pallet-staking",
  "pallet-timestamp",
- "pallet-vesting 28.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
+ "pallet-vesting",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
@@ -10294,7 +10295,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury 27.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
  "pallet-utility",
- "pallet-vesting 28.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
+ "pallet-vesting",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
@@ -15205,7 +15206,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury 27.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
  "pallet-utility",
- "pallet-vesting 28.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
+ "pallet-vesting",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
