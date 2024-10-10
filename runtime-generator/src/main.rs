@@ -117,7 +117,6 @@ fn check_repo_state() {
 	let git_hash = git_hash.trim();
 
 	if git_hash != GIT_STATE_HASH {
-		println!("{git_hash}");
 		log::warn!(
 			"Current repository state does not match the state at compilation. ({git_hash} != {GIT_STATE_HASH})"
 		);

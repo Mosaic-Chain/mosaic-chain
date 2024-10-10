@@ -82,6 +82,7 @@ sp-io = { workspace = true }
 [features]
 default = ["std"]
 include-wasm = ["substrate-wasm-builder"]
+fast-runtime = []
 
 std = [
 	"codec/std",

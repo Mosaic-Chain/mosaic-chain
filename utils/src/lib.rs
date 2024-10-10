@@ -7,3 +7,14 @@ pub mod traits {
 }
 
 pub use sp_staking::SessionIndex;
+
+#[macro_export]
+macro_rules! prod_or_fast {
+	($prod:expr, $test:expr) => {
+		if cfg!(feature = "fast-runtime") {
+			$test
+		} else {
+			$prod
+		}
+	};
+}

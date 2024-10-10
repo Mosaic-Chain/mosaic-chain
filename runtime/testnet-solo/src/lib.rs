@@ -74,7 +74,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 pub use params::{
 	currency::{deposit, Balance, CENTS, MOSAIC},
-	time::{DAYS, MINUTES, SLOT_DURATION},
+	time::{DAYS, HOURS, MINUTES, SLOT_DURATION},
 };
 
 #[cfg(test)]
@@ -504,8 +504,7 @@ impl pallet_preimage::Config for Runtime {
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
 parameter_types! {
-	//TODO: Set this to a sensible value after testing
-	pub const MinSessionLength: BlockNumberFor<Runtime> = 10 as BlockNumberFor<Runtime>;
+	pub const MinSessionLength: BlockNumberFor<Runtime> = utils::prod_or_fast!(HOURS, 10);
 }
 
 impl pallet_validator_subset_selection::Config for Runtime {

@@ -1,9 +1,11 @@
-use crate::BlockNumber;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::num::NonZeroU32;
 use frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
 use scale_info::TypeInfo;
 use sp_runtime::{Perbill, Permill};
+
+use crate::BlockNumber;
+use utils::prod_or_fast;
 
 #[derive(Debug, Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 pub struct PaymentRatio {
@@ -72,17 +74,18 @@ pub mod dynamic {
 		pub static MinimumCommission: Perbill = Perbill::from_percent(1);
 
 		#[codec(index = 1)]
-		pub static MinimumStakingAmount: Balance = 10;
+		pub static MinimumStakingAmount: Balance = MOSAIC;
 
 		#[codec(index = 2)]
-		pub static MinimumStakingPeriod: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(200) }; // approx. 1 week
+		pub static MinimumStakingPeriod: NonZeroU32 =
+			unsafe { NonZeroU32::new_unchecked(prod_or_fast!(672, 2)) };
 
 		#[codec(index = 3)]
-		pub static MaximumStakePercentage: Perbill = Perbill::from_percent(1);
+		pub static MaximumStakePercentage: Perbill = Perbill::from_percent(5);
 
 		/// Period after which a chilled validator is considered slacking
 		#[codec(index = 4)]
-		pub static SlackingPeriod: u32 = 10;
+		pub static SlackingPeriod: u32 = prod_or_fast!(72, 10);
 
 		/// A percent under which a validator is disqualified
 		#[codec(index = 5)]
@@ -230,7 +233,7 @@ pub mod dynamic {
 
 		/// Period between successive spends.
 		#[codec(index = 3)]
-		pub static SpendPeriod: BlockNumber = 28 * DAYS;
+		pub static SpendPeriod: BlockNumber = prod_or_fast!(28 * DAYS, 10 * MINUTES);
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
@@ -238,7 +241,7 @@ pub mod dynamic {
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
-		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
+		pub static PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 5 * MINUTES);
 	}
 
 	#[dynamic_pallet_params]
@@ -259,7 +262,7 @@ pub mod dynamic {
 
 		/// Period between successive spends.
 		#[codec(index = 3)]
-		pub static SpendPeriod: BlockNumber = 28 * DAYS;
+		pub static SpendPeriod: BlockNumber = prod_or_fast!(28 * DAYS, 10 * MINUTES);
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
@@ -267,7 +270,7 @@ pub mod dynamic {
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
-		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
+		pub static PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 5 * MINUTES);
 	}
 
 	#[dynamic_pallet_params]
@@ -288,7 +291,7 @@ pub mod dynamic {
 
 		/// Period between successive spends.
 		#[codec(index = 3)]
-		pub static SpendPeriod: BlockNumber = 28 * DAYS;
+		pub static SpendPeriod: BlockNumber = prod_or_fast!(28 * DAYS, 10 * MINUTES);
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
@@ -296,7 +299,7 @@ pub mod dynamic {
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
-		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
+		pub static PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 5 * MINUTES);
 	}
 
 	#[dynamic_pallet_params]
@@ -317,7 +320,7 @@ pub mod dynamic {
 
 		/// Period between successive spends.
 		#[codec(index = 3)]
-		pub static SpendPeriod: BlockNumber = 28 * DAYS;
+		pub static SpendPeriod: BlockNumber = prod_or_fast!(28 * DAYS, 10 * MINUTES);
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
@@ -325,7 +328,7 @@ pub mod dynamic {
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
-		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
+		pub static PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 5 * MINUTES);
 	}
 
 	#[dynamic_pallet_params]
@@ -346,7 +349,7 @@ pub mod dynamic {
 
 		/// Period between successive spends.
 		#[codec(index = 3)]
-		pub static SpendPeriod: BlockNumber = 28 * DAYS;
+		pub static SpendPeriod: BlockNumber = prod_or_fast!(28 * DAYS, 10 * MINUTES);
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
@@ -354,7 +357,7 @@ pub mod dynamic {
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
-		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
+		pub static PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 5 * MINUTES);
 	}
 
 	#[dynamic_pallet_params]
@@ -375,7 +378,7 @@ pub mod dynamic {
 
 		/// Period between successive spends.
 		#[codec(index = 3)]
-		pub static SpendPeriod: BlockNumber = 28 * DAYS;
+		pub static SpendPeriod: BlockNumber = prod_or_fast!(28 * DAYS, 10 * MINUTES);
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
@@ -383,7 +386,7 @@ pub mod dynamic {
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
-		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
+		pub static PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 5 * MINUTES);
 	}
 
 	#[dynamic_pallet_params]
@@ -404,7 +407,7 @@ pub mod dynamic {
 
 		/// Period between successive spends.
 		#[codec(index = 3)]
-		pub static SpendPeriod: BlockNumber = 28 * DAYS;
+		pub static SpendPeriod: BlockNumber = prod_or_fast!(28 * DAYS, 10 * MINUTES);
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
@@ -412,7 +415,7 @@ pub mod dynamic {
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
-		pub static PayoutPeriod: BlockNumber = 14 * DAYS;
+		pub static PayoutPeriod: BlockNumber = prod_or_fast!(14 * DAYS, 5 * MINUTES);
 	}
 
 	#[dynamic_pallet_params]
@@ -420,7 +423,7 @@ pub mod dynamic {
 	pub mod transaction_payment {
 		#[codec(index = 0)]
 		pub static FeePaymentRatio: PaymentRatio =
-			PaymentRatio { validator: 1, treasury: 1, burn: 1 };
+			PaymentRatio { validator: 50, treasury: 10, burn: 40 };
 	}
 }
 
