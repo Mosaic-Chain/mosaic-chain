@@ -26,20 +26,16 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-identity = { workspace = true }
-pallet-im-online = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
 pallet-nfts = { workspace = true }
 pallet-offences = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
 pallet-session = { workspace = true }
-pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-parameters = { workspace = true }
-pallet-treasury = { workspace = true }
-pallet-hold-vesting = { workspace = true }
 
 scale-info = { workspace = true, features = ["derive"] }
 sp-api = { workspace = true }
@@ -72,7 +68,11 @@ pallet-nft-delegation = { workspace = true }
 pallet-nft-permission = { workspace = true }
 pallet-nft-staking = { workspace = true }
 pallet-validator-subset-selection = { workspace = true }
+pallet-im-online = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-hold-vesting = { workspace = true }
 pallet-airdrop = { workspace = true }
+pallet-vesting-to-freeze = { workspace = true }
 utils = { workspace = true }
 
 [build-dependencies]
@@ -124,6 +124,7 @@ std = [
 	"pallet-treasury/std",
 	"pallet-airdrop/std",
 	"pallet-hold-vesting/std",
+	"pallet-vesting-to-freeze/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -195,6 +196,7 @@ try-runtime = [
 	"pallet-parameters/try-runtime",
 	"pallet-airdrop/try-runtime",
 	"pallet-hold-vesting/try-runtime",
+	"pallet-vesting-to-freeze/try-runtime",
 	"pallet-validator-subset-selection/try-runtime",
 	"pallet-treasury/try-runtime"
 ]

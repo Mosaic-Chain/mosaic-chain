@@ -12,6 +12,7 @@ members = [
   "pallets/treasury",
   "pallets/airdrop",
   "pallets/hold-vesting",
+  "pallets/vesting-to-freeze",
   "runtime/parachain",
   "runtime/testnet-solo",
   "runtime-generator",
@@ -59,6 +60,7 @@ pallet-im-online = { default-features = false, path = "pallets/im-online" }
 pallet-treasury = { default-features = false, path = "pallets/treasury" }
 pallet-airdrop = { default-features = false, path = "pallets/airdrop" }
 pallet-hold-vesting = { default-features = false, path = "pallets/hold-vesting" }
+pallet-vesting-to-freeze = { default-features = false, path = "pallets/vesting-to-freeze" }
 utils = { path = "utils" }
 
 # Substrate

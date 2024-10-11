@@ -5871,13 +5871,13 @@ dependencies = [
  "pallet-recovery",
  "pallet-scheduler",
  "pallet-session",
- "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury 27.0.0",
  "pallet-utility",
  "pallet-validator-subset-selection",
+ "pallet-vesting-to-freeze",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -7794,6 +7794,19 @@ dependencies = [
  "scale-info",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
+]
+
+[[package]]
+name = "pallet-vesting-to-freeze"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
+ "utils",
 ]
 
 [[package]]
