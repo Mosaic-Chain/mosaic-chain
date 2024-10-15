@@ -13,7 +13,7 @@ use scale_info::TypeInfo;
 pub struct Schedule<Balance, BlockNumber> {
 	pub locked: Balance,
 	pub per_block: Balance,
-	pub starting_block: BlockNumber,
+	pub starting_block: Option<BlockNumber>,
 }
 
 impl<Balance, BlockNumber> Schedule<Balance, BlockNumber>
@@ -22,7 +22,7 @@ where
 	BlockNumber: AtLeast32BitUnsigned + Copy + Bounded,
 {
 	/// Instantiate a new `Schedule`.
-	pub fn new(locked: Balance, per_block: Balance, starting_block: BlockNumber) -> Self {
+	pub fn new(locked: Balance, per_block: Balance, starting_block: Option<BlockNumber>) -> Self {
 		Self { locked, per_block, starting_block }
 	}
 
@@ -51,7 +51,7 @@ where
 	}
 
 	/// Starting block for unlocking(vesting).
-	pub fn starting_block(&self) -> BlockNumber {
+	pub fn starting_block(&self) -> Option<BlockNumber> {
 		self.starting_block
 	}
 
@@ -60,9 +60,13 @@ where
 		&self,
 		n: BlockNumber,
 	) -> Balance {
+		let Some(starting_block) = self.starting_block else {
+			return self.locked;
+		};
+
 		// Number of blocks that count toward vesting;
 		// saturating to 0 when n < starting_block.
-		let vested_block_count = n.saturating_sub(self.starting_block);
+		let vested_block_count = n.saturating_sub(starting_block);
 		let vested_block_count = BlockNumberToBalance::convert(vested_block_count);
 		// Return amount that is still locked in vesting.
 		vested_block_count
@@ -73,8 +77,8 @@ where
 	/// Block number at which the schedule ends (as type `Balance`).
 	pub fn ending_block_as_balance<BlockNumberToBalance: Convert<BlockNumber, Balance>>(
 		&self,
-	) -> Balance {
-		let starting_block = BlockNumberToBalance::convert(self.starting_block);
+	) -> Option<Balance> {
+		let starting_block = BlockNumberToBalance::convert(self.starting_block?);
 		let duration = if self.per_block() >= self.locked {
 			// If `per_block` is bigger than `locked`, the schedule will end
 			// the block after starting.
@@ -90,7 +94,7 @@ where
 				}
 		};
 
-		starting_block.saturating_add(duration)
+		Some(starting_block.saturating_add(duration))
 	}
 }
 

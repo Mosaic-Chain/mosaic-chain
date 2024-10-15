@@ -136,7 +136,8 @@ impl<T: Config> Get<u32> for MaxVestingSchedulesGet<T> {
 	}
 }
 
-#[frame_support::pallet]
+// TODO: when ready remove devmode
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
 
@@ -215,7 +216,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		pub vesting: Vec<(T::AccountId, BlockNumberFor<T>, BlockNumberFor<T>, T::Balance)>,
+		pub vesting: Vec<(T::AccountId, Option<BlockNumberFor<T>>, BlockNumberFor<T>, T::Balance)>,
 	}
 
 	#[pallet::genesis_build]
@@ -276,6 +277,10 @@ pub mod pallet {
 		ScheduleIndexOutOfBounds,
 		/// Failed to create a new schedule because some parameter was invalid.
 		InvalidScheduleParams,
+		/// Tried to merge schedules where at least one has no definite starting block.
+		NoDefiniteStartingBlock,
+		/// The starting block of a vesting schedule has already been set.
+		StartingBlockAlreadySet,
 	}
 
 	#[pallet::call]
@@ -453,6 +458,45 @@ pub mod pallet {
 			))
 			.into())
 		}
+
+		/// Sets the starting block of a schedule if it's not already set.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// - `target`: An account that has a vesting schedule
+		/// - `schedule_index`: The vesting schedule index to be updated
+		/// - `starting_block`: The block on which the schedule starts
+		///
+		/// If the starting block is already set
+		#[pallet::call_index(6)]
+		pub fn start_vesting_schedule(
+			origin: OriginFor<T>,
+			target: <T::Lookup as StaticLookup>::Source,
+			schedule_index: u32,
+			starting_block: BlockNumberFor<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let who = T::Lookup::lookup(target)?;
+
+			let mut schedules = Self::vesting(&who).unwrap_or_default();
+			let schedule = schedules
+				.get_mut(schedule_index as usize)
+				.ok_or(Error::<T>::InvalidScheduleParams)?;
+
+			if schedule.starting_block.is_none() {
+				schedule.starting_block = Some(starting_block);
+			} else {
+				return Err(Error::<T>::StartingBlockAlreadySet.into());
+			}
+
+			let (schedules, locked_now) =
+				Self::exec_action(schedules.to_vec(), VestingAction::Passive)?;
+
+			Self::write_vesting(&who, schedules)?;
+			Self::write_lock(&who, locked_now);
+
+			Ok(())
+		}
 	}
 }
 
@@ -463,19 +507,28 @@ impl<T: Config> Pallet<T> {
 		now: BlockNumberFor<T>,
 		schedule1: ScheduleOf<T>,
 		schedule2: ScheduleOf<T>,
-	) -> Option<ScheduleOf<T>> {
-		let schedule1_ending_block = schedule1.ending_block_as_balance::<T::BlockNumberToBalance>();
-		let schedule2_ending_block = schedule2.ending_block_as_balance::<T::BlockNumberToBalance>();
+	) -> Result<Option<ScheduleOf<T>>, DispatchError> {
+		let (s1_start, s2_start) = schedule1
+			.starting_block()
+			.zip(schedule2.starting_block())
+			.ok_or(Error::<T>::NoDefiniteStartingBlock)?;
+
+		// We know that if a schedule has a definite starting block then it must also have a definite ending block as well.
+		let (s1_end, s2_end) = schedule1
+			.ending_block_as_balance::<T::BlockNumberToBalance>()
+			.zip(schedule2.ending_block_as_balance::<T::BlockNumberToBalance>())
+			.expect("has definite ending block");
+
 		let now_as_balance = T::BlockNumberToBalance::convert(now);
 
 		// Check if one or both schedules have ended.
-		match (schedule1_ending_block <= now_as_balance, schedule2_ending_block <= now_as_balance) {
+		match (s1_end <= now_as_balance, s2_end <= now_as_balance) {
 			// If both schedules have ended, we don't merge and exit early.
-			(true, true) => return None,
+			(true, true) => return Ok(None),
 			// If one schedule has ended, we treat the one that has not ended as the new
 			// merged schedule.
-			(true, false) => return Some(schedule2),
-			(false, true) => return Some(schedule1),
+			(true, false) => return Ok(Some(schedule2)),
+			(false, true) => return Ok(Some(schedule1)),
 			// If neither schedule has ended don't exit early.
 			_ => {},
 		}
@@ -490,8 +543,8 @@ impl<T: Config> Pallet<T> {
 			"merge_vesting_info validation checks failed to catch a locked of 0"
 		);
 
-		let ending_block = schedule1_ending_block.max(schedule2_ending_block);
-		let starting_block = now.max(schedule1.starting_block()).max(schedule2.starting_block());
+		let ending_block = s1_end.max(s2_end);
+		let starting_block = now.max(s1_start.max(s2_start));
 
 		let per_block = {
 			let duration = ending_block
@@ -500,10 +553,10 @@ impl<T: Config> Pallet<T> {
 			(locked / duration).max(One::one())
 		};
 
-		let schedule = Schedule::new(locked, per_block, starting_block);
+		let schedule = Schedule::new(locked, per_block, Some(starting_block));
 		debug_assert!(schedule.is_valid(), "merge_vesting_info schedule validation check failed");
 
-		Some(schedule)
+		Ok(Some(schedule))
 	}
 
 	// Execute a vested transfer from `source` to `target` with the given `schedule`.
@@ -630,7 +683,7 @@ impl<T: Config> Pallet<T> {
 					Self::report_schedule_updates(schedules.to_vec(), action);
 
 				let now = T::BlockNumberProvider::current_block_number();
-				if let Some(new_schedule) = Self::merge_vesting_info(now, schedule1, schedule2) {
+				if let Some(new_schedule) = Self::merge_vesting_info(now, schedule1, schedule2)? {
 					// Merging created a new schedule so we:
 					// 1) need to add it to the accounts vesting schedule collection,
 					schedules.push(new_schedule);

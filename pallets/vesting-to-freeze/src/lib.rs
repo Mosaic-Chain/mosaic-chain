@@ -1,8 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::MaxEncodedLen;
 use frame_support::{
-	pallet_prelude::{MaybeSerializeDeserialize, ValueQuery},
+	pallet_prelude::ValueQuery,
 	sp_runtime::{
 		traits::{AtLeast32BitUnsigned, Convert, Saturating, Zero},
 		DispatchError, DispatchResult,
@@ -14,7 +13,6 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::*;
-use scale_info::TypeInfo;
 use sp_core::Get;
 
 use utils::traits::HoldVestingSchedule;
@@ -35,15 +33,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeFreezeReason: From<FreezeReason>;
-		type Balance: Parameter
-			+ MaybeSerializeDeserialize
-			+ Zero
-			+ Saturating
-			+ Copy
-			+ AtLeast32BitUnsigned
-			+ MaxEncodedLen
-			+ TryInto<BlockNumberFor<Self>>
-			+ TypeInfo;
+		type Balance: Parameter + Copy + AtLeast32BitUnsigned + TryInto<BlockNumberFor<Self>>;
 
 		type Fungible: Inspect<Self::AccountId, Balance = Self::Balance>
 			+ InspectFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
@@ -108,12 +98,12 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let schedule = T::VestingSchedule::get_vesting_schedule(&who, schedule_index)?;
 
-			// A schedule might never unlock if locked / per_block cannot be represented as a block number
+			// A schedule might never unlock if it has no definite starting block or `locked / per_block` cannot be represented as a block number
 			// in this case we don't want to lock the value forever, instead we disallow such schedules.
 			let thaws_on: BlockNumberFor<T> = schedule
 				.ending_block_as_balance::<T::BlockNumberToBalance>()
-				.try_into()
-				.map_err(|_| Error::<T>::NeverThaws)?;
+				.and_then(|b| b.try_into().ok())
+				.ok_or(Error::<T>::NeverThaws)?;
 
 			let frozen_now = schedule.locked_at::<T::BlockNumberToBalance>(
 				T::BlockNumberProvider::current_block_number(),

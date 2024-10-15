@@ -112,7 +112,7 @@ pub mod pallet {
 	struct VestingInfo<Balance, BlockNumber> {
 		amount: Balance,
 		unlock_per_block: Balance,
-		start_block: BlockNumber,
+		start_block: Option<BlockNumber>,
 	}
 
 	impl<Balance, BlockNumber> From<VestingInfo<Balance, BlockNumber>>

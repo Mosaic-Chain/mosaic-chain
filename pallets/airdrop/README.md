@@ -1,7 +1,7 @@
 # Airdrop API
 
 On the blockchain the Airdrop pallet is responsible for creating certain assets on behalf of
-the **Minting Authority** for a given account. 
+the **Minting Authority** for a given account.
 
 These assets include:
 
@@ -24,7 +24,7 @@ Like in the case of most interactions with the blockchain runtime this too happe
 submitting an extrinsic to a running node. In this case though, we submit an **unsigned**
 extrinsic. This is to ensure that the **Minting Authority** does not need an address or pay fees.
 
-The pallet exposes a single call that handles the creation of all assets above: 
+The pallet exposes a single call that handles the creation of all assets above:
 
 - Method: `airdrop`
 - Parameters:
@@ -35,12 +35,12 @@ The pallet exposes a single call that handles the creation of all assets above:
     - vesting _(optional)_: gradually unlocking tokens
       - amount _(required)_: balance that unlocks overtime in _tiles_ (u128)
       - unlock_per_block _(required)_: how much of the tokens unlock per block in _tiles_ (u128)
-      - start_block _(required)_: number of the block where the unlocking starts (u32) 
+      - start_block _(required)_: number of the block where the unlocking starts (u32)
     - permission_nft _(optional)_: permission nft details
       - permission _(required)_: "PoS" or "DPoS"
       - nominal_value _(required)_: what is the nft worth in _tiles_ (u128)
     - delegator_nfts _(optional)_: a **list** of delegator nft details
-      - Each item: 
+      - Each item:
         - expiration _(required)_: number of _sessions_ the nft is valid starting from it's first use (u32)
         - nominal_value _(required)_: what is the nft worth in _tiles_ (u128)
   - `signature` _(required)_: the sr25519 signature of the `data` parameter using the **Minting Authority's** private key
@@ -78,12 +78,13 @@ must be submitted ordered by the nonce. The current nonce can be read from the p
 ## Rotating the key
 
 For security mesures it might be worth rotating the **Minting Authority** keys periodically.
-This can be done by submitting the new key using the `set_key` call. 
+This can be done by submitting the new key using the `set_key` call.
 This call requries `RootOrigin` and is _not_ signed by the **Minting Authority**.
 
 Make sure there are no pending airdrops when rotating the key.
 Otherwise they might get invalidated.
 
 ## Resources
-- https://wiki.polkadot.network/docs/build-transaction-construction
-- https://wiki.polkadot.network/docs/learn-transactions#types-of-extrinsics
+
+- <https://wiki.polkadot.network/docs/build-transaction-construction>
+- <https://wiki.polkadot.network/docs/learn-transactions#types-of-extrinsics>
