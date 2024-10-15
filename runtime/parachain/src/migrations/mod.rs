@@ -1,6 +1,8 @@
 pub mod v101 {
 	use core::marker::PhantomData;
 
+	use sdk::{frame_support, pallet_balances, pallet_membership, sp_core, sp_runtime, sp_std};
+
 	use crate::{AccountId, CouncilMembership, Runtime};
 
 	use frame_support::{
@@ -25,7 +27,8 @@ pub mod v101 {
 
 	impl MigrateV100ToV101<Runtime> {
 		fn council_members(
-		) -> BoundedVec<AccountId, <Runtime as pallet_membership::Config<Instance1>>::MaxMembers> {
+		) -> BoundedVec<AccountId, <Runtime as pallet_membership::Config<Instance1>>::MaxMembers>
+		{
 			if cfg!(feature = "local") {
 				let alice_bytes: [u8; 32] = [
 					212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130,

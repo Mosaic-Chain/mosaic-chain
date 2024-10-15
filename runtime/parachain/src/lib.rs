@@ -12,6 +12,9 @@ mod weights;
 
 pub mod xcm_config;
 
+#[allow(clippy::wildcard_imports)]
+use sdk::*;
+
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -62,7 +65,7 @@ use polkadot_runtime_common::{prod_or_fast, BlockHashCount, SlowAdjustingFeeUpda
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use xcm::latest::prelude::{AssetId, BodyId};
+use staging_xcm::latest::prelude::{AssetId, BodyId};
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -467,7 +470,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					// As we add more pallets to the chain this needs to be extended as well.
 					RuntimeCall::System(..)
 						| RuntimeCall::Timestamp(..)
-						| RuntimeCall::Proxy(..) | RuntimeCall::Session(..)
+						| RuntimeCall::Proxy(..)
+						| RuntimeCall::Session(..)
 						| RuntimeCall::Multisig(..)
 						| RuntimeCall::CouncilCollective(..)
 						| RuntimeCall::CouncilCollectiveMembership(..)
@@ -568,7 +572,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = (); // Configure based on benchmarking results.
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
-	type SelfParaId = parachain_info::Pallet<Runtime>;
+	type SelfParaId = staging_parachain_info::Pallet<Runtime>;
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
@@ -578,7 +582,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 }
 
-impl parachain_info::Config for Runtime {}
+impl staging_parachain_info::Config for Runtime {}
 
 parameter_types! {
 	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
@@ -592,9 +596,9 @@ impl pallet_message_queue::Config for Runtime {
 		cumulus_primitives_core::AggregateMessageOrigin,
 	>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type MessageProcessor = xcm_builder::ProcessXcmMessage<
+	type MessageProcessor = staging_xcm_builder::ProcessXcmMessage<
 		AggregateMessageOrigin,
-		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+		staging_xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
 		RuntimeCall,
 	>;
 	type Size = u32;
@@ -634,6 +638,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = (); // Configure based on benchmarking results.
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	type MaxPageSize = ConstU32<{ 1 << 16 }>;
 }
 
 parameter_types! {
@@ -702,7 +708,7 @@ construct_runtime!(
 		System: frame_system = 0,
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 2,
-		ParachainInfo: parachain_info = 3,
+		ParachainInfo: staging_parachain_info = 3,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -734,6 +740,7 @@ construct_runtime!(
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
+	use super::*;
 	frame_benchmarking::define_benchmarks!(
 		// Only benchmark the following pallets
 		[frame_system, SystemBench::<Runtime>]

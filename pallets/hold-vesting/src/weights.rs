@@ -46,7 +46,7 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use sdk::frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_vesting`.
@@ -64,7 +64,7 @@ pub trait WeightInfo {
 
 /// Weights for `pallet_vesting` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+impl<T: sdk::frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Vesting::Vesting` (r:1 w:1)
 	/// Proof: `Vesting::Vesting` (`max_values`: None, `max_size`: Some(1057), added: 3532, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Locks` (r:1 w:1)

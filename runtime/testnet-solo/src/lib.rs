@@ -8,6 +8,9 @@
 #[cfg(feature = "include-wasm")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+#[allow(clippy::wildcard_imports)]
+use sdk::*;
+
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -66,7 +69,6 @@ use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier, OnChargeTransac
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-pub use pallet_insecure_randomness_collective_flip;
 pub use pallet_nft_permission;
 pub use pallet_validator_subset_selection;
 
@@ -381,6 +383,8 @@ impl pallet_nfts::Config for Runtime {
 	type OffchainSignature = Signature;
 	type OffchainPublic = <Signature as Verify>::Signer;
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
 }
 
 parameter_types! {
@@ -805,10 +809,6 @@ impl Offence<IdTuple> for ImOnlineOffenceAdapter {
 		self.0.time_slot()
 	}
 
-	fn disable_strategy(&self) -> sp_staking::offence::DisableStrategy {
-		self.0.disable_strategy()
-	}
-
 	fn slash_fraction(&self, _offenders: u32) -> Perbill {
 		Perbill::from_percent(1)
 	}
@@ -1006,6 +1006,7 @@ pub type Executive = frame_executive::Executive<
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
+	use super::*;
 	use frame_benchmarking::define_benchmarks;
 
 	define_benchmarks!(

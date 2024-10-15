@@ -8,35 +8,16 @@ edition = "2021"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+sdk = { workspace = true, features = ["frame-benchmarking", "frame-support", "frame-system", "sp-runtime", "sp-std", "pallet-nfts"] }
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
-frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-nfts = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-
-utils.workspace = true
+utils = { workspace = true }
 
 [dev-dependencies]
-pallet-session = { workspace = true }
-sp-session = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-pallet-balances = { workspace = true }
+sdk = { workspace = true, features = ["sp-session", "sp-core", "sp-io", "pallet-balances", "pallet-session"] }
 
 [features]
-default = ["std"]
-std = [
-	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
-	"pallet-session/std",
-	"pallet-nfts/std",
-	"pallet-balances/std",
-	"scale-info/std",
-]
-runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
-try-runtime = ["frame-support/try-runtime"]
+default = [ "std" ]
+std = [ "codec/std", "scale-info/std", "sdk/std", "utils/std" ]
+runtime-benchmarks = [ "sdk/runtime-benchmarks" ]
+try-runtime = [ "sdk/try-runtime" ]

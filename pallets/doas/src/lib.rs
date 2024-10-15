@@ -1,25 +1,26 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_runtime::traits::StaticLookup;
-use sp_std::prelude::*;
+use sdk::sp_runtime::traits::StaticLookup;
+use sdk::sp_std::prelude::*;
 
 pub use pallet::*;
 
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+type AccountIdLookupOf<T> = <<T as sdk::frame_system::Config>::Lookup as StaticLookup>::Source;
 
-#[frame_support::pallet(dev_mode)]
+#[sdk::frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use frame_support::{
+	use sdk::frame_support::{
 		dispatch::GetDispatchInfo,
 		pallet_prelude::*,
 		traits::{EnsureOrigin, UnfilteredDispatchable},
 	};
-	use frame_system::{pallet_prelude::*, RawOrigin};
+	use sdk::frame_system::{pallet_prelude::*, RawOrigin};
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	pub trait Config: sdk::frame_system::Config {
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 
 		type RuntimeCall: Parameter
 			+ UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>

@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sdk::{frame_support, frame_system, sp_core, sp_std};
+
 use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::{
@@ -33,8 +35,9 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	pub trait Config: sdk::frame_system::Config {
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 		type Balance: Member + Parameter;
 		type PermissionType: Member + Parameter;
 		type ItemId: Clone + core::fmt::Debug;

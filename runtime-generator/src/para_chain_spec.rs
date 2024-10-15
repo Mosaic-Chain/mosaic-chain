@@ -1,5 +1,11 @@
 use std::marker::PhantomData;
 
+use sdk::{
+	cumulus_primitives_core, pallet_balances, pallet_collator_selection, pallet_membership,
+	pallet_session, pallet_xcm, sc_chain_spec, sc_service, sp_consensus_aura, sp_core,
+	staging_parachain_info as parachain_info, staging_xcm,
+};
+
 use crate::{
 	common::{mainnet_accounts, properties, public_from_seed, testnet_accounts, AccountId},
 	runtime_builder::RuntimeBuilder,
@@ -25,7 +31,7 @@ pub struct Extensions {
 	pub para_id: u32,
 }
 
-pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 pub fn local_config(
 	builder: &dyn RuntimeBuilder,
@@ -135,10 +141,11 @@ fn genesis(
 			.into_iter()
 			.map(|(acc, aura)| (acc.clone(), acc, SessionKeys { aura }))
 			.collect(),
+		..Default::default()
 	};
 
 	let polkadot_xcm = pallet_xcm::GenesisConfig {
-		safe_xcm_version: Some(xcm::prelude::XCM_VERSION),
+		safe_xcm_version: Some(staging_xcm::prelude::XCM_VERSION),
 		_config: PhantomData,
 	};
 

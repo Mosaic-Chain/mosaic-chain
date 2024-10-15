@@ -1,12 +1,17 @@
+use sdk::{
+	frame_benchmarking_cli, sc_cli, sc_consensus_grandpa, sc_network, sc_service, sp_keyring,
+	sp_runtime,
+};
+
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
-use mosaic_testnet_solo_runtime::{opaque, Block, EXISTENTIAL_DEPOSIT};
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 use sp_keyring::Sr25519Keyring;
 
+use mosaic_testnet_solo_runtime::{opaque, Block, EXISTENTIAL_DEPOSIT};
+
 use crate::{
 	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
-	chain_spec,
 	cli::{Cli, Subcommand},
 	service,
 };
@@ -37,14 +42,17 @@ impl SubstrateCli for Cli {
 	}
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
-		Ok(match id {
-			"dev" => Box::new(chain_spec::development_config()?),
-			"testnet" => Box::new(chain_spec::testnet_config()?),
-			"" | "local" => Box::new(chain_spec::local_testnet_config()?),
-			path => {
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+		match id {
+			"" => Err("Please provide a chainspec file".into()),
+			"dev" | "testnet" | "local" => {
+				Err("Built in chainspecs have been removed from this version of the node".into())
 			},
-		})
+			path => Ok(Box::new(
+				sc_service::GenericChainSpec::<sc_service::NoExtension>::from_json_file(
+					std::path::PathBuf::from(path),
+				)?,
+			)),
+		}
 	}
 }
 

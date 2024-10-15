@@ -1,14 +1,16 @@
-use frame_support::{
-	assert_err, assert_ok,
-	traits::{Incrementable, OnFinalize, OnInitialize},
+use sdk::{
+	frame_support::{
+		assert_err, assert_ok,
+		traits::{Incrementable, OnFinalize, OnInitialize},
+	},
+	frame_system::RawOrigin,
+	pallet_nfts::Error as NftsError,
 };
-use frame_system::RawOrigin;
-use pallet_nfts::Error as NftsError;
 
 use crate::{mock::*, Error, Event, Status};
 use utils::traits::NftDelegation as TNftDelegation; // This alias is needed to distingish between the runtime definition and the utils trait
 
-type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
+type AccountIdOf<Test> = <Test as sdk::frame_system::Config>::AccountId;
 
 fn account(id: u8) -> AccountId {
 	[id; 32].into()
@@ -21,7 +23,7 @@ fn mint_delegator_token_should_work() {
 		let expiration = 3;
 		let nominal_value = 100;
 		let item_id =
-			<<Test as pallet_nfts::Config>::ItemId as Incrementable>::initial_value().unwrap();
+			<<Test as sdk::pallet_nfts::Config>::ItemId as Incrementable>::initial_value().unwrap();
 
 		assert_ok!(
 			NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value),

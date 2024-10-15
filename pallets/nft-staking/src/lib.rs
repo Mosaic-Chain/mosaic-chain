@@ -12,6 +12,10 @@ mod reward;
 mod slash;
 mod types;
 
+use sdk::{
+	frame_support, frame_system, pallet_offences, pallet_session, sp_runtime, sp_staking, sp_std,
+};
+
 use core::num::NonZeroU32;
 
 use codec::Codec;
@@ -50,9 +54,10 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + SessionConfig + pallet_offences::Config {
+	pub trait Config: sdk::frame_system::Config + SessionConfig + pallet_offences::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 
 		type RuntimeHoldReason: From<HoldReason>;
 

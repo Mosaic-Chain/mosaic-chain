@@ -8,6 +8,6 @@ mod command;
 mod rpc;
 mod service;
 
-fn main() -> sc_cli::Result<()> {
+fn main() -> sdk::sc_cli::Result<()> {
 	command::run()
 }

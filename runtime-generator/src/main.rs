@@ -1,8 +1,10 @@
+use std::{collections::HashMap, process::Command};
+
+use sdk::sc_chain_spec::ChainSpec;
+
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use runtime_builder::{RuntimeBuilder, SrtoolBuilder};
-use sc_chain_spec::ChainSpec;
-use std::{collections::HashMap, process::Command};
 
 mod cli;
 mod common;

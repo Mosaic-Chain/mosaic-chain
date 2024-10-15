@@ -1,3 +1,9 @@
+use sdk::{
+	cumulus_pallet_xcm, cumulus_primitives_utility, frame_support, frame_system, pallet_xcm,
+	parachains_common, polkadot_parachain_primitives, polkadot_runtime_common, staging_xcm as xcm,
+	staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor,
+};
+
 use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
@@ -9,13 +15,9 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::{
-	xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains},
-	TREASURY_PALLET_ID,
-};
+use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
-use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
@@ -24,7 +26,6 @@ use xcm_builder::{
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -34,7 +35,6 @@ parameter_types! {
 	pub const TokenLocation: Location = Location::here();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
-	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 }
 
 /// Locations that will not be charged fees in the executor,
@@ -143,14 +143,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type FeeManager = XcmFeeManagerFromComponents<
-		WaivedLocations,
-		// Delivery fees are sent to the treasury account.
-		// These funds are not accessible without a module controlling such an account.
-		// [pallet_treasury](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/treasury)
-		// could be suitable option, configured using the same `TREASURY_PALLET_ID` used above as the pallet config's `PalletId`.
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
-	>;
+	type FeeManager = (); // TODO: direct fees to treasury
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
@@ -160,6 +153,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = PolkadotXcm;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.

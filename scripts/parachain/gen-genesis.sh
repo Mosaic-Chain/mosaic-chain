@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
-CHAIN=${1:-local}
+set -e
+
+if [ -z "$1" ]; then echo "Please provide a chainspec file" && exit 1; fi
+
+CHAIN="$1"
 NODE="./target/release/parachain-template-node"
 
 if [ ! -f $NODE ]; then

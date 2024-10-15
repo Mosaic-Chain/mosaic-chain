@@ -1,4 +1,4 @@
-use frame_support::{
+use sdk::frame_support::{
 	storage::types::{QueryKindTrait, StorageDoubleMap, StorageMap},
 	traits::{Get, StorageInstance},
 	StorageHasher,

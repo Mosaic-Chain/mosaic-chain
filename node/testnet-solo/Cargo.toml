@@ -31,60 +31,58 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
-frame-benchmarking = { workspace = true }
-frame-benchmarking-cli = { workspace = true }
-frame-system = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 jsonrpsee = { workspace = true, features = ["server"] }
-pallet-im-online = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc = { workspace = true }
-sc-basic-authorship = { workspace = true }
-sc-cli = { workspace = true }
-sc-client-api = { workspace = true }
-sc-consensus = { workspace = true }
-sc-consensus-aura = { workspace = true }
-sc-consensus-grandpa = { workspace = true }
-sc-executor = { workspace = true }
-sc-network = { workspace = true }
-sc-offchain = { workspace = true }
-sc-rpc-api = { workspace = true }
-sc-service = { workspace = true }
-sc-statement-store = { workspace = true }
-sc-telemetry = { workspace = true }
-sc-transaction-pool = { workspace = true }
-sc-transaction-pool-api = { workspace = true }
-sp-api = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-blockchain = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
-sp-core = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-keyring = { workspace = true }
-sp-runtime = { workspace = true }
-sp-timestamp = { workspace = true }
-substrate-frame-rpc-system = { workspace = true }
+
+sdk = { workspace = true, features = [
+	"frame-benchmarking",
+	"frame-benchmarking-cli",
+	"frame-system",
+	"pallet-transaction-payment",
+	"pallet-transaction-payment-rpc",
+	"sc-basic-authorship",
+	"sc-cli",
+	"sc-client-api",
+	"sc-consensus",
+	"sc-consensus-aura",
+	"sc-consensus-grandpa",
+	"sc-executor",
+	"sc-network",
+	"sc-offchain",
+	"sc-rpc-api",
+	"sc-service",
+	"sc-statement-store",
+	"sc-telemetry",
+	"sc-transaction-pool",
+	"sc-transaction-pool-api",
+	"sp-api",
+	"sp-block-builder",
+	"sp-blockchain",
+	"sp-consensus-aura",
+	"sp-consensus-grandpa",
+	"sp-core",
+	"sp-inherents",
+	"sp-io",
+	"sp-keyring",
+	"sp-runtime",
+	"sp-timestamp",
+	"substrate-frame-rpc-system",
+]}
 
 # Local Dependencies
-mosaic-testnet-solo-runtime = { workspace = true, features = ["std", "include-wasm"] }
-pallet-nft-staking = { workspace = true }
-serde_json = { workspace = true }
+mosaic-testnet-solo-runtime = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils = { workspace = true }
+sdk = { workspace = true, features = ["substrate-build-script-utils"]}
 
 [features]
-default = []
+default = [ "std" ]
+std = [ "mosaic-testnet-solo-runtime/std", "sdk/std" ]
 # Dependencies that are only required if runtime benchmarking should be built.
 runtime-benchmarks = [
 	"mosaic-testnet-solo-runtime/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-benchmarking-cli/runtime-benchmarks",
+	"sdk/runtime-benchmarks",
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = [
-	"mosaic-testnet-solo-runtime/try-runtime",
-]
+try-runtime = [ "mosaic-testnet-solo-runtime/try-runtime", "sdk/try-runtime" ]

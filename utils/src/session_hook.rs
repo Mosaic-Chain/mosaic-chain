@@ -1,5 +1,5 @@
-use frame_support::pallet_prelude::DispatchResult;
-pub use sp_staking::SessionIndex;
+use crate::SessionIndex;
+use sdk::frame_support::pallet_prelude::DispatchResult;
 
 #[allow(unused)]
 pub trait SessionHook {

@@ -1,16 +1,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sdk::{frame_support, frame_system, sp_core};
+
 use frame_support::{
-	pallet_prelude::ValueQuery,
+	pallet_prelude::{StorageMap, ValueQuery},
 	sp_runtime::{
-		traits::{AtLeast32BitUnsigned, Convert, Saturating, Zero},
+		traits::{AtLeast32BitUnsigned, BlockNumberProvider, Convert, Saturating, Zero},
 		DispatchError, DispatchResult,
 	},
 	traits::{
 		fungible::{Inspect, InspectFreeze, MutateFreeze},
 		IsType,
 	},
-	Parameter,
+	BoundedVec, Parameter, Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
 use sp_core::Get;
@@ -22,16 +24,12 @@ pub use pallet::*;
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use frame_support::{
-		pallet_prelude::StorageMap, sp_runtime::traits::BlockNumberProvider, BoundedVec,
-		Twox64Concat,
-	};
-
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	pub trait Config: sdk::frame_system::Config {
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 		type RuntimeFreezeReason: From<FreezeReason>;
 		type Balance: Parameter + Copy + AtLeast32BitUnsigned + TryInto<BlockNumberFor<Self>>;
 

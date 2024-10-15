@@ -1,4 +1,4 @@
-use sc_cli::RunCmd;
+use sdk::{frame_benchmarking_cli, sc_cli};
 
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
@@ -6,7 +6,7 @@ pub struct Cli {
 	pub subcommand: Option<Subcommand>,
 
 	#[clap(flatten)]
-	pub run: RunCmd,
+	pub run: sc_cli::RunCmd,
 }
 
 #[derive(Debug, clap::Subcommand)]

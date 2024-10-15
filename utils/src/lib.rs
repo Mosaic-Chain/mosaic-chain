@@ -7,7 +7,7 @@ pub mod traits {
 	pub use super::{session_hook::*, staking::*, vesting::HoldVestingSchedule};
 }
 
-pub use sp_staking::SessionIndex;
+pub use sdk::sp_staking::SessionIndex;
 
 #[macro_export]
 macro_rules! prod_or_fast {

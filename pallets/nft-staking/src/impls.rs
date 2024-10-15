@@ -1,3 +1,7 @@
+use sdk::{
+	frame_support, frame_system, pallet_offences, pallet_session, sp_runtime, sp_staking, sp_std,
+};
+
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Get, ValidatorSet, ValidatorSetWithIdentification},
@@ -166,7 +170,6 @@ impl<T: Config>
 		>],
 		slash_fraction: &[Perbill],
 		_session: sp_staking::SessionIndex,
-		_disable_strategy: sp_staking::offence::DisableStrategy,
 	) -> frame_support::weights::Weight {
 		for (o, slash) in offenders.iter().zip(slash_fraction.iter()) {
 			InverseSlashes::<T>::mutate_exists(

@@ -1,3 +1,5 @@
+use sdk::{frame_support, frame_system, pallet_balances, pallet_nfts, sp_core, sp_io, sp_runtime};
+
 use frame_support::{
 	parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64},
@@ -106,6 +108,8 @@ impl pallet_nfts::Config for Test {
 	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Test>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
 }
 
 parameter_types! {

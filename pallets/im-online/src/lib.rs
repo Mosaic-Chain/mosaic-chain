@@ -81,6 +81,11 @@
 // mod tests;
 // pub mod weights;
 
+use sdk::{
+	frame_support, frame_system, pallet_authorship, pallet_session, sp_application_crypto, sp_io,
+	sp_runtime, sp_staking, sp_std,
+};
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
@@ -102,7 +107,7 @@ use sp_runtime::{
 	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
 };
 use sp_staking::{
-	offence::{DisableStrategy, Kind, Offence, ReportOffence},
+	offence::{Kind, Offence, ReportOffence},
 	SessionIndex,
 };
 
@@ -113,11 +118,12 @@ use sp_std::prelude::*;
 
 pub mod sr25519 {
 	mod app_sr25519 {
+		use sdk::sp_application_crypto;
 		use sp_application_crypto::{app_crypto, key_types::IM_ONLINE, sr25519};
 		app_crypto!(sr25519, IM_ONLINE);
 	}
 
-	sp_application_crypto::with_pair! {
+	sdk::sp_application_crypto::with_pair! {
 		/// An i'm online keypair using sr25519 as its crypto.
 		pub type AuthorityPair = app_sr25519::Pair;
 	}
@@ -131,11 +137,11 @@ pub mod sr25519 {
 
 pub mod ed25519 {
 	mod app_ed25519 {
-		use sp_application_crypto::{app_crypto, ed25519, key_types::IM_ONLINE};
+		use sdk::sp_application_crypto::{app_crypto, ed25519, key_types::IM_ONLINE};
 		app_crypto!(ed25519, IM_ONLINE);
 	}
 
-	sp_application_crypto::with_pair! {
+	sdk::sp_application_crypto::with_pair! {
 		/// An i'm online keypair using ed25519 as its crypto.
 		pub type AuthorityPair = app_ed25519::Pair;
 	}
@@ -255,7 +261,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		SendTransactionTypes<Call<Self>> + frame_system::Config + pallet_session::Config
+		SendTransactionTypes<Call<Self>> + sdk::frame_system::Config + pallet_session::Config
 	{
 		/// The identifier type for an authority.
 		type AuthorityKey: Member
@@ -269,7 +275,8 @@ pub mod pallet {
 		type MaxPeerInHeartbeats: Get<u32>;
 
 		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 
 		/// A type for retrieving the validators supposed to be online in a session.
 		type ValidatorSet: ValidatorSetWithIdentification<
@@ -773,10 +780,6 @@ impl<Offender: Clone> Offence<Offender> for UnresponsivenessOffence<Offender> {
 
 	fn time_slot(&self) -> Self::TimeSlot {
 		self.session_index
-	}
-
-	fn disable_strategy(&self) -> DisableStrategy {
-		DisableStrategy::Never
 	}
 
 	fn slash_fraction(&self, offenders: u32) -> Perbill {

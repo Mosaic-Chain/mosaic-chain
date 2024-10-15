@@ -49,6 +49,8 @@ mod tests;
 mod benchmarking;
 mod weights;
 
+use sdk::{frame_support, frame_system, pallet_nfts, sp_runtime, sp_std};
+
 use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
@@ -82,9 +84,10 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + NftsConfig {
+	pub trait Config: sdk::frame_system::Config + NftsConfig {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 
 		/// The id of the pallet from witch the collection owner's address is derived.
 		#[pallet::constant]

@@ -36,6 +36,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+use sdk::{frame_support, frame_system, pallet_nfts, sp_runtime, sp_std};
+
 use sp_std::vec::Vec as SpVec;
 
 use codec::Codec;
@@ -54,7 +56,10 @@ use pallet_nfts::{
 };
 use sp_runtime::{traits::AccountIdConversion, DispatchError, FixedPointOperand};
 
-use utils::traits::{NftDelegation, OnDelegationNftExpire, SessionIndex};
+use utils::{
+	traits::{NftDelegation, OnDelegationNftExpire},
+	SessionIndex,
+};
 
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
@@ -66,9 +71,10 @@ pub mod pallet {
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + NftsConfig {
+	pub trait Config: sdk::frame_system::Config + NftsConfig {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 
 		/// The id of the pallet from witch the collection owner's address is derived.
 		#[pallet::constant]

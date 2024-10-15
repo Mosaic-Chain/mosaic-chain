@@ -1,3 +1,8 @@
+use sdk::{
+	pallet_balances, pallet_membership, pallet_session, sc_service, sp_consensus_aura,
+	sp_consensus_grandpa, sp_core,
+};
+
 use crate::{
 	common::{mainnet_accounts, properties, public_from_seed, testnet_accounts, AccountId},
 	runtime_builder::RuntimeBuilder,
@@ -18,7 +23,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::sr25519;
 use std::marker::PhantomData;
 
-pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec;
 
 fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId, ImOnlineId, AccountId) {
 	(
@@ -150,6 +155,7 @@ fn genesis(
 				)
 			})
 			.collect(),
+		..Default::default()
 	};
 
 	let nft_permission = pallet_nft_permission::GenesisConfig {

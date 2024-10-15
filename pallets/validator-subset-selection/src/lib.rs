@@ -39,24 +39,27 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+use sdk::{frame_support, frame_system, pallet_session, sp_application_crypto, sp_runtime, sp_std};
+
 use sp_std::{marker::PhantomData, prelude::*};
 
-use frame_support::{pallet_prelude::*, traits::ValidatorSet};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{BuildGenesisConfig, Randomness, ValidatorSet},
+};
+use frame_system::pallet_prelude::{ensure_root, BlockNumberFor, OriginFor};
 use sp_application_crypto::Ss58Codec;
 use sp_runtime::{
 	traits::{Hash, One, Zero},
 	FixedI64, PerThing,
 };
+use utils::{traits::SessionHook, SessionIndex};
 
 pub use pallet::*;
 
 #[frame_support::pallet(dev_mode)] //TODO: remove dev mode
 pub mod pallet {
 	use super::*;
-	use frame_support::traits::{BuildGenesisConfig, Randomness};
-	use frame_system::pallet_prelude::{ensure_root, BlockNumberFor, OriginFor};
-	use pallet_session::ShouldEndSession;
-	use utils::{traits::SessionHook, SessionIndex};
 	// If a validator's bucket is full, then the bucket value is decreased with decrease_ratio
 	// and the other disperse_ratio=(1-decrease_ratio) is divided among all buckets
 	const DECREASE_RATIO: FixedI64 = FixedI64::from_rational(1, 2);
@@ -66,8 +69,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	pub trait Config: sdk::frame_system::Config {
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 		type ValidatorId: Member + Parameter + Ss58Codec;
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 		type ValidatorSuperset: ValidatorSet<Self::ValidatorId, ValidatorId = Self::ValidatorId>;
@@ -356,7 +360,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> pallet_session::ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
 		fn should_end_session(now: BlockNumberFor<T>) -> bool {
 			Self::current_session_end() == now
 		}

@@ -1,3 +1,8 @@
+use sdk::{
+	frame_support, frame_system, pallet_balances, pallet_nfts, pallet_session, sp_core, sp_io,
+	sp_runtime, sp_std,
+};
+
 use sp_std::collections::btree_map::BTreeMap;
 
 use frame_support::{
@@ -112,6 +117,8 @@ impl pallet_nfts::Config for Test {
 	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Test>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
 }
 
 // We end the session on each block

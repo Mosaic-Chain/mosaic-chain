@@ -1,7 +1,9 @@
-use frame_support::{
+use sdk::frame_support::{
 	dispatch::DispatchResult,
 	sp_runtime::{DispatchError, Perbill},
 };
+
+use crate::SessionIndex;
 
 pub trait OnDelegationNftExpire<AccountId, ItemId, Balance, BindMetadata> {
 	fn on_expire(
@@ -60,7 +62,7 @@ pub trait NftDelegation<AccountId, Balance, ItemId, BindMetadata> {
 		delegator_id: &AccountId,
 		item_id: &ItemId,
 		metadata: BindMetadata,
-	) -> Result<(sp_staking::SessionIndex, Balance), DispatchError>;
+	) -> Result<(SessionIndex, Balance), DispatchError>;
 
 	fn unbind(
 		delegator_id: &AccountId,

@@ -1,8 +1,5 @@
-//cargo build --release --features runtime-benchmarks
-
 use super::*;
-use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
+use sdk::{frame_benchmarking::v2::*, frame_system::RawOrigin};
 
 #[benchmarks]
 mod benchmarks {

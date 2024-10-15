@@ -1,5 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
+use scale_info::TypeInfo;
+use sdk::frame_support::{
 	dispatch::DispatchResult,
 	sp_runtime::{
 		traits::{AtLeast32BitUnsigned, Bounded, Convert, One, Zero},
@@ -7,7 +8,6 @@ use frame_support::{
 	},
 	traits::fungible::Inspect,
 };
-use scale_info::TypeInfo;
 
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct Schedule<Balance, BlockNumber> {

@@ -57,6 +57,8 @@
 //pub mod migrations;
 pub mod weights;
 
+use sdk::{frame_support, frame_system, sp_runtime, sp_std};
+
 use codec::MaxEncodedLen;
 use frame_support::{
 	dispatch::DispatchResult,
@@ -74,6 +76,7 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::{ensure_root, ensure_signed, BlockNumberFor, OriginFor};
+
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, BlockNumberProvider, Convert, MaybeSerializeDeserialize, One,
@@ -142,9 +145,10 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: sdk::frame_system::Config {
 		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 
 		type RuntimeHoldReason: From<HoldReason> + VariantCount;
 
@@ -222,8 +226,6 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			use sp_runtime::traits::Saturating;
-
 			// Generate initial vesting configuration
 			// * who - Account which we are generating vesting configuration for
 			// * begin - Block when the account will start to vest

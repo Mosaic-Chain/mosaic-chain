@@ -4,6 +4,8 @@ use super::{
 	UnityAssetBalanceConversion,
 };
 
+use sdk::pallet_collective;
+
 // Shared values
 parameter_types! {
 	pub MaxApprovals: u32 = 250;

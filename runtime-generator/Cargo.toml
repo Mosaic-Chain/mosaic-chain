@@ -22,25 +22,54 @@ anyhow = { workspace = true }
 mosaic-testnet-solo-runtime = { workspace = true, features = ["std"] }
 parachain-template-runtime = { workspace = true, features = ["std"] }
 
+pallet-airdrop = { workspace = true }
 pallet-im-online = { workspace = true }
 pallet-nft-staking = { workspace = true }
 pallet-nft-permission = { workspace = true }
 pallet-validator-subset-selection = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-session = { workspace = true }
-pallet-membership = { workspace = true }
-pallet-collator-selection = { workspace = true }
-pallet-airdrop = { workspace = true }
-parachain-info = { workspace = true }
-pallet-xcm = { workspace = true }
 
-sp-core = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
-sp-runtime = { workspace = true }
+sdk = { workspace = true, features = [
+  "pallet-balances",
+  "pallet-session",
+  "pallet-membership",
+  "pallet-collator-selection",
+  "staging-parachain-info",
+  "pallet-xcm",
+  "sp-core",
+  "sp-consensus-aura",
+  "sp-consensus-grandpa",
+  "sp-runtime",
+  "sc-chain-spec",
+  "sc-service",
+  "cumulus-primitives-core",
+  "staging-xcm",
+]}
 
-sc-chain-spec = { workspace = true }
-sc-service = { workspace = true }
+[features]
+std = [
+	"mosaic-testnet-solo-runtime/std",
+	"pallet-airdrop/std",
+	"pallet-im-online/std",
+	"pallet-nft-permission/std",
+	"pallet-nft-staking/std",
+	"pallet-validator-subset-selection/std",
+	"parachain-template-runtime/std",
+]
+runtime-benchmarks = [
+	"mosaic-testnet-solo-runtime/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-nft-permission/runtime-benchmarks",
+	"pallet-nft-staking/runtime-benchmarks",
+	"pallet-validator-subset-selection/runtime-benchmarks",
+	"parachain-template-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"mosaic-testnet-solo-runtime/try-runtime",
+	"pallet-airdrop/try-runtime",
+	"pallet-im-online/try-runtime",
+	"pallet-nft-permission/try-runtime",
+	"pallet-nft-staking/try-runtime",
+	"pallet-validator-subset-selection/try-runtime",
+	"parachain-template-runtime/try-runtime",
+]
 
-cumulus-primitives-core = { workspace = true }
-xcm = { workspace = true }

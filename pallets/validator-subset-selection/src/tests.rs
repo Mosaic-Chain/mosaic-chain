@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
-use frame_support::{assert_err, assert_ok, traits::ValidatorSet};
-use frame_system::RawOrigin;
-use pallet_session::SessionManager;
-use sp_runtime::AccountId32;
+use sdk::{
+	frame_support::{assert_err, assert_ok, traits::ValidatorSet},
+	frame_system::RawOrigin,
+	pallet_session::SessionManager,
+	sp_runtime::{AccountId32, DispatchError},
+};
 
 use crate::{mock::*, Event};
 
@@ -64,7 +66,7 @@ fn signed_changes_subset_size() {
 
 		assert_err!(
 			ValidatorSubsetSelection::change_subset_size(origin, new_subset_size),
-			sp_runtime::DispatchError::BadOrigin,
+			DispatchError::BadOrigin,
 		);
 		assert_eq!(System::events().len(), 0, "Zero events expected.");
 	});

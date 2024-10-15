@@ -1,4 +1,9 @@
 use crate::mock::*;
+
+use sdk::{
+	frame_support, frame_system, pallet_balances, pallet_collective, pallet_membership, sp_runtime,
+};
+
 use codec::Encode;
 use frame_support::{assert_ok, dispatch::GetDispatchInfo};
 use sp_runtime::traits::{BlakeTwo256, Hash};
@@ -302,6 +307,7 @@ fn update_dave_balance() {
 					account: account(DAVE),
 					free_balance: 10
 				})),
+				record(RuntimeEvent::Balances(pallet_balances::Event::Issued { amount: 10 })),
 				record(RuntimeEvent::Balances(pallet_balances::Event::BalanceSet {
 					who: account(DAVE),
 					free: 10
@@ -710,6 +716,7 @@ fn two_member_agrees_on_something_root() {
 					account: account(DAVE),
 					free_balance: 10
 				})),
+				record(RuntimeEvent::Balances(pallet_balances::Event::Issued { amount: 10 })),
 				record(RuntimeEvent::Balances(pallet_balances::Event::BalanceSet {
 					who: account(DAVE),
 					free: 10
