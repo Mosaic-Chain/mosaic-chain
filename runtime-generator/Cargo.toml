@@ -30,6 +30,7 @@ pallet-balances = { workspace = true }
 pallet-session = { workspace = true }
 pallet-membership = { workspace = true }
 pallet-collator-selection = { workspace = true }
+pallet-airdrop = { workspace = true }
 parachain-info = { workspace = true }
 pallet-xcm = { workspace = true }
 

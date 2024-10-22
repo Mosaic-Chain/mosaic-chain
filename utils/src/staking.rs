@@ -50,6 +50,12 @@ pub trait NftStaking<AccountId, Balance, Variant, ItemId> {
 
 // Some methods take the delegetor id to check ownership.
 pub trait NftDelegation<AccountId, Balance, ItemId, BindMetadata> {
+	fn mint(
+		account_id: &AccountId,
+		expiration: crate::SessionIndex,
+		nominal_value: &Balance,
+	) -> Result<ItemId, DispatchError>;
+
 	fn bind(
 		delegator_id: &AccountId,
 		item_id: &ItemId,

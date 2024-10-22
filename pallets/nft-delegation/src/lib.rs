@@ -476,6 +476,14 @@ pub mod pallet {
 	where
 		T::ItemId: Incrementable,
 	{
+		fn mint(
+			account_id: &T::AccountId,
+			expiration: SessionIndex,
+			nominal_value: &T::Balance,
+		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
+			Self::do_mint_delegator_token(account_id, expiration, nominal_value)
+		}
+
 		fn bind(
 			delegator_id: &T::AccountId,
 			item_id: &<T as NftsConfig>::ItemId,

@@ -39,6 +39,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-parameters = { workspace = true }
 pallet-treasury = { workspace = true }
+pallet-vesting = { workspace = true }
 
 scale-info = { workspace = true, features = ["derive"] }
 sp-api = { workspace = true }
@@ -66,12 +67,13 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 
 # Local Dependencies
-pallet-doas.workspace = true
-pallet-nft-delegation.workspace = true
-pallet-nft-permission.workspace = true
-pallet-nft-staking.workspace = true
-pallet-validator-subset-selection.workspace = true
-utils.workspace = true
+pallet-doas = { workspace = true }
+pallet-nft-delegation = { workspace = true }
+pallet-nft-permission = { workspace = true }
+pallet-nft-staking = { workspace = true }
+pallet-validator-subset-selection = { workspace = true }
+pallet-airdrop = { workspace = true }
+utils = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
@@ -120,6 +122,8 @@ std = [
 	"pallet-parameters/std",
 	"pallet-validator-subset-selection/std",
 	"pallet-treasury/std",
+	"pallet-airdrop/std",
+	"pallet-vesting/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -156,6 +160,7 @@ runtime-benchmarks = [
 	"pallet-parameters/runtime-benchmarks",
 	"pallet-validator-subset-selection/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -188,6 +193,8 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-parameters/try-runtime",
+	"pallet-airdrop/try-runtime",
+	"pallet-vesting/try-runtime",
 	"pallet-validator-subset-selection/try-runtime",
 	"pallet-treasury/try-runtime"
 ]

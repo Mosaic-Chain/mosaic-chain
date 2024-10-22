@@ -5847,6 +5847,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "log",
+ "pallet-airdrop",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -5876,6 +5877,7 @@ dependencies = [
  "pallet-treasury 27.0.0",
  "pallet-utility",
  "pallet-validator-subset-selection",
+ "pallet-vesting",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -6500,6 +6502,19 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
+
+[[package]]
+name = "pallet-airdrop"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.11.0)",
+ "utils",
+]
 
 [[package]]
 name = "pallet-asset-conversion"
@@ -10376,6 +10391,7 @@ dependencies = [
  "hex-literal",
  "log",
  "mosaic-testnet-solo-runtime",
+ "pallet-airdrop",
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-im-online 27.0.0",

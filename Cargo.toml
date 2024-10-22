@@ -10,6 +10,7 @@ members = [
   "pallets/im-online",
   "pallets/doas",
   "pallets/treasury",
+  "pallets/airdrop",
   "runtime/parachain",
   "runtime/testnet-solo",
   "runtime-generator",
@@ -55,6 +56,7 @@ pallet-nft-permission = { default-features = false, path = "pallets/nft-permissi
 pallet-validator-subset-selection = { default-features = false, path = "pallets/validator-subset-selection" }
 pallet-im-online = { default-features = false, path = "pallets/im-online" }
 pallet-treasury = { default-features = false, path = "pallets/treasury" }
+pallet-airdrop = { default-features = false, path = "pallets/airdrop" }
 utils = { path = "utils" }
 
 # Substrate
@@ -94,6 +96,7 @@ pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk", branch =
 pallet-scheduler = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 pallet-multisig = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 pallet-parameters = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
+pallet-vesting = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 
 sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }
 sc-chain-spec = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.11.0", default-features = false }

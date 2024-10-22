@@ -18,7 +18,7 @@ use frame_support::{
 		fungible::{Balanced, Credit, Debt, HoldConsideration},
 		tokens::{PayFromAccount, Precision, UnityAssetBalanceConversion},
 		AsEnsureOriginWithArg, Currency, EitherOfDiverse, EqualPrivilegeOnly, Imbalance,
-		InstanceFilter, LinearStoragePrice,
+		InstanceFilter, LinearStoragePrice, WithdrawReasons,
 	},
 	PalletId,
 };
@@ -872,6 +872,36 @@ impl pallet_nft_delegation::Config for Runtime {
 	type BindMetadata = Self::AccountId;
 }
 
+impl pallet_airdrop::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type PermissionType = pallet_nft_staking::PermissionType;
+	type ItemId = <Self as pallet_nfts::Config>::ItemId;
+	type NftStaking = NftPermission;
+	type Currency = Balances;
+	type DelegatorNftBindMetadata = AccountId;
+	type NftDelegation = NftDelegation;
+	type VestingSchedule = Vesting;
+	type BaseTransactionPriority = ConstU64<{ TransactionPriority::MAX / 2 }>;
+	type MaxAirdropsInPool = ConstU64<12>;
+}
+
+parameter_types! {
+	pub const MinVestedTransfer: Balance = MOSAIC;
+	pub const UnvestedFundsAllowedWithdrawReasons: WithdrawReasons = WithdrawReasons::empty();
+}
+
+impl pallet_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
+	type WeightInfo = ();
+	const MAX_VESTING_SCHEDULES: u32 = 8;
+}
+
 // this is needed, otherwise fmt will remove the :: from ::<Instance1>
 #[rustfmt::skip::macros(construct_runtime)]
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -923,6 +953,8 @@ construct_runtime!(
 		TeamAndAdvisorsFund: pallet_treasury::<Instance5>,
 		SecurityFund: pallet_treasury::<Instance6>,
 		EducationFund: pallet_treasury::<Instance7>,
+		Airdrop: pallet_airdrop,
+		Vesting: pallet_vesting,
 	}
 );
 
@@ -996,6 +1028,7 @@ mod benches {
 		[pallet_preimage, Preimage]
 		[pallet_parameters, Parameters]
 		[pallet_treasury, Treasury]
+		[pallet_vesting, Vesting]
 	);
 }
 
