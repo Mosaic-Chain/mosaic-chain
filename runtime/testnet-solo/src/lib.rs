@@ -880,6 +880,7 @@ impl pallet_airdrop::Config for Runtime {
 	type VestingSchedule = HoldVesting;
 	type BaseTransactionPriority = ConstU64<{ TransactionPriority::MAX / 2 }>;
 	type MaxAirdropsInPool = ConstU64<12>;
+	const MAX_DELEGATOR_NFTS: u32 = 16;
 }
 
 parameter_types! {

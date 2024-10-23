@@ -11,6 +11,7 @@ use frame_support::{
 		TransactionValidity, ValidTransaction, ValueQuery,
 	},
 	sp_runtime::{traits::AccountIdConversion, DispatchResult},
+	storage::bounded_vec::BoundedVec,
 	traits::{
 		fungible::{Inspect, Mutate},
 		IsType,
@@ -21,7 +22,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_core::{crypto::Pair, sr25519, Get};
-use sp_std::{marker::PhantomData, vec::Vec as SpVec};
+use sp_std::marker::PhantomData;
 
 use utils::{
 	traits::{HoldVestingSchedule, NftDelegation, NftStaking},
@@ -65,8 +66,34 @@ pub mod pallet {
 
 		type MaxAirdropsInPool: Get<u64>;
 
+		const MAX_DELEGATOR_NFTS: u32;
+
 		/// NOTE: this should have the maximum value of u64::MAX - `Self::MaxAirdropsPerBlock`
 		type BaseTransactionPriority: Get<u64>;
+	}
+
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T> {
+		#[pallet::constant_name(MaxDelegatorNfts)]
+		fn max_delegator_nfts() -> u32 {
+			T::MAX_DELEGATOR_NFTS
+		}
+	}
+
+	#[derive(TypeInfo, PartialEq, Clone)]
+	#[scale_info(skip_type_params(T))]
+	pub struct MaxDelegatorNftsGet<T>(PhantomData<T>);
+
+	impl<T: Config> Get<u32> for MaxDelegatorNftsGet<T> {
+		fn get() -> u32 {
+			T::MAX_DELEGATOR_NFTS
+		}
+	}
+
+	impl<T: Config> core::fmt::Debug for MaxDelegatorNftsGet<T> {
+		fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+			f.write_fmt(core::format_args!("MaxDelegatorNfts({})", Self::get()))
+		}
 	}
 
 	#[pallet::storage]
@@ -99,6 +126,7 @@ pub mod pallet {
 		<T as Config>::Balance,
 		<T as Config>::PermissionType,
 		BlockNumberFor<T>,
+		MaxDelegatorNftsGet<T>,
 	>;
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
@@ -129,13 +157,13 @@ pub mod pallet {
 	}
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
-	pub struct Package<AccountId, Balance, PermissionType, BlockNumber> {
+	pub struct Package<AccountId, Balance, PermissionType, BlockNumber, MaxDelegatorNfts: Get<u32>> {
 		nonce: u64,
 		account_id: AccountId,
 		balance: Option<Balance>,
 		vesting: Option<VestingInfo<Balance, BlockNumber>>,
 		permission_nft: Option<PermissionNft<PermissionType, Balance>>,
-		delegator_nfts: Option<SpVec<DelegatorNft<Balance>>>,
+		delegator_nfts: Option<BoundedVec<DelegatorNft<Balance>, MaxDelegatorNfts>>,
 	}
 
 	/// Identifies the pallet.
