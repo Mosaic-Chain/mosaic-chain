@@ -10,8 +10,6 @@ use sdk::{
 use crate::{mock::*, Error, Event, Status};
 use utils::traits::NftDelegation as TNftDelegation; // This alias is needed to distingish between the runtime definition and the utils trait
 
-type AccountIdOf<Test> = <Test as sdk::frame_system::Config>::AccountId;
-
 fn account(id: u8) -> AccountId {
 	[id; 32].into()
 }

@@ -1,4 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+// Expect lints caused by procmacros
+#![expect(clippy::manual_inspect)]
+
 pub use impls::{SelectableValidators, SlashableValidators};
 /// Mosaic's very own staking pallet
 /// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.

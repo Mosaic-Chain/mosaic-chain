@@ -70,7 +70,7 @@ Example `package` in json (for demonstration only):
 }
 ```
 
-_NOTE_: The package needs to be **SCALE encoded**. The jsoin blob above is only to give an example of a possible package.
+_NOTE_: The package needs to be **SCALE encoded**. The json blob above is only to give an example of a possible package.
 
 _NOTE:_ Only a certain number of pending transactions of this type are allowed and transactions
 must be submitted ordered by the nonce. The current nonce can be read from the pallet's storage.

@@ -12,11 +12,11 @@ stages:
   - apt upgrade -y
   - apt install build-essential git librocksdb-dev libsnappy-dev libclang-dev clang g++-multilib protobuf-compiler -y
   - rustup target add wasm32-unknown-unknown
-  - rustup component add rust-src --toolchain 1.78.0-x86_64-unknown-linux-gnu
+  - rustup component add rust-src --toolchain 1.81.0-x86_64-unknown-linux-gnu
 
 test:
   stage: test
-  image: rust:1.78-bookworm
+  image: rust:1.81.0-bookworm
   script:
     - *build-deps
     - rustup component add rustfmt clippy
@@ -28,7 +28,7 @@ test:
 
 .debian-repo-setup:
   stage: release
-  image: rust:1.78-bookworm
+  image: rust:1.81.0-bookworm
   before_script:
    - *build-deps
    - apt install apt-transport-https ca-certificates gnupg curl -y

@@ -12,7 +12,7 @@ pub struct Cli {
 
 	/// Choose a fixed image version. Beware to choose a tag
 	/// compatible with the spesific version of runtime built.
-	#[arg(short, long, default_value = "1.77.0-0.15.0", global = true)]
+	#[arg(short, long, default_value = "1.81.0-0.16.0", global = true)]
 	pub tag: Cow<'static, str>,
 
 	#[clap(subcommand)]

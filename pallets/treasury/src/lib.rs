@@ -71,6 +71,8 @@
 //! [`pallet::Config::PayoutPeriod`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
+// Expect lints caused by procmacros
+#![expect(clippy::manual_inspect)]
 
 mod benchmarking;
 #[cfg(test)]
@@ -1088,7 +1090,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// 2. Each entry in [`Spends`] should be saved under a key strictly less than current
 	///    [`SpendCount`].
 	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
-	/// > spend.valid_from.
+	///    > spend.valid_from.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
 		let current_spend_count = SpendCount::<T, I>::get();

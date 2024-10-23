@@ -1,4 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+// Expect lints caused by procmacros
+#![expect(clippy::manual_inspect)]
 
 use sdk::sp_runtime::traits::StaticLookup;
 use sdk::sp_std::prelude::*;

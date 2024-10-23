@@ -1,4 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+// Expect lints caused by procmacros
+#![expect(clippy::manual_inspect)]
 
 use sdk::{frame_support, frame_system, sp_core, sp_std};
 

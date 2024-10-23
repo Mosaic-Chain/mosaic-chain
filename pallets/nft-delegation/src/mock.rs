@@ -22,7 +22,6 @@ use sp_runtime::{
 use crate::{self as nft_delegation, OnDelegationNftExpire};
 use utils::{traits::SessionHook, SessionIndex};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
