@@ -70,11 +70,12 @@ cumulus-pallet-parachain-system = { workspace = true }
 pallet-doas = { workspace = true, default-features = false }
 
 [build-dependencies]
-sdk = { workspace = true, features = ["substrate-wasm-builder"]}
+substrate-wasm-builder = { workspace = true, optional = true }
 
 [features]
 default = [ "std" ]
-include-wasm = []
+build-wasm = [ "dep:substrate-wasm-builder" ]
+
 fast-runtime = []
 local = [ "fast-runtime" ]
 

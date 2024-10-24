@@ -19,6 +19,7 @@ depends = "ca-certificates"
 name = "mosaic-chain-rc"
 conflicts = "mosaic-chain"
 suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
+features = [ "dev-spec" ]
 
 [package.metadata.deb.variants.release]
 name = "mosaic-chain"
@@ -90,13 +91,21 @@ sdk = { workspace = true, features = [
 
 [build-dependencies]
 sdk = { workspace = true, features = ["substrate-build-script-utils"] }
+runtime-generator = { workspace = true, features = ["para-chain"], optional = true }
 
 [features]
 default = [ "std" ]
-std = [ "parachain-template-runtime/std", "sdk/std" ]
+dev-spec = [ "dep:runtime-generator" ]
+
+std = [ "parachain-template-runtime/std", "runtime-generator?/std", "sdk/std" ]
 
 runtime-benchmarks = [
 	"parachain-template-runtime/runtime-benchmarks",
+	"runtime-generator?/runtime-benchmarks",
 	"sdk/runtime-benchmarks",
 ]
-try-runtime = [ "parachain-template-runtime/try-runtime", "sdk/try-runtime" ]
+try-runtime = [
+	"parachain-template-runtime/try-runtime",
+	"runtime-generator?/try-runtime",
+	"sdk/try-runtime",
+]

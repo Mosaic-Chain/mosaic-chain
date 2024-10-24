@@ -19,11 +19,13 @@ depends = "ca-certificates"
 name = "mosaic-testnet-solo-rc"
 conflicts = "mosaic-testnet-solo"
 suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
+features = [ "dev-spec" ]
 
 [package.metadata.deb.variants.release]
 name = "mosaic-testnet-solo"
 conflicts = "mosaic-testnet-solo-rc"
 suggests = "mosaic-explorer, mosaic-admin, mosaic-announcer"
+features = [ "dev-spec" ]
 
 [[bin]]
 name = "mosaic-testnet-solo"
@@ -74,15 +76,23 @@ mosaic-testnet-solo-runtime = { workspace = true }
 
 [build-dependencies]
 sdk = { workspace = true, features = ["substrate-build-script-utils"]}
+runtime-generator = { workspace = true, features = ["solo-chain"], optional = true }
 
 [features]
 default = [ "std" ]
-std = [ "mosaic-testnet-solo-runtime/std", "sdk/std" ]
+dev-spec = [ "dep:runtime-generator" ]
+
+std = [ "mosaic-testnet-solo-runtime/std", "runtime-generator?/std", "sdk/std" ]
 # Dependencies that are only required if runtime benchmarking should be built.
 runtime-benchmarks = [
 	"mosaic-testnet-solo-runtime/runtime-benchmarks",
+	"runtime-generator?/runtime-benchmarks",
 	"sdk/runtime-benchmarks",
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = [ "mosaic-testnet-solo-runtime/try-runtime", "sdk/try-runtime" ]
+try-runtime = [
+	"mosaic-testnet-solo-runtime/try-runtime",
+	"runtime-generator?/try-runtime",
+	"sdk/try-runtime",
+]

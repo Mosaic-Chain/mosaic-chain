@@ -3,10 +3,6 @@
 #![recursion_limit = "256"]
 #![allow(non_camel_case_types)]
 
-// Make the WASM binary available.
-#[cfg(feature = "include-wasm")]
-include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-
 mod migrations;
 mod weights;
 

@@ -100,18 +100,18 @@ debian-para-release:
     # Push GCP image
     - docker push $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
 
-# solo-local-docker-rc:
-#   extends: .docker
-#   variables:
-#     IMAGE_NAME: mosaic-chain-solo-local
-#     IMAGE_TAG: rc
-#   only:
-#     - develop
+solo-local-docker-rc:
+  extends: .docker
+  variables:
+    IMAGE_NAME: mosaic-chain-solo-local
+    IMAGE_TAG: rc
+  only:
+    - develop
 
-# solo-local-docker-latest:
-#   extends: .docker
-#   variables:
-#     IMAGE_NAME: mosaic-chain-solo-local
-#     IMAGE_TAG: latest
-#   only:
-#     - main
+solo-local-docker-latest:
+  extends: .docker
+  variables:
+    IMAGE_NAME: mosaic-chain-solo-local
+    IMAGE_TAG: latest
+  only:
+    - main

@@ -27,8 +27,11 @@ use crate::{
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 	match id {
-		"" => Err("Please provide a chainspec file".into()),
-		"live" | "dev" | "template-rococo" | "local" => {
+		#[cfg(feature = "dev-spec")]
+		"dev" | "" => Ok(chain_spec::dev_spec()),
+		#[cfg(not(feature = "dev-spec"))]
+		"dev" | "" => Err("Default and dev chainspecs are not included in the node. Please rebuild with 'dev-spec' feature on.".into()),
+		"live" | "template-rococo" | "local" => {
 			Err("Built in chainspecs have been removed from this version of the node".into())
 		},
 		path => {

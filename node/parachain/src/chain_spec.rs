@@ -22,3 +22,11 @@ impl Extensions {
 		sc_chain_spec::get_extension(chain_spec.extensions())
 	}
 }
+
+#[cfg(feature = "dev-spec")]
+pub fn dev_spec() -> Box<dyn sc_service::ChainSpec> {
+	let spec_bytes = include_bytes!(concat!(env!("OUT_DIR"), "/dev-spec.json"));
+	Box::new(
+		ChainSpec::from_json_bytes(spec_bytes).expect("build script builds the correct chainspec"),
+	)
+}

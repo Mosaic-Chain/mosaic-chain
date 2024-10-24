@@ -179,14 +179,14 @@ Build runtime generator:
 Pull builder image (srtool):
 
 ```sh
-./target/release/runtime-generator pull
+./target/release/runtime-generator srtool pull
   
 ```
 
 Build the runtime and generate raw chainspec:
 
 ```sh
-./target/release/runtime-generator build --raw mosaic-solo-local > raw_chainspec.json  
+./target/release/runtime-generator srtool build --raw solo-local > raw_chainspec.json  
 ```
 
 Distribute the file amongst the nodes!

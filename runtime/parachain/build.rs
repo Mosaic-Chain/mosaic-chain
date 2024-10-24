@@ -1,13 +1,10 @@
-#[cfg(feature = "include-wasm")]
 fn main() {
-	sdk::substrate_wasm_builder::WasmBuilder::new()
-		.with_current_project()
-		.export_heap_base()
-		.import_memory()
-		.build()
+	#[cfg(feature = "build-wasm")]
+	{
+		substrate_wasm_builder::WasmBuilder::new()
+			.with_current_project()
+			.export_heap_base()
+			.import_memory()
+			.build()
+	}
 }
-
-/// The wasm builder is deactivated when compiling
-/// this crate for wasm to speed up the compilation.
-#[cfg(not(feature = "include-wasm"))]
-fn main() {}

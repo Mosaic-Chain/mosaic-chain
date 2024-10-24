@@ -4,8 +4,11 @@ use sdk::{
 };
 
 use crate::{
-	common::{mainnet_accounts, properties, public_from_seed, testnet_accounts, AccountId},
 	runtime_builder::RuntimeBuilder,
+	spec::{
+		common::{mainnet_accounts, properties, public_from_seed, testnet_accounts, AccountId},
+		Profile,
+	},
 };
 
 use anyhow::Context;
@@ -25,6 +28,18 @@ use std::marker::PhantomData;
 
 pub type ChainSpec = sc_service::GenericChainSpec;
 
+inventory::submit! {
+	Profile::new("solo-local", local_config)
+}
+
+inventory::submit! {
+	Profile::new("solo-local-fast", fast_local_config)
+}
+
+inventory::submit! {
+	Profile::new("solo-live", live_config)
+}
+
 fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId, ImOnlineId, AccountId) {
 	(
 		public_from_seed::<AuraId>(s),
@@ -34,13 +49,29 @@ fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId, ImOnlineId, AccountI
 	)
 }
 
-fn build_runtime(builder: &dyn RuntimeBuilder) -> anyhow::Result<Vec<u8>> {
-	builder.build("mosaic-testnet-solo-runtime", Some("-F include-wasm"))
+fn build_runtime(
+	builder: &dyn RuntimeBuilder,
+	extra_opts: Option<&str>,
+) -> anyhow::Result<Vec<u8>> {
+	let opts = format!("-F build-wasm {}", extra_opts.unwrap_or_default());
+	builder.build("mosaic-testnet-solo-runtime", Some(&opts))
+}
+
+pub fn fast_local_config(
+	builder: &dyn RuntimeBuilder,
+) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
+	let code = build_runtime(builder, Some("-F fast-runtime"))?;
+	base_local_config(&code)
 }
 
 pub fn local_config(
 	builder: &dyn RuntimeBuilder,
 ) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
+	let code = build_runtime(builder, None)?;
+	base_local_config(&code)
+}
+
+fn base_local_config(code: &[u8]) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
 	let genesis_config = genesis(
 		vec![
 			authority_keys_from_seed("Alice"),
@@ -67,7 +98,7 @@ pub fn local_config(
 	)?;
 
 	Ok(Box::new(
-		ChainSpec::builder(&build_runtime(builder)?, None)
+		ChainSpec::builder(code, None)
 			.with_properties(properties(SS58Prefix::get().into()))
 			.with_name("Mosaic Local Solo Testnet")
 			.with_id("mosaic-solo-local")
@@ -100,7 +131,7 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 	)?;
 
 	Ok(Box::new(
-		ChainSpec::builder(&build_runtime(builder)?, None)
+		ChainSpec::builder(&build_runtime(builder, None)?, None)
 			.with_properties(properties(SS58Prefix::get().into()))
 			.with_name("Mosaic Solo Testnet")
 			.with_id("mosaic-solo-live")

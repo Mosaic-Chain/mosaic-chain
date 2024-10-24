@@ -30,6 +30,7 @@ license = "Apache-2.0 OR (GPL-3.0-or-later WITH Classpath-exception-2.0)"
 
 [workspace.dependencies]
 sdk = { package = "polkadot-sdk", git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2409-1", default-features = false }
+substrate-wasm-builder = { package = "substrate-wasm-builder", git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2409-1", default-features = false }
 
 # TODO: once procmacros are compatible with umbrella crate remove this
 cumulus-pallet-parachain-system = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-stable2409-1", default-features = false }
@@ -53,6 +54,7 @@ ctrlc = { version = "3.4.4", default-features = false }
 cargo_metadata = { version = "0.18.1", default-features = false }
 anyhow = { version = "1.0.86" }
 docify = { version = "0.2.8" }
+inventory = { version = "0.3.15" }
 rstest = { version = "0.22.0" }
 rstest_reuse = { version = "0.7.0" }
 
@@ -70,6 +72,7 @@ pallet-airdrop = { default-features = false, path = "pallets/airdrop" }
 pallet-hold-vesting = { default-features = false, path = "pallets/hold-vesting" }
 pallet-vesting-to-freeze = { default-features = false, path = "pallets/vesting-to-freeze" }
 utils = { default-features = false, path = "utils"}
+runtime-generator = { default-features = false, path = "runtime-generator" }
 
 [profile.release]
 panic = "unwind"

@@ -7,8 +7,11 @@ use sdk::{
 };
 
 use crate::{
-	common::{mainnet_accounts, properties, public_from_seed, testnet_accounts, AccountId},
 	runtime_builder::RuntimeBuilder,
+	spec::{
+		common::{mainnet_accounts, properties, public_from_seed, testnet_accounts, AccountId},
+		Profile,
+	},
 };
 
 use anyhow::Context;
@@ -33,10 +36,26 @@ pub struct Extensions {
 
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
+inventory::submit! {
+	Profile::new("para-local", local_config)
+}
+
+inventory::submit! {
+	Profile::new("para-live", live_config)
+}
+
+fn build_runtime(
+	builder: &dyn RuntimeBuilder,
+	extra_opts: Option<&str>,
+) -> anyhow::Result<Vec<u8>> {
+	let opts = format!("-F build-wasm {}", extra_opts.unwrap_or_default());
+	builder.build("parachain-template-runtime", Some(&opts))
+}
+
 pub fn local_config(
 	builder: &dyn RuntimeBuilder,
 ) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
-	let wasm = builder.build("parachain-template-runtime", Some("-F include-wasm -F local"))?;
+	let wasm = build_runtime(builder, Some("-F local"))?;
 	let relay_chain = "paseo-local";
 	let para_id = 2000;
 
@@ -65,7 +84,7 @@ pub fn local_config(
 }
 
 pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
-	let wasm = builder.build("parachain-template-runtime", Some("-F include-wasm"))?;
+	let wasm = build_runtime(builder, None)?;
 	let relay_chain = "polkadot";
 	let para_id = 3377;
 
