@@ -29,4 +29,9 @@ buildInputs = [
   LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
   PROTOC = "${pkgs.protobuf}/bin/protoc";
   ROCKSDB_LIB_DIR = "${pkgs.rocksdb}/lib";
+  
+  shellHook = ''
+    cargo install --list | grep zepter > /dev/null || cargo install zepter@1.5.1
+    export PATH="$PATH:$HOME/.cargo/bin" 
+  '';
 }

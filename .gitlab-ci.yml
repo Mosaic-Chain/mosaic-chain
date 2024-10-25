@@ -22,11 +22,7 @@ test:
     - rustup component add rustfmt clippy
     - cargo install cargo-nextest
     - cargo install zepter
-    - zepter format features --workspace
-    - zepter lint propagate-feature --feature std,runtime-benchmarks,try-runtime --workspace
-    - cargo fmt -- --check
-    - cargo clippy --color=always --tests --examples --bins --benches --release --features runtime-benchmarks,try-runtime --no-deps -- -D warnings
-    - cargo nextest run --release --features try-runtime -E "not (test(test_genesis_config_builds))" # These tests fail if mock runtime can't be built from *default* genesis config
+    - ./scripts/check.sh
 
 
 .debian-repo-setup:

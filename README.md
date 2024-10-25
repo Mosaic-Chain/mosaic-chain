@@ -1,5 +1,28 @@
 # Mosaic Chain
 
+<!--toc:start-->
+- [Getting Started](#getting-started)
+  - [Setup git hooks](#setup-git-hooks)
+  - [Generate docs](#generate-docs)
+- [Solo-chain](#solo-chain)
+  - [Build solo-chain](#build-solo-chain)
+  - [Embedded Docs](#embedded-docs)
+  - [Single-Node development chain](#single-node-development-chain)
+  - [Connect with Polkadot-JS Apps Front-End](#connect-with-polkadot-js-apps-front-end)
+  - [Project Structure](#project-structure)
+  - [Node](#node)
+  - [Runtime](#runtime)
+  - [Pallets](#pallets)
+    - [Custom pallets](#custom-pallets)
+  - [Preparing and running a solochain testnet](#preparing-and-running-a-solochain-testnet)
+    - [Generating chainspec with `runtime-generator`](#generating-chainspec-with-runtime-generator)
+    - [Generating node keys](#generating-node-keys)
+    - [Scenario 1: development accounts spread across different servers](#scenario-1-development-accounts-spread-across-different-servers)
+    - [Scenario 2: real accounts spread accross different servers](#scenario-2-real-accounts-spread-accross-different-servers)
+    - [Useful links:](#useful-links)
+- [Parachain](#parachain)
+<!--toc:end-->
+
 ## Getting Started
 
 Install the following dependencies from your preferred package manager:
@@ -11,25 +34,55 @@ For compilation / testing:
 - `protobuf` (`protoc`)
 - `librocksdb`
 - `cargo-nextest`
+- `zepter` (<https://github.com/ggwpez/zepter>)
 
 For packaging:
 - `git-cliff`
 - `toml-cli`
 - `cargo-deb`
 
-NOTE: cargo-deb and cargo-nextest can be installed with `cargo install` if
+NOTE: cargo-deb, cargo-nextest and zepter can be installed with `cargo install` if
 they are not available in your package manager.
 
 A `shell.nix` file is also included using which a complete development environment can be spawned.
 It also serves as a complete list of dependencies together with `toolchain.toml`
 
-### Build
+### Setup git hooks
+
+If you wish to contribute to the repository it might worth to automatically
+do some checks using git hooks. To install default git hooks execute:
+
+```sh
+./scripts/setup-hooks.sh
+  
+```
+
+### Generate docs
+
+You can generate and view the [Rust Docs](https://doc.rust-lang.org/cargo/commands/cargo-doc.html) for this project with this command:
+
+```sh
+cargo doc --workspace --open
+```
+
+## Solo-chain
+
+The solochain is used for developing and testing new functionality locally or in a pipeline.
+It can also used by other components that require interactions with the mosaic-chain runtime.
+
+### Build solo-chain
 
 Use the following command to build the node without launching it:
 
 ```sh
-cargo build --release
+cargo build --release -p mosaic-testnet-solo-node -F dev-spec
 ```
+
+This builds the solo-chain node with the `dev-spec` feature on, which means a development chain specification and runtime
+will be included in the node.
+
+If you'd like to get a more detailed view of how the chainspec is built and included into the node please read
+[`runtime-generator`'s readme](runtime-generator/README.md)
 
 ### Embedded Docs
 
@@ -39,13 +92,8 @@ After you build the project, you can use the following command to explore its pa
 ./target/release/mosaic-testnet-solo -h
 ```
 
-You can generate and view the [Rust Docs](https://doc.rust-lang.org/cargo/commands/cargo-doc.html) for this project with this command:
 
-```sh
-cargo +nightly doc --open
-```
-
-### Single-Node Development Chain
+### Single-Node development chain
 
 The following command starts a single-node development chain that doesn't persist state:
 
@@ -65,11 +113,12 @@ To start the development chain with detailed logging, run the following command:
 RUST_BACKTRACE=1 ./target/release/mosaic-testnet-solo -ldebug --dev
 ```
 
-Development chains:
+Development chain:
 
 - Maintain state in a `tmp` folder while the node is running.
-- Use the **Alice** and **Bob** accounts as default validator authorities.
-- Are preconfigured with a genesis state (`/node/src/chain_spec.rs`) that includes several prefunded development accounts.
+- Use the **Alice**, **Bob**, **Charlie**, **Dave** and **Eve** accounts as default validator authorities.
+- Are preconfigured with a genesis state that includes several prefunded development accounts.
+- Is configured with shorter sessions and other waiting periods to make it convenient for testing.
 
 To persist chain state between runs, specify a base path by running a command similar to the following:
 
@@ -95,7 +144,7 @@ After you start the node locally, you can interact with it using the hosted vers
 A hosted version is also available on [IPFS (redirect) here](https://dotapps.io/) or [IPNS (direct) here](ipns://dotapps.io/?rpc=ws%3A%2F%2F127.0.0.1%3A9944#/explorer).
 You can also find the source code and instructions for hosting your own instance on the [polkadot-js/apps](https://github.com/polkadot-js/apps) repository.
 
-## Project Structure
+### Project Structure
 
 A Substrate project such as this consists of a number of components that are spread across a few directories.
 
@@ -113,14 +162,9 @@ Substrate-based blockchain nodes expose a number of capabilities:
 There are several files in the `node` directory.
 Take special note of the following:
 
-- [`chain_spec.rs`](./node/src/chain_spec.rs): A [chain specification](https://docs.substrate.io/build/chain-spec/) is a source code file that defines a Substrate chain's initial (genesis) state.
-  Chain specifications are useful for development and testing, and critical when architecting the launch of a production chain.
-  Take note of the `development_config` and `testnet_genesis` functions.
-  These functions are used to define the genesis state for the local development chain configuration.
-  These functions identify some [well-known accounts](https://docs.substrate.io/reference/command-line-tools/subkey/) and use them to configure the blockchain's initial state.
-- [`service.rs`](./node/src/service.rs): This file defines the node implementation.
-  Take note of the libraries that this file imports and the names of the functions it invokes.
-  In particular, there are references to consensus-related topics, such as the [block finalization and forks](https://docs.substrate.io/fundamentals/consensus/#finalization-and-forks) and other [consensus mechanisms](https://docs.substrate.io/fundamentals/consensus/#default-consensus-models) such as Aura for block authoring and GRANDPA for finality.
+[`service.rs`](./node/testnet-solo/src/service.rs): This file defines the node implementation.
+Take note of the libraries that this file imports and the names of the functions it invokes.
+In particular, there are references to consensus-related topics, such as the [block finalization and forks](https://docs.substrate.io/fundamentals/consensus/#finalization-and-forks) and other [consensus mechanisms](https://docs.substrate.io/fundamentals/consensus/#default-consensus-models) such as Aura for block authoring and GRANDPA for finality.
 
 ### Runtime
 
@@ -130,7 +174,7 @@ The Substrate project in this repository uses [FRAME](https://docs.substrate.io/
 FRAME allows runtime developers to declare domain-specific logic in modules called "pallets".
 At the heart of FRAME is a helpful [macro language](https://docs.substrate.io/reference/frame-macros/) that makes it easy to create pallets and flexibly compose them to create blockchains that can address [a variety of needs](https://substrate.io/ecosystem/projects/).
 
-Review the [FRAME runtime implementation](./runtime/src/lib.rs) included in this template and note the following:
+Review the [FRAME runtime implementation](./runtime/testnet-solo/src/lib.rs) and note the following:
 
 - This file configures several pallets to include in the runtime.
   Each pallet configuration is defined by a code block that begins with `impl $PALLET_NAME::Config for Runtime`.
@@ -138,7 +182,7 @@ Review the [FRAME runtime implementation](./runtime/src/lib.rs) included in this
 
 ### Pallets
 
-The runtime in this project is constructed using many FRAME pallets that ship with the [core Substrate repository](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame) and a template pallet that is [defined in the `pallets`](./pallets/template/src/lib.rs) directory.
+The runtime in this project is constructed using many FRAME pallets that ship with the [core Substrate repository](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame).
 
 A FRAME pallet is compromised of a number of blockchain primitives:
 
@@ -161,14 +205,23 @@ Mosaic Chain implements it's business logic in custom built pallets:
 - [`pallet-validator-subset-selection`](./pallets/validator-subset-selection/README.md) selects the active subset of validators who produce the block in the current session and drives session progression.
 - [`pallet-nft-permission`](./pallets/nft-permission/README.md) owns permission NFTs and handles it's attributes.
 - [`pallet-nft-delegation`](./pallets/nft-delegation/README.md) owns delegator NFTs and handles it's attributes.
+- [`pallet-airdrop`](./pallets/airdrop/README.md) allows a minting authority to create permission and delegator NFTs, vesting schedules and free tokens via unsgined extrinsics.
+- `pallet-doas` allows a custom origin to make calls in the name of arbitrary accounts, or even as root.
+- `pallet-vesting-to-freeze` allows users to convert unvested tokens to immediately stakable frozen assets.
 
-## Setting up Solochain
+We also had to fork and modify some FRAME pallets:
+
+- [`pallet-hold-vesting`](./pallets/hold-vesting/README.md) (forked from `pallet-vesting`) upgraded to fungible traits and using non-overlapping holds instead of locks.
+- `pallet-im-online` allows nodes to announce and prove that they are operationl. The fork now lets any node with a session key to announce themselves.
+- [`pallet-treasury`] upgraded to fungible traits and ensured that anyone can still propose spendings.
+
+### Preparing and running a solochain testnet
 
 To set up our solochain we generally need to agree upon a few things:
 - The chain specification with runtime and genesis state
 - Who are the bootnodes
 
-### Generating chainspec with `runtime-generator`
+#### Generating chainspec with `runtime-generator`
 
 Build runtime generator:
 
@@ -194,7 +247,7 @@ Distribute the file amongst the nodes!
 NOTE: available chainspec presets: mosaic-solo-local, mosaic-solo-live, mosaic-para-local, mosaic-para-live
 NOTE: once a chain is started consequent nodes must also join with the same chainspec as the genesis hash must match.
 
-### Generating node keys
+#### Generating node keys
 
 These keys are used on the libp2p layer and the public part is used to generate the node id.
 For bootnodes knowing this id is important as it's part of their [multiaddress](https://docs.libp2p.io/concepts/fundamentals/addressing/).
@@ -208,7 +261,7 @@ It also displays the derived node identity as well on `stderr`.
 
 NOTE: `nodekey` is a private key and should handled as such
 
-### Scenario 1: development accounts spread across different servers
+#### Scenario 1: development accounts spread across different servers
 
 In this scenario we run **six** nodes across multiple machines.
 We use the `mosaic-solo-local` chainspec preset with 6 dev accounts (alice, bob, charlie, dave, eve, ferdie).
@@ -226,7 +279,7 @@ NOTE: currently our chainspec presets only support running a minimum of 6 nodes.
 4. start bootnode (for example):
 
 ```sh
-mosaic-testnet-solo --chain <chainspec> --name <node name> --base-path <basepath> --execution wasm --state-pruning <pruning mode> \
+mosaic-testnet-solo --chain <chainspec> --name <node name> --base-path <basepath> --state-pruning <pruning mode> \
   --validator --rpc-port <rpc port> --listen-addr /ip4/<ip>/tcp/<p2p port> --node-key-file <nodekey file>
 ```
 
@@ -241,7 +294,7 @@ NOTES:
   - if listening on an address that belongs to a VPN add these extra args: `--allow-private-ip --discover-local --no-mdns`
   - further options can be found with `mosaic-testnet-solo --help` for example ones related to rpc availability.
 
-### Scenario 2: real accounts spread accross different servers
+#### Scenario 2: real accounts spread accross different servers
 
 In this scenario we run **six** nodes across multiple machines.
 We use the `mosaic-solo-live` chainspec preset with baked in initial authorities.
@@ -278,9 +331,13 @@ we can use `mosaic-testnet-solo key generate` to do so.
 
 3. follow steps from `Scenario 1`, but **DO NOT** use dev account names as node names!
 
-### Useful links:
+#### Useful links:
 
 - https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot
 - https://docs.substrate.io/deploy/keys-and-network-operations/
 - https://multiformats.io/multiaddr/
 - https://docs.libp2p.io/concepts/fundamentals/addressing/
+
+## Parachain
+
+To be added...

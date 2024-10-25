@@ -1,0 +1,42 @@
+@startuml
+actor Developer
+
+participant "cargo build node\n-F dev-spec" as BuildNodeCmd
+
+participant "build.rs (node)" as NodeBuildScript
+
+participant "cargo build runtime\n-F build-wasm,[*inherited]" as BuildRuntimeCmd
+
+participant "build.rs (runtime)" as RuntimeBuildScript
+
+participant "cargo build runtime\n--target wasm32-unknown-unknown\n--no-default-features\n-F [(*inherited)-std]" as BuildWasmCmd
+
+Developer -> BuildNodeCmd
+activate BuildNodeCmd
+
+BuildNodeCmd -> NodeBuildScript
+activate NodeBuildScript
+
+NodeBuildScript -> BuildRuntimeCmd
+activate BuildRuntimeCmd
+
+BuildRuntimeCmd -> RuntimeBuildScript
+activate RuntimeBuildScript
+
+RuntimeBuildScript -> BuildWasmCmd
+activate BuildWasmCmd
+
+
+BuildWasmCmd --> NodeBuildScript: runtime.wasm
+deactivate BuildWasmCmd
+deactivate RuntimeBuildScript
+deactivate BuildRuntimeCmd
+
+NodeBuildScript --> BuildNodeCmd: chainspec
+deactivate NodeBuildScript
+
+BuildNodeCmd --> Developer: node (bin)
+deactivate BuildNodeCmd
+
+@enduml
+
