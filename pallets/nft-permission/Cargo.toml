@@ -8,27 +8,17 @@ edition = "2021"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sdk = { workspace = true, features = [
-		"frame-benchmarking",
-		"frame-support",
-		"frame-system",
-		"sp-runtime",
-		"sp-std",
-		"pallet-nfts",
-]}
+sdk = { workspace = true, features = ["frame-benchmarking", "frame-support", "frame-system", "sp-runtime", "sp-std", "pallet-nfts"] }
 codec = { workspace = true, features = ["derive"] }
+pallet-nft-staking = { workspace = true, optional = true }
 scale-info = { workspace = true, features = ["derive"] }
 utils = { workspace = true }
 
 [dev-dependencies]
-sdk = { workspace = true, features = [
-		"sp-core",
-		"sp-io",
-		"pallet-balances",
-]}
+sdk = { workspace = true, features = ["sp-core", "sp-io", "pallet-balances"] }
 
 [features]
-default = [ "std" ]
-std = [ "codec/std", "scale-info/std", "sdk/std", "utils/std" ]
-runtime-benchmarks = [ "sdk/runtime-benchmarks", "utils/runtime-benchmarks" ]
-try-runtime = [ "sdk/try-runtime" ]
+default = ["std"]
+std = ["codec/std", "pallet-nft-staking?/std", "scale-info/std", "sdk/std", "utils/std"]
+runtime-benchmarks = ["dep:pallet-nft-staking", "pallet-nft-staking?/runtime-benchmarks", "sdk/runtime-benchmarks"]
+try-runtime = ["pallet-nft-staking?/try-runtime", "sdk/try-runtime"]

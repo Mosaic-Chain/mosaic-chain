@@ -265,7 +265,7 @@ impl pallet_parameters::Config for Runtime {
 }
 
 impl pallet_assets::Config for Runtime {
-	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Self>;
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = u64;
@@ -378,7 +378,7 @@ impl pallet_nfts::Config for Runtime {
 	type Features = ();
 	type OffchainSignature = Signature;
 	type OffchainPublic = <Signature as Verify>::Signer;
-	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }
@@ -390,10 +390,10 @@ parameter_types! {
 impl pallet_nft_permission::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type WeightInfo = pallet_nft_permission::SubstrateWeight<Runtime>;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Permission = pallet_nft_staking::PermissionType;
+	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Self>;
 }
 
 pub struct IdTupleToValidatorId;
@@ -442,7 +442,7 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = ();
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type RegistrarOrigin = frame_system::EnsureRoot<AccountId>;
-	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_identity::weights::SubstrateWeight<Self>;
 	type MaxSubAccounts = MaxSubAccounts;
 	type MaxRegistrars = MaxRegistrars;
 	type MaxSuffixLength = MaxSuffixLength;
@@ -473,7 +473,7 @@ impl pallet_scheduler::Config for Runtime {
 		EitherOfDiverse<frame_system::EnsureRoot<AccountId>, frame_system::EnsureSigned<AccountId>>;
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
-	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Self>;
 	type Preimages = Preimage;
 }
 
@@ -483,7 +483,7 @@ parameter_types! {
 
 impl pallet_preimage::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Self>;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<AccountId>;
 	type Consideration = HoldConsideration<
@@ -519,7 +519,7 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = ValidatorSubsetSelection;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
-	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_session::weights::SubstrateWeight<Self>;
 }
 
 // TODO: figure out how to be more generic over the id tuple
@@ -668,7 +668,7 @@ impl pallet_proxy::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Self>;
 	type CallHasher = BlakeTwo256;
 	type MaxProxies = ConstU32<32>;
 	type MaxPending = ConstU32<32>;
@@ -682,7 +682,7 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
-	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Self>;
 }
 
 parameter_types! {
@@ -691,7 +691,7 @@ parameter_types! {
 
 impl pallet_recovery::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Self>;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type MaxFriends = MaxFriends;
@@ -832,7 +832,7 @@ impl pallet_im_online::Config for Runtime {
 	type ReportUnresponsiveness = ImOnlineReporter;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
-	type WeightInfo = (); //pallet_im_online::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = (); // pallet_im_online::weights::SubstrateWeight<Self>;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -859,6 +859,7 @@ impl pallet_nft_delegation::Config for Runtime {
 	type Balance = Balance;
 	type NftExpirationHandler = NftStaking;
 	type BindMetadata = Self::AccountId;
+	type WeightInfo = pallet_nft_delegation::weights::SubstrateWeight<Self>;
 }
 
 impl pallet_airdrop::Config for Runtime {
@@ -1008,6 +1009,8 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
+		[pallet_nft_delegation, NftDelegation]
+		[pallet_nft_permission, NftPermission]
 		[pallet_assets, Assets]
 		[pallet_proxy, Proxy]
 		[pallet_identity, Identity]

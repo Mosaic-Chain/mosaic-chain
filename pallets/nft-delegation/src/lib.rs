@@ -22,13 +22,16 @@
 /// Users can mint delegation NFTs, bind them to validators, unbind them when necessary,
 /// and slash them if needed. The module automatically checks for NFT expiration during
 /// each session change.
-pub use pallet::*;
 
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+pub mod weights;
 
 use sdk::{frame_support, frame_system, pallet_nfts, sp_runtime, sp_std};
 
@@ -55,7 +58,9 @@ use utils::{
 	SessionIndex,
 };
 
-// TODO: Once the pallet is ready turn off dev_mode
+pub use pallet::*;
+pub use weights::WeightInfo;
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
@@ -101,6 +106,9 @@ pub mod pallet {
 
 		/// Arbitrary data stored during when an item is bound
 		type BindMetadata: Parameter + Member + Codec + TypeInfo + MaxEncodedLen;
+
+		/// Type representing the weight of this pallet
+		type WeightInfo: WeightInfo;
 	}
 
 	/// The id of the collection that's managed by this pallet.
@@ -271,6 +279,7 @@ pub mod pallet {
 		///
 		/// - Pallet is not initialized.
 		/// - Error during minting process.
+		// Follow-up any changes here with the `BuildGenesisConfig::build` implementation
 		pub fn do_mint_delegator_token(
 			account_id: &T::AccountId,
 			expiration: SessionIndex,
@@ -340,7 +349,7 @@ pub mod pallet {
 			BoundItems::<T>::get(item_id).is_some()
 		}
 
-		fn chache_expiration(item_id: &<T as NftsConfig>::ItemId, expiration: SessionIndex) {
+		fn cache_expiration(item_id: &<T as NftsConfig>::ItemId, expiration: SessionIndex) {
 			ExpiryCache::<T>::mutate(expiration, |itms| match itms {
 				Some(v) => v.push(*item_id),
 				None => {
@@ -458,6 +467,7 @@ pub mod pallet {
 		/// - Origin is not authorized.
 		/// - Error during minting process.
 		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::mint_delegator_token())]
 		pub fn mint_delegator_token(
 			origin: OriginFor<T>,
 			account_id: T::AccountId,
@@ -506,7 +516,7 @@ pub mod pallet {
 			let expires_on = match Self::decode_status(&collection_id, item_id)? {
 				Status::Inactive { expiration } => {
 					let expires_on = T::CurrentSession::get() + expiration;
-					Self::chache_expiration(item_id, expires_on);
+					Self::cache_expiration(item_id, expires_on);
 					Self::encode_status(&collection_id, item_id, Status::Active { expires_on })?;
 
 					expires_on

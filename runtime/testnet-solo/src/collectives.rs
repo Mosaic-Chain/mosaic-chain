@@ -40,7 +40,7 @@ macro_rules! impl_collective {
 			type MembershipChanged =
 				pallet_collective::Pallet<Runtime, $collective::CollectiveInstance>;
 			type MaxMembers = MaxMembers;
-			type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
+			type WeightInfo = pallet_membership::weights::SubstrateWeight<Self>;
 		}
 
 		impl pallet_collective::Config<$collective::CollectiveInstance> for Runtime {
@@ -53,7 +53,7 @@ macro_rules! impl_collective {
 			type MaxMembers = MaxMembers;
 
 			type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
-			type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+			type WeightInfo = pallet_collective::weights::SubstrateWeight<Self>;
 			type SetMembersOrigin = frame_system::EnsureRoot<AccountId>;
 			type MaxProposalWeight = MaxProposalWeight;
 		}

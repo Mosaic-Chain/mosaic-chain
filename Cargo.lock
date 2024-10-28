@@ -8071,6 +8071,7 @@ dependencies = [
 name = "pallet-nft-permission"
 version = "0.1.0"
 dependencies = [
+ "pallet-nft-staking",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",

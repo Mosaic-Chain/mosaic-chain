@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -x
 
 zepter format features &&
 zepter lint propagate-feature --feature std,runtime-benchmarks,try-runtime --workspace &&

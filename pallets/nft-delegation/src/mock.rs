@@ -195,6 +195,7 @@ impl nft_delegation::Config for Test {
 	type NftExpirationHandler = ExpirationHandler;
 	type Balance = u64;
 	type BindMetadata = AccountId;
+	type WeightInfo = nft_delegation::weights::SubstrateWeight<Test>;
 }
 
 pub fn account(id: u8) -> AccountId {

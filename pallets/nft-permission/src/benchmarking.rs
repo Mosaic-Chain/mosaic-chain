@@ -1,35 +1,27 @@
-//! Benchmarking setup for pallet-template
-/*#![cfg(feature = "runtime-benchmarks")]
+//! Benchmarking setup for the permission NFT pallet
+
 use super::*;
+//use crate::Pallet as NftPermission;
 
-#[allow(unused)]
-use crate::Pallet as Template;
-use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
+use sdk::frame_benchmarking::v2::*;
+use sdk::frame_system::RawOrigin;
 
-#[benchmarks]
+use pallet_nft_staking::PermissionType;
+
+#[benchmarks(
+	where T::ItemId: Incrementable, T::Permission: From<PermissionType>, T::Balance: From<u32>
+)]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn do_something() {
-		let value = 100u32.into();
-		let caller: T::AccountId = whitelisted_caller();
+	fn mint_permission_token() {
+		let origin = RawOrigin::<T::AccountId>::Root;
+		let account_id: T::AccountId = whitelisted_caller();
+		let permission: T::Permission = PermissionType::DPoS.into();
+		let nominal_value: T::Balance = 100u32.into();
+
 		#[extrinsic_call]
-		do_something(RawOrigin::Signed(caller), value);
-
-		assert_eq!(Something::<T>::get(), Some(value));
+		_(origin, account_id, permission, nominal_value);
 	}
-
-	#[benchmark]
-	fn cause_error() {
-		Something::<T>::put(100u32);
-		let caller: T::AccountId = whitelisted_caller();
-		#[extrinsic_call]
-		cause_error(RawOrigin::Signed(caller));
-
-		assert_eq!(Something::<T>::get(), Some(101u32));
-	}
-
-	impl_benchmark_test_suite!(Template, crate::mock::new_test_ext(), crate::mock::Test);
-}*/
+}

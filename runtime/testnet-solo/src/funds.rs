@@ -47,7 +47,7 @@ macro_rules! impl_fund {
 			type Burn = $fund::Burn;
 			type PalletId = $fund::GetPalletId;
 			type BurnDestination = ();
-			type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
+			type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
 			type SpendFunds = ();
 			type MaxApprovals = MaxApprovals;
 			type SpendOrigin = EnsureWithSuccess<$fund::FundOrigin, AccountId, MaxBalance>;

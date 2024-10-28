@@ -395,7 +395,7 @@ impl pallet_collective::Config<Council> for Runtime {
 	// TODO: check and see which is good for us
 	// type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Self>;
 	type SetMembersOrigin = frame_system::EnsureRoot<AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
 }
@@ -416,7 +416,7 @@ impl pallet_membership::Config<CouncilMembership> for Runtime {
 	type MembershipInitialized = CouncilCollective;
 	type MembershipChanged = CouncilCollective;
 	type MaxMembers = MaxMembers;
-	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Self>;
 }
 
 #[derive(
@@ -523,7 +523,7 @@ impl pallet_proxy::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
-	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Self>;
 	type CallHasher = BlakeTwo256;
 	type MaxProxies = ConstU32<32>;
 	type MaxPending = ConstU32<32>;

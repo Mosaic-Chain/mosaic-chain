@@ -46,7 +46,7 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-mod weights;
+pub mod weights;
 
 use sdk::{frame_support, frame_system, pallet_nfts, sp_runtime, sp_std};
 
@@ -71,10 +71,9 @@ use sp_runtime::{
 use sp_std::vec::Vec as SpVec;
 
 pub use pallet::*;
-pub use weights::*;
+pub use weights::WeightInfo;
 
-// TODO: Once the pallet is ready turn off dev_mode
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet()]
 pub mod pallet {
 	use super::*;
 
@@ -476,6 +475,7 @@ pub mod pallet {
 		/// - Origin is not authorized.
 		/// - Error during minting process.
 		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::mint_permission_token())]
 		pub fn mint_permission_token(
 			origin: OriginFor<T>,
 			account_id: T::AccountId,

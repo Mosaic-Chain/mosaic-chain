@@ -331,7 +331,7 @@ we can use `mosaic-testnet-solo key generate` to do so.
 
 3. follow steps from `Scenario 1`, but **DO NOT** use dev account names as node names!
 
-#### Useful links:
+#### Useful links
 
 - https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot
 - https://docs.substrate.io/deploy/keys-and-network-operations/
@@ -341,3 +341,22 @@ we can use `mosaic-testnet-solo key generate` to do so.
 ## Parachain
 
 To be added...
+
+## Benchmarking pallets
+
+Rebuild the nodes and runtimes with enabled benchmarks:
+
+```sh
+cargo build --release --features runtime-benchmarks,dev-spec
+```
+
+This will take a while, feel free to read some links from the end of this document while you are waiting.
+
+After that, run the benchmarks for all pallets:
+
+```sh
+scripts/benchmarks.sh
+```
+
+If you add a new pallet that needs benchmarking, you need to add them to the `define_benchmarks!` macro call at the end of the
+runtime `lib.rs`, and also add it to the script above.
