@@ -111,7 +111,7 @@ pub mod pallet {
 		/// Arbitrary data stored during when an item is bound
 		type BindMetadata: Parameter + Member + Codec + TypeInfo + MaxEncodedLen;
 
-		/// Type representing the weight of this pallet
+		/// Type representing the weights of calls in this pallet
 		type WeightInfo: WeightInfo;
 	}
 
@@ -465,7 +465,6 @@ pub mod pallet {
 		}
 	}
 
-	// TODO: calculate weights
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where

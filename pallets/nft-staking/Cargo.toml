@@ -1,41 +1,41 @@
 [package]
 name = "pallet-nft-staking"
 version = "0.1.0"
-description = "FRAME pallet template for defining custom runtime logic."
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
-homepage = "https://substrate.io"
 edition = "2021"
-license = "MIT-0"
 publish = false
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sdk = { workspace = true, features = [
-		"frame-benchmarking",
-		"frame-support",
-		"frame-system",
-		"sp-runtime",
-		"sp-std",
-		"sp-staking",
-		"pallet-offences",
-		"pallet-session"
-]}
+sdk = { workspace = true, features = ["frame-benchmarking", "frame-support", "frame-system", "sp-runtime", "sp-std", "sp-staking", "pallet-offences", "pallet-session"] }
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 log = { workspace = true }
+pallet-nft-delegation = { workspace = true, optional = true }
 serde = { workspace = true, features = ["alloc", "derive"] }
-
-utils.workspace = true
+utils = { workspace = true }
 
 [dev-dependencies]
 sdk = { workspace = true, features = ["sp-core", "sp-io", "pallet-balances"] }
 rstest = { workspace = true }
 rstest_reuse = { workspace = true }
+utils = { workspace = true, features = ["runtime-benchmarks"] }
 
 [features]
 default = [ "std" ]
-std = [ "codec/std", "scale-info/std", "sdk/std", "utils/std" ]
-runtime-benchmarks = [ "sdk/runtime-benchmarks", "utils/runtime-benchmarks" ]
-try-runtime = [ "sdk/try-runtime" ]
+std = [
+	"codec/std",
+	"pallet-nft-delegation?/std",
+	"scale-info/std",
+	"sdk/std",
+	"utils/std",
+]
+runtime-benchmarks = [
+	"dep:pallet-nft-delegation",
+	"pallet-nft-delegation?/runtime-benchmarks",
+	"sdk/pallet-balances",
+	"sdk/runtime-benchmarks",
+	"utils/runtime-benchmarks",
+]
+try-runtime = [ "pallet-nft-delegation?/try-runtime", "sdk/try-runtime" ]

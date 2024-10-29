@@ -8083,6 +8083,7 @@ name = "pallet-nft-staking"
 version = "0.1.0"
 dependencies = [
  "log",
+ "pallet-nft-delegation",
  "parity-scale-codec",
  "polkadot-sdk",
  "rstest",

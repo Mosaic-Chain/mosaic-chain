@@ -426,6 +426,8 @@ impl pallet_nft_staking::Config for Runtime {
 	type ContributionPercentage = params::dynamic::nft_staking::ContributionPercentage;
 	type ContributionDestination = Treasury;
 	type OnReward = ();
+
+	type WeightInfo = pallet_nft_staking::weights::SubstrateWeight<Self>;
 }
 
 parameter_types! {
@@ -1016,6 +1018,7 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_nft_delegation, NftDelegation]
 		[pallet_nft_permission, NftPermission]
+		[pallet_nft_staking, NftStaking]
 		[pallet_assets, Assets]
 		[pallet_proxy, Proxy]
 		[pallet_identity, Identity]

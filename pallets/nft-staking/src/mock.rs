@@ -137,6 +137,7 @@ impl pallet_nft_staking::Config for Test {
 	type OffenderToValidatorId = ConvertInto;
 	type ContributionPercentage = ContributionPercentage;
 	type ContributionDestination = ();
+	type WeightInfo = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -22,7 +22,7 @@
     --unsafe-rpc-external \
     --rpc-port $((9945 +i)) \
     --node-key 000000000000000000000000000000000000000000000000000000000000000$((1 + i)) \
-    --bootnodes "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp" \
+    --bootnodes "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWGFhZSneisbreKzZGqcJeirPX6HtYTgqrdYnjoBDJgyNR" \
     --validator \
     --execution wasm \
     --rpc-methods=Unsafe \

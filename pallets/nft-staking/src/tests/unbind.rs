@@ -11,7 +11,7 @@ fn unbind_is_successful(mut ext: TestExternalities, permission: PermissionType) 
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin.clone());
+		let res = Staking::unbind_validator(validator.origin.clone(), 1);
 		assert_ok!(res, ());
 
 		assert!(Validators::<Test>::get(validator.account_id).is_none());
@@ -54,7 +54,7 @@ fn not_binding_contracts_kicked(mut ext: TestExternalities) {
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin);
+		let res = Staking::unbind_validator(validator.origin, 2);
 		assert_ok!(res, ());
 
 		assert!(!TotalValidatorStakes::<Test>::get(validator.account_id).exists());
@@ -89,7 +89,7 @@ fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let origin = origin(0);
 
-		let res = Staking::unbind_validator(origin);
+		let res = Staking::unbind_validator(origin, 1);
 		assert_noop!(res, Error::<Test>::NotBound);
 	});
 }
@@ -102,7 +102,7 @@ fn not_chilled(mut ext: TestExternalities, permission: PermissionType) {
 		skip_min_staking_period();
 		next_session();
 
-		let res = Staking::unbind_validator(validator.origin);
+		let res = Staking::unbind_validator(validator.origin, 1);
 		assert_noop!(res, Error::<Test>::CallerIsNotChilled);
 	});
 }
@@ -117,7 +117,7 @@ fn self_contract_is_binding(mut ext: TestExternalities, permission: PermissionTy
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin);
+		let res = Staking::unbind_validator(validator.origin, 1);
 		assert_noop!(res, Error::<Test>::BindingContractExists);
 	});
 }
@@ -143,7 +143,7 @@ fn binding_contract_exists(mut ext: TestExternalities) {
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin);
+		let res = Staking::unbind_validator(validator.origin, 2);
 		assert_noop!(res, Error::<Test>::BindingContractExists);
 	});
 }
@@ -161,7 +161,7 @@ fn drafted(mut ext: TestExternalities, permission: PermissionType) {
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin);
+		let res = Staking::unbind_validator(validator.origin, 1);
 		assert_err!(res, Error::<Test>::ValidatorAlreadySelected);
 	});
 }

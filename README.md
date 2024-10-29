@@ -28,6 +28,7 @@
 Install the following dependencies from your preferred package manager:
 
 For compilation / testing:
+
 - `rust` (`rustup`)
 - `clang` / `libclang`
 - `pkg-config`
@@ -37,6 +38,7 @@ For compilation / testing:
 - `zepter` (<https://github.com/ggwpez/zepter>)
 
 For packaging:
+
 - `git-cliff`
 - `toml-cli`
 - `cargo-deb`
@@ -91,7 +93,6 @@ After you build the project, you can use the following command to explore its pa
 ```sh
 ./target/release/mosaic-testnet-solo -h
 ```
-
 
 ### Single-Node development chain
 
@@ -218,6 +219,7 @@ We also had to fork and modify some FRAME pallets:
 ### Preparing and running a solochain testnet
 
 To set up our solochain we generally need to agree upon a few things:
+
 - The chain specification with runtime and genesis state
 - Who are the bootnodes
 
@@ -286,13 +288,14 @@ mosaic-testnet-solo --chain <chainspec> --name <node name> --base-path <basepath
 5. start other nodes: same as starting the bootnode but additionally provide the boot multiaddr: `--bootnodes /ip4/<ip>/tcp/<p2p port>/p2p/<node id>`
 
 NOTES:
-  - `<node name>` in this case is one of: Alice, Bob, Charlie, Dave, Eve, Ferdie.
-  - `<basepath>` should be unique to each node
-  - `<pruning mode>` should be `archive` for our nodes and `archive-canonical` for the validator nodes
-    - `archive` keeps all state forever
-    - `archive-canonical` only keeps data of finalized blocks 
-  - if listening on an address that belongs to a VPN add these extra args: `--allow-private-ip --discover-local --no-mdns`
-  - further options can be found with `mosaic-testnet-solo --help` for example ones related to rpc availability.
+
+- `<node name>` in this case is one of: Alice, Bob, Charlie, Dave, Eve, Ferdie.
+- `<basepath>` should be unique to each node
+- `<pruning mode>` should be `archive` for our nodes and `archive-canonical` for the validator nodes
+  - `archive` keeps all state forever
+  - `archive-canonical` only keeps data of finalized blocks
+- if listening on an address that belongs to a VPN add these extra args: `--allow-private-ip --discover-local --no-mdns`
+- further options can be found with `mosaic-testnet-solo --help` for example ones related to rpc availability.
 
 #### Scenario 2: real accounts spread accross different servers
 
@@ -314,29 +317,29 @@ the deployer has access to these secrets (suri) in form of files for each node's
 1. generate chainspec as seen above and copy it to all machines
 2. for each node, insert session keys into the node's local keystore:
 
-```sh
-mosaic-testnet-solo key insert --chain <chainspec> --base-path <basepath> --scheme <scheme> --key-type <key type> --suri <suri file>
-```
+  ```sh
+  mosaic-testnet-solo key insert --chain <chainspec> --base-path <basepath> --scheme <scheme> --key-type <key type> --suri <suri file>
+  ```
 
-| Key Type | Scheme  |
-|----------|---------|
-| aura     | sr25519 |
-| imon     | sr25519 |
-| gran     | ed25519 |
+  | Key Type | Scheme  |
+  |----------|---------|
+  | aura     | sr25519 |
+  | imon     | sr25519 |
+  | gran     | ed25519 |
 
-NOTES: 
-- when definding these keys in the chainspec (currently manually in `runtime-generator`'s source)
-we can use `mosaic-testnet-solo key generate` to do so.
-- currently only the solochain node has functionality related to key handling, parachain node needs to be updated.
+  NOTES:
+
+  - when definding these keys in the chainspec (currently manually in `runtime-generator`'s source) we can use `mosaic-testnet-solo key generate` to do so.
+  - currently only the solochain node has functionality related to key handling, parachain node needs to be updated.
 
 3. follow steps from `Scenario 1`, but **DO NOT** use dev account names as node names!
 
 #### Useful links
 
-- https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot
-- https://docs.substrate.io/deploy/keys-and-network-operations/
-- https://multiformats.io/multiaddr/
-- https://docs.libp2p.io/concepts/fundamentals/addressing/
+- <https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot>
+- <https://docs.substrate.io/deploy/keys-and-network-operations/>
+- <https://multiformats.io/multiaddr/>
+- <https://docs.libp2p.io/concepts/fundamentals/addressing/>
 
 ## Parachain
 
@@ -355,7 +358,7 @@ This will take a while, feel free to read some links from the end of this docume
 After that, run the benchmarks for all pallets:
 
 ```sh
-scripts/benchmarks.sh
+scripts/benchmark.sh
 ```
 
 If you add a new pallet that needs benchmarking, you need to add them to the `define_benchmarks!` macro call at the end of the

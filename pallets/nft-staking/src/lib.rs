@@ -2,24 +2,20 @@
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect)]
 
-pub use impls::{SelectableValidators, SlashableValidators};
-/// Mosaic's very own staking pallet
-/// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.
-/// # Missing features:
-///   - benchmarks
-pub use pallet::*;
-pub use types::PermissionType;
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+pub mod weights;
 
 mod impls;
 mod reward;
 mod slash;
 mod types;
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-mod mock;
 
 use sdk::{
 	frame_support, frame_system, pallet_offences, pallet_session, sp_runtime, sp_staking, sp_std,
@@ -54,7 +50,14 @@ use types::{
 };
 use utils::traits::{NftDelegation, NftStaking};
 
-#[frame_support::pallet(dev_mode)]
+pub use impls::{SelectableValidators, SlashableValidators};
+/// Mosaic's very own staking pallet
+/// Note: functions might have an (immediate) or a (staged) qualifier to signify when the change is going to occur.
+pub use pallet::*;
+pub use types::PermissionType;
+pub use weights::WeightInfo;
+
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -85,7 +88,7 @@ pub mod pallet {
 			+ From<u128>
 			+ Saturating;
 
-		type ItemId: Parameter;
+		type ItemId: Parameter + MaxEncodedLen;
 
 		type Fungible: Inspect<Self::AccountId, Balance = Self::Balance>
 			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
@@ -128,6 +131,9 @@ pub mod pallet {
 
 		/// Where the contribution part of distributed reward goes
 		type ContributionDestination: OnUnbalanced<Credit<Self::AccountId, Self::Fungible>>;
+
+		/// Type representing the weights of calls in this pallet
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::composite_enum]
@@ -262,6 +268,7 @@ pub mod pallet {
 		NftNotBound,
 		ValidatorAlreadySelected,
 		BindingContractExists,
+		MoreContractsExist,
 		TargetNotDPoS,
 		CallerNotDPoS,
 		InvalidCaller,
@@ -729,6 +736,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::bind_validator())]
 		pub fn bind_validator(origin: OriginFor<T>, item_id: T::ItemId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(!Validators::<T>::contains_key(&caller), Error::<T>::AlreadyBound);
@@ -770,7 +778,8 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		pub fn unbind_validator(origin: OriginFor<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::unbind_validator(*contract_count))]
+		pub fn unbind_validator(origin: OriginFor<T>, contract_count: u32) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
 			ensure!(Self::is_chilled(&caller), Error::<T>::CallerIsNotChilled);
@@ -787,10 +796,18 @@ pub mod pallet {
 
 			let session = SessionPallet::<T>::current_index();
 
-			let contracts =
-				Contracts::<T>::drain_prefix(&caller).filter_map(|(contractee, contract)| {
+			let contracts = Contracts::<T>::drain_prefix(&caller)
+				.filter_map(|(contractee, contract)| {
 					contract.current().map(|c| (contractee, c.clone()))
-				});
+				})
+				.collect::<SpVec<_>>();
+			ensure!(
+				contracts.len()
+					<= contract_count
+						.try_into()
+						.expect("Number of contracts always fits into a usize"),
+				Error::<T>::MoreContractsExist
+			);
 
 			// Note: this includes the self-contract as well
 			for (contractee, contract) in contracts {
@@ -826,6 +843,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
+		#[pallet::weight(<T as Config>::WeightInfo::enable_delegations())]
 		pub fn enable_delegations(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -847,6 +865,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
+		#[pallet::weight(<T as Config>::WeightInfo::disable_delegations())]
 		pub fn disable_delegations(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -868,6 +887,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(4)]
+		#[pallet::weight(<T as Config>::WeightInfo::chill_validator())]
 		pub fn chill_validator(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ValidatorStates::<T>::mutate(&caller, |validator_state| {
@@ -882,6 +902,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config>::WeightInfo::unchill_validator())]
 		pub fn unchill_validator(origin: OriginFor<T>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -908,6 +929,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(6)]
+		#[pallet::weight(<T as Config>::WeightInfo::self_stake_currency())]
 		pub fn self_stake_currency(origin: OriginFor<T>, amount: T::Balance) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -926,6 +948,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(7)]
+		#[pallet::weight(<T as Config>::WeightInfo::self_stake_nft())]
 		pub fn self_stake_nft(origin: OriginFor<T>, item_id: T::ItemId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -944,6 +967,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(8)]
+		#[pallet::weight(<T as Config>::WeightInfo::self_unstake_currency())]
 		pub fn self_unstake_currency(origin: OriginFor<T>, amount: T::Balance) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
@@ -960,6 +984,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::self_unstake_nft())]
 		pub fn self_unstake_nft(origin: OriginFor<T>, item_id: T::ItemId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -978,6 +1003,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::delegate_currency())]
 		pub fn delegate_currency(
 			origin: OriginFor<T>,
 			amount: T::Balance,
@@ -1014,6 +1040,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::delegate_nft())]
 		pub fn delegate_nft(
 			origin: OriginFor<T>,
 			item_id: T::ItemId,
@@ -1050,6 +1077,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(12)]
+		#[pallet::weight(<T as Config>::WeightInfo::undelegate_currency())]
 		pub fn undelegate_currency(
 			origin: OriginFor<T>,
 			amount: T::Balance,
@@ -1073,6 +1101,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::undelegate_nft())]
 		pub fn undelegate_nft(
 			origin: OriginFor<T>,
 			item_id: T::ItemId,
@@ -1099,6 +1128,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(14)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_minium_staking_period())]
 		pub fn set_minium_staking_period(
 			origin: OriginFor<T>,
 			new_min_period: u32,
@@ -1131,6 +1161,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(15)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_commission())]
 		pub fn set_commission(origin: OriginFor<T>, new_commission: Perbill) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -1160,6 +1191,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(16)]
+		#[pallet::weight(<T as Config>::WeightInfo::kick())]
 		pub fn kick(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			ensure!(caller != target, Error::<T>::InvalidCaller);
@@ -1201,6 +1233,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(17)]
+		#[pallet::weight(<T as Config>::WeightInfo::topup())]
 		pub fn topup(
 			origin: OriginFor<T>,
 			item_id: T::ItemId,

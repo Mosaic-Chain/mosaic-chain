@@ -19,22 +19,24 @@ use sp_runtime::{
 
 use super::Config;
 
+pub const MAX_NFTS_PER_CONTRACT: u32 = 5;
+
 /// Adds a "staging" overlay to a value.
 /// Useful when managing the transition between a last "stable" or "active" state
 /// and a potential new state applied in the next period, providing incremental updates.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, Copy, Clone)]
-pub struct Staging<T> {
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, Copy, Clone, MaxEncodedLen)]
+pub struct Staging<T: MaxEncodedLen> {
 	staged: Option<T>,
 	committed: Option<T>,
 }
 
-impl<T> Default for Staging<T> {
+impl<T: MaxEncodedLen> Default for Staging<T> {
 	fn default() -> Self {
 		Self { staged: None, committed: None }
 	}
 }
 
-impl<T> Staging<T> {
+impl<T: MaxEncodedLen> Staging<T> {
 	/// Creates a new `Staging` instance with a committed value and no staged value.
 	pub fn new(value: T) -> Self {
 		Self { staged: None, committed: Some(value) }
@@ -84,10 +86,7 @@ impl<T> Staging<T> {
 	}
 }
 
-impl<T> Staging<T>
-where
-	T: Clone,
-{
+impl<T: Clone + MaxEncodedLen> Staging<T> {
 	/// Usueful when we wish to mutate an existing value and also stage it.
 	pub fn ensure_staging_mut(&mut self) -> Option<&mut T> {
 		if self.staged.is_none() {
@@ -122,10 +121,12 @@ pub enum PermissionType {
 	DPoS,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+)]
 pub struct Stake<Balance, ItemId> {
 	pub currency: Balance,
-	pub delegated_nfts: BoundedVec<(ItemId, Balance), ConstU32<5>>,
+	pub delegated_nfts: BoundedVec<(ItemId, Balance), ConstU32<MAX_NFTS_PER_CONTRACT>>,
 	pub permission_nft: Option<Balance>,
 }
 
@@ -163,13 +164,13 @@ impl<Balance: Default + Codec, ItemId: Codec> Default for Stake<Balance, ItemId>
 	}
 }
 
-#[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Default, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct TotalValidatorStake<Balance> {
 	pub total_stake: Balance,
 	pub contract_count: u32,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum ValidatorDetails {
 	PoS,
 	DPoS { commission: Perbill, min_staking_period: u32, accept_delegations: bool },
@@ -200,7 +201,7 @@ impl ValidatorDetails {
 	}
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Contract<Balance, ItemId> {
 	pub stake: Stake<Balance, ItemId>,
 	pub commission: Perbill,
@@ -220,7 +221,7 @@ impl<Balance: Default + Codec, ItemId: Codec> Default for Contract<Balance, Item
 	}
 }
 
-#[derive(Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum ValidatorState {
 	/// No issue with the validator
 	Normal,
@@ -230,7 +231,7 @@ pub enum ValidatorState {
 	Chilled(SessionIndex),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum ChillReason {
 	/// The validator chose to chill a bit
 	Manual,
@@ -240,7 +241,7 @@ pub enum ChillReason {
 	Disqualified,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum KickReason {
 	/// The validator chose to kick the staker
 	Manual,
