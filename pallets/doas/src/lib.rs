@@ -2,6 +2,12 @@
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect)]
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 use sdk::sp_runtime::traits::StaticLookup;
 use sdk::sp_std::prelude::*;
 
@@ -52,6 +58,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
+		#[pallet::weight((*weight, call.get_dispatch_info().class))]
 		pub fn doas_root_unchecked_weight(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
