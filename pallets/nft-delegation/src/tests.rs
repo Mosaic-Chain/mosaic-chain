@@ -2,7 +2,8 @@ use sdk::{
 	frame_support::{assert_noop, assert_ok},
 	frame_system::RawOrigin,
 	pallet_nfts::Error as NftsError,
-	sp_runtime::DispatchError,
+	sp_runtime::{BoundedVec, DispatchError},
+	sp_std::vec,
 };
 
 use utils::{
@@ -263,7 +264,10 @@ fn expiration_works() {
 			}
 
 			if session > 0 {
-				System::assert_has_event(Event::TokensExpired { items: vec![session - 1] }.into());
+				System::assert_has_event(
+					Event::TokensExpired { items: BoundedVec::truncate_from(vec![session - 1]) }
+						.into(),
+				);
 				assert_ok!(
 					NftDelegation::status_of(&(session - 1)),
 					Status::Expired { expired_on: session }

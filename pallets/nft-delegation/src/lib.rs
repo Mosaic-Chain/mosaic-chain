@@ -35,7 +35,7 @@ pub mod weights;
 
 use sdk::{frame_support, frame_system, pallet_nfts, sp_runtime, sp_std};
 
-use sp_std::vec::Vec as SpVec;
+use sp_std::{vec, vec::Vec as SpVec};
 
 use codec::Codec;
 use frame_support::{
@@ -61,7 +61,7 @@ use utils::{
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -78,6 +78,10 @@ pub mod pallet {
 		/// The id of the pallet from witch the collection owner's address is derived.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		/// The number of delegation NFTs allowed to expire in a single session.
+		#[pallet::constant]
+		type MaxExpirationsPerSession: Get<u32>;
 
 		/// The current session index
 		type CurrentSession: Get<SessionIndex>;
@@ -131,8 +135,12 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, <T as NftsConfig>::ItemId, T::BindMetadata>;
 
 	#[pallet::storage]
-	pub type ExpiryCache<T: Config> =
-		StorageMap<_, Twox64Concat, SessionIndex, SpVec<<T as NftsConfig>::ItemId>>;
+	pub type ExpiryCache<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		SessionIndex,
+		BoundedVec<<T as NftsConfig>::ItemId, T::MaxExpirationsPerSession>,
+	>;
 
 	// TODO: More useful events (more data)
 	#[pallet::event]
@@ -148,7 +156,7 @@ pub mod pallet {
 		TokenUnbound { item_id: <T as NftsConfig>::ItemId },
 
 		/// A set of token has been expired
-		TokensExpired { items: SpVec<<T as NftsConfig>::ItemId> },
+		TokensExpired { items: BoundedVec<<T as NftsConfig>::ItemId, T::MaxExpirationsPerSession> },
 	}
 
 	#[derive(Debug, Clone, Copy, PartialEq, Eq, TypeInfo, Encode, Decode, MaxEncodedLen)]
@@ -188,6 +196,7 @@ pub mod pallet {
 		AlreadyBound,
 		NotBound,
 		Expired,
+		TooManyExpirationsPerSession,
 	}
 
 	#[pallet::genesis_config]
@@ -349,13 +358,23 @@ pub mod pallet {
 			BoundItems::<T>::get(item_id).is_some()
 		}
 
-		fn cache_expiration(item_id: &<T as NftsConfig>::ItemId, expiration: SessionIndex) {
-			ExpiryCache::<T>::mutate(expiration, |itms| match itms {
-				Some(v) => v.push(*item_id),
-				None => {
-					*itms = Some([*item_id].to_vec());
-				},
-			});
+		fn cache_expiration(
+			item_id: &<T as NftsConfig>::ItemId,
+			expiration: SessionIndex,
+		) -> Result<(), DispatchError> {
+			ExpiryCache::<T>::try_mutate(expiration, |items| -> Result<(), DispatchError> {
+				match items {
+					Some(v) => v
+						.try_push(*item_id)
+						.map_err(|_| Error::<T>::TooManyExpirationsPerSession)?,
+					None => {
+						*items = Some(
+							BoundedVec::try_from(vec![*item_id]).expect("A single item must fit"),
+						);
+					},
+				}
+				Ok(())
+			})
 		}
 
 		fn encode_nominal_value(
@@ -516,7 +535,7 @@ pub mod pallet {
 			let expires_on = match Self::decode_status(&collection_id, item_id)? {
 				Status::Inactive { expiration } => {
 					let expires_on = T::CurrentSession::get() + expiration;
-					Self::cache_expiration(item_id, expires_on);
+					Self::cache_expiration(item_id, expires_on)?;
 					Self::encode_status(&collection_id, item_id, Status::Active { expires_on })?;
 
 					expires_on

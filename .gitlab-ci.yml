@@ -1,7 +1,7 @@
 variables:
   GIT_STRATEGY: fetch
   GIT_DEPTH: 0
-  GIT_FETCH_EXTRA_ARGS: "--tags --prune --quite"
+  GIT_FETCH_EXTRA_ARGS: "--tags --prune --quiet"
 
 stages:
   - test

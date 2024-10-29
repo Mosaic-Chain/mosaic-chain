@@ -73,7 +73,7 @@ use sp_std::vec::Vec as SpVec;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-#[frame_support::pallet()]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 

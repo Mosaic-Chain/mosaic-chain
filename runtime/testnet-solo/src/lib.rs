@@ -851,9 +851,14 @@ impl sp_core::Get<SessionIndex> for CurrentSession {
 	}
 }
 
+parameter_types! {
+	pub const MaxDelegationNftExpirationsPerSession: u32 = 16;
+}
+
 impl pallet_nft_delegation::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = NftDelegationPalletId;
+	type MaxExpirationsPerSession = MaxDelegationNftExpirationsPerSession;
 	type CurrentSession = CurrentSession;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Balance = Balance;

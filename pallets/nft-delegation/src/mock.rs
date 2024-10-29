@@ -196,6 +196,7 @@ impl nft_delegation::Config for Test {
 	type Balance = u64;
 	type BindMetadata = AccountId;
 	type WeightInfo = nft_delegation::weights::SubstrateWeight<Test>;
+	type MaxExpirationsPerSession = ConstU32<16>;
 }
 
 pub fn account(id: u8) -> AccountId {
