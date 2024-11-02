@@ -12150,7 +12150,6 @@ dependencies = [
  "pallet-im-online 27.0.0",
  "pallet-nft-permission",
  "pallet-nft-staking",
- "pallet-validator-subset-selection",
  "parachain-template-runtime",
  "polkadot-sdk",
  "serde",

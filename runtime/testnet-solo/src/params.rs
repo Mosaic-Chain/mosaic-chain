@@ -427,6 +427,21 @@ pub mod dynamic {
 		pub static FeePaymentRatio: PaymentRatio =
 			PaymentRatio { validator: 50, treasury: 10, burn: 40 };
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 21)]
+	// With these settings an average session is between 55m and 1h05m
+	// A validator is roughly selected 17 times a week given 2000 active validators.
+	pub mod validator_subset_selection {
+		/// The desired mean subset size to be selected.
+		#[codec(index = 0)]
+		pub static SubsetSize: u64 = prod_or_fast!(200, 3);
+
+		/// The minimum length of a session.
+		/// A session's maximum length is `MinSessionLength + SubsetSize - 1`
+		#[codec(index = 1)]
+		pub static MinSessionLength: BlockNumber = prod_or_fast!(45 * MINUTES, MINUTES);
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

@@ -1,19 +1,18 @@
 // construct_runtime! macro creates some non-camel-case type names.
 #![allow(non_camel_case_types)]
 
-use core::marker::PhantomData;
+use sdk::{frame_support, frame_system, pallet_session, sp_core, sp_io, sp_runtime};
 
-use sdk::{
-	frame_support, frame_system, pallet_balances, pallet_session, sp_application_crypto, sp_core,
-	sp_io, sp_runtime,
+use frame_support::{
+	derive_impl,
+	pallet_prelude::ValueQuery,
+	storage::types::StorageValue,
+	traits::{ConstU64, Randomness, ValidatorSet},
 };
-
-use frame_support::traits::{ConstU16, ConstU64, Randomness, ValidatorSet};
-use sp_application_crypto::RuntimeAppPublic;
-use sp_core::{Hasher, H256};
+use sp_core::Hasher;
 use sp_runtime::{
-	traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify, Zero},
-	BuildStorage, MultiSignature,
+	traits::{BlakeTwo256, ConvertInto, Get, Zero},
+	BuildStorage, RuntimeAppPublic,
 };
 
 use utils::SessionIndex;
@@ -30,54 +29,63 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub type Signature = MultiSignature;
-pub type AccountPublic = <Signature as Verify>::Signer;
-pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
+pub type AccountId = <Test as frame_system::Config>::AccountId;
 
+pub struct Superset;
+impl frame_support::traits::StorageInstance for Superset {
+	fn pallet_prefix() -> &'static str {
+		"NoPallet"
+	}
+
+	const STORAGE_PREFIX: &'static str = "Superset";
+}
+
+pub type SupersetStorage = StorageValue<Superset, Vec<AccountId>, ValueQuery>;
+
+impl ValidatorSet<AccountId> for Superset {
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = ConvertInto;
+
+	fn session_index() -> SessionIndex {
+		Session::current_index()
+	}
+
+	fn validators() -> Vec<Self::ValidatorId> {
+		SupersetStorage::get()
+	}
+}
+
+pub struct SubsetSize;
+impl frame_support::traits::StorageInstance for SubsetSize {
+	fn pallet_prefix() -> &'static str {
+		"NoPallet"
+	}
+
+	const STORAGE_PREFIX: &'static str = "SubsetSize";
+}
+
+pub type SubsetSizeStorage = StorageValue<SubsetSize, u64, ValueQuery>;
+
+impl Get<u64> for SubsetSize {
+	fn get() -> u64 {
+		SubsetSizeStorage::get()
+	}
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type RuntimeTask = ();
-	type SingleBlockMigrations = ();
-	type MultiBlockMigrator = ();
-	type PreInherents = ();
-	type PostInherents = ();
-	type PostTransactions = ();
 }
 
 pub struct MockSessionHandler;
 impl pallet_session::SessionHandler<AccountId> for MockSessionHandler {
 	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] =
 		&[sp_runtime::testing::UintAuthorityId::ID];
-	fn on_genesis_session<T: sp_runtime::traits::OpaqueKeys>(
-		_validators: &[(sp_runtime::AccountId32, T)],
-	) {
-	}
+	fn on_genesis_session<T: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, T)]) {}
 	fn on_new_session<T: sp_runtime::traits::OpaqueKeys>(
 		_changed: bool,
-		_validators: &[(sp_runtime::AccountId32, T)],
-		_queued_validators: &[(sp_runtime::AccountId32, T)],
+		_validators: &[(AccountId, T)],
+		_queued_validators: &[(AccountId, T)],
 	) {
 	}
 	fn on_disabled(_validator_index: u32) {}
@@ -114,52 +122,24 @@ impl<BlockNumber: Zero> Randomness<sp_core::H256, BlockNumber> for MockRandomGen
 	}
 }
 
-pub fn account(id: u64) -> AccountId {
-	let id_as_bytes = id.to_ne_bytes();
-	let zeros: [u8; 24] = [0; 24];
-	let ret: [u8; 32] = [&id_as_bytes[..], &zeros[..]].concat().try_into().unwrap();
-
-	ret.into()
-}
-
-const SUPERSET_SIZE: u64 = 1000;
-
-impl ValidatorSet<AccountId> for Test {
-	type ValidatorId = AccountId;
-	type ValidatorIdOf = ConvertInto;
-
-	fn session_index() -> SessionIndex {
-		Session::current_index()
-	}
-
-	fn validators() -> Vec<Self::ValidatorId> {
-		(0..SUPERSET_SIZE).map(account).collect()
-	}
-}
-
 impl pallet_validator_subset_selection::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type ValidatorSuperset = Self;
+	type ValidatorSuperset = Superset;
+	type SubsetSize = SubsetSize;
 	type SessionHook = ();
 	type Randomness = MockRandomGenerator;
-	type MinSessionLength = ConstU64<1>;
+	type MinSessionLength = ConstU64<450>; // 45 minutes
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-
-	pallet_validator_subset_selection::GenesisConfig::<Test> {
-		initial_subset_size: 250,
-		_phantom: PhantomData,
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-
+pub fn new_test_ext(superset_size: u64, subset_size: u64) -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 
 	ext.execute_with(|| {
 		System::set_block_number(1);
+		SupersetStorage::put((0..superset_size).collect::<Vec<_>>());
+		SubsetSizeStorage::put(subset_size);
 	});
 
 	ext

@@ -8,7 +8,7 @@ edition = "2021"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sdk = { workspace = true, features = ["frame-support", "frame-support", "sp-runtime", "sp-application-crypto", "sp-std", "pallet-session"] }
+sdk = { workspace = true, features = ["frame-support", "frame-system", "sp-runtime", "sp-std", "pallet-session"] }
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 

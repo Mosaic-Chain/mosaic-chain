@@ -29,19 +29,15 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
+use sdk::{frame_support, frame_system, pallet_session, sp_runtime, sp_std};
 
-use sdk::{frame_support, frame_system, pallet_session, sp_application_crypto, sp_runtime, sp_std};
-
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::prelude::*;
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::{BuildGenesisConfig, Randomness, ValidatorSet},
+	traits::{Randomness, ValidatorSet},
 };
-use frame_system::pallet_prelude::{ensure_root, BlockNumberFor, OriginFor};
-use sp_application_crypto::Ss58Codec;
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{Hash, One, Zero},
 	FixedI64, PerThing,
@@ -65,9 +61,10 @@ pub mod pallet {
 	pub trait Config: sdk::frame_system::Config {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-		type ValidatorId: Member + Parameter + Ss58Codec;
+		type ValidatorId: Member + Parameter;
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 		type ValidatorSuperset: ValidatorSet<Self::ValidatorId, ValidatorId = Self::ValidatorId>;
+		type SubsetSize: Get<u64>;
 
 		#[pallet::constant]
 		type MinSessionLength: Get<BlockNumberFor<Self>>;
@@ -85,16 +82,11 @@ pub mod pallet {
 			session_end: BlockNumberFor<T>,
 			session_index: SessionIndex,
 		},
-		SubsetSizeChanged(u64),
 	}
 
 	///Helper value for generating unique random numbers
 	#[pallet::storage]
 	pub type Nonce<T: Config> = StorageValue<_, u64>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn subset_size)]
-	pub type SubsetSize<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn buckets)]
@@ -117,30 +109,10 @@ pub mod pallet {
 	#[pallet::getter(fn avg_session_length)]
 	pub type AvgSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-	#[pallet::genesis_config]
-	pub struct GenesisConfig<T> {
-		pub initial_subset_size: u64,
-		#[serde(skip)]
-		pub _phantom: PhantomData<T>,
-	}
-
-	impl<T: Config> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			Self { initial_subset_size: 250, _phantom: PhantomData }
-		}
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			SubsetSize::<T>::put(self.initial_subset_size);
-		}
-	}
-
 	impl<T: Config> Pallet<T> {
 		/// Select a subset of the validators for the next session with the two buckets algorithm
 		pub(super) fn select_subset(validators: Vec<T::ValidatorId>) -> Vec<T::ValidatorId> {
-			let subset_size = Self::subset_size();
+			let subset_size = T::SubsetSize::get().max(1);
 
 			if (validators.len() as u64) < subset_size {
 				Self::deposit_event(Event::FewerValidatorsThanSubset);
@@ -261,52 +233,38 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		///Change the subset size to a new value
-		#[pallet::call_index(0)]
-		pub fn change_subset_size(origin: OriginFor<T>, new_subset_size: u64) -> DispatchResult {
-			ensure_root(origin)?;
-
-			SubsetSize::<T>::put(new_subset_size);
-
-			Self::deposit_event(Event::SubsetSizeChanged(new_subset_size));
-
-			Ok(())
-		}
-	}
-
 	impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 		fn new_session_genesis(session_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
+			T::SessionHook::session_genesis(session_index).expect("session hook ran successfully");
+
 			if session_index == 0 {
-				T::SessionHook::session_genesis(session_index)
-					.expect("session hook ran successfully");
+				let subset = Self::select_subset(T::ValidatorSuperset::validators());
 
-				let superset = T::ValidatorSuperset::validators();
-				let subset_size = Self::subset_size() as usize;
-				let selected_subset = if superset.len() > subset_size {
-					superset[0..subset_size].to_owned()
-				} else {
-					superset
-				};
-				let current_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
-				let new_session_start = Zero::zero();
-				let new_session_end = Self::session_length(current_subset_size);
+				// NOTE: this should usually not happen outside of tests
+				// as it means the runtime is misconfigured.
+				// eg.: wrong pallet initialization order or bad genesis.
+				if subset.is_empty() {
+					return None;
+				}
 
-				CurrentSessionLength::<T>::put(new_session_end);
-				CurrentSessionEnd::<T>::put(new_session_end);
+				let end = Self::session_length((subset.len() as u32).into());
+
+				// We include the genesis block in session 0 as well although it's not associated with one particular validator.
+				let len = end + One::one();
+
+				CurrentSessionLength::<T>::put(len);
+				AvgSessionLength::<T>::put(len);
+				CurrentSessionEnd::<T>::put(end);
 
 				Self::deposit_event(Event::SubsetSelected {
-					validator_subset: selected_subset.clone(),
-					session_start: new_session_start,
-					session_end: new_session_end,
+					validator_subset: subset.clone(),
+					session_start: Zero::zero(),
+					session_end: end,
 					session_index,
 				});
 
-				Some(selected_subset)
+				Some(subset)
 			} else {
-				assert!(session_index == 1);
-
 				Self::new_session(session_index)
 			}
 		}
@@ -331,10 +289,20 @@ pub mod pallet {
 			T::SessionHook::session_planned(session_index).expect("session hook ran successfully");
 
 			let selected_subset = Self::select_subset(T::ValidatorSuperset::validators());
+
+			// TODO: a better strategy to handle this case
+			// problem: the runtime might assume that a validator is only selected
+			// iff it's present in the superset.
+			// This error however occurs when the superset is empty.
+			// Returning `None` here violates the assumption.
+			if selected_subset.is_empty() {
+				return None;
+			}
+
 			let new_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
 			let new_session_length = Self::session_length(new_subset_size);
-			let current_session_end: BlockNumberFor<T> = Self::current_session_end();
-			let new_session_end: BlockNumberFor<T> = current_session_end + new_session_length;
+			let new_session_end: BlockNumberFor<T> =
+				Self::current_session_end() + new_session_length;
 
 			NextSessionEnd::<T>::put(new_session_end);
 
@@ -344,8 +312,8 @@ pub mod pallet {
 
 			Self::deposit_event(Event::SubsetSelected {
 				validator_subset: selected_subset.clone(),
-				session_start: current_session_end + One::one(),
-				session_end: new_session_end,
+				session_start: Self::current_session_end() + One::one(),
+				session_end: Self::next_session_end(),
 				session_index,
 			});
 

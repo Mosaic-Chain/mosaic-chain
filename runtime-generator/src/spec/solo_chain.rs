@@ -93,7 +93,6 @@ fn base_local_config(code: &[u8]) -> anyhow::Result<Box<dyn sc_service::ChainSpe
 			members
 		},
 		testnet_accounts(),
-		3,
 		public_from_seed::<sr25519::Public>("MintingAuthority"),
 	)?;
 
@@ -126,7 +125,6 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 			.collect(),
 		mainnet_accounts(), // TODO: this will need to be changed to our accounts
 		mainnet_accounts(),
-		250,
 		hex!("46316f768cadc4c82d2e4fefe240dad63ccc6a9267eb5669ce85907742c3cf35").into(),
 	)?;
 
@@ -157,7 +155,6 @@ fn genesis(
 	initial_permission_holders: Vec<(AccountId, PermissionType, bool, Balance)>,
 	council_members: Vec<AccountId>,
 	endowed_accounts: Vec<AccountId>,
-	initial_subset_size: u64,
 	minting_authority: sr25519::Public,
 ) -> anyhow::Result<serde_json::Value> {
 	let endowed = endowed_accounts.into_iter().map(|k| (k, 100 * MOSAIC));
@@ -204,18 +201,12 @@ fn genesis(
 			.collect(),
 	};
 
-	let validator_subset_selection = pallet_validator_subset_selection::GenesisConfig {
-		initial_subset_size,
-		_phantom: PhantomData,
-	};
-
 	let airdrop = pallet_airdrop::GenesisConfig { minting_authority, _phantom: PhantomData };
 
 	let genesis_config = RuntimeGenesisConfig {
 		balances,
 		nft_permission,
 		nft_staking,
-		validator_subset_selection,
 		session,
 		airdrop,
 		council_membership: membership_config(&council_members),

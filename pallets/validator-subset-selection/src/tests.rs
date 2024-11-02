@@ -1,100 +1,78 @@
 use std::collections::HashMap;
 
 use sdk::{
-	frame_support::{assert_err, assert_ok, traits::ValidatorSet},
-	frame_system::RawOrigin,
+	frame_support::traits::ValidatorSet,
 	pallet_session::SessionManager,
-	sp_runtime::{AccountId32, DispatchError},
+	sp_runtime::{traits::Zero, FixedI64},
 };
 
-use crate::{mock::*, Event};
+use crate::{mock::*, DoubleBucketMap, Event};
 
 #[test]
 fn select_subset_statistics() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(2000, 200).execute_with(|| {
 		let mut validator_selection_counts: HashMap<AccountId, u32> = HashMap::new();
-		let superset = <Test as ValidatorSet<AccountId>>::validators();
+		let mut sum_session_len = 0;
 
-		// (7 * 24* 60 * 60) / (12s * ~250 block)
-		let n_rounds = 200; //Approximately one week
+		let superset = Superset::validators();
+		let n_rounds = 168; // Approximately one week (1h session, 6s block time)
 
 		for _ in 0..n_rounds {
 			let subset = ValidatorSubsetSelection::select_subset(superset.clone());
 			let size = subset.len();
 
-			// Why 100?
-			assert!(size.abs_diff(250) <= 100, "subset size is out of expected range");
+			assert!((135..=265).contains(&size), "subset size of {size} is out of expected range");
+
+			let length = ValidatorSubsetSelection::session_length(size as u64);
+
+			// 45m - 1h15m
+			assert!(
+				(450..=750).contains(&length),
+				"calculated session length of {length} is out of expected range"
+			);
+
+			sum_session_len += length;
 
 			for validator_id in subset {
 				*validator_selection_counts.entry(validator_id).or_default() += 1;
 			}
 		}
 
+		let avg_session_len = sum_session_len / n_rounds;
+		// 55m - 1h05m
+		assert!(
+			(550..=650).contains(&avg_session_len),
+			"avg session length of {avg_session_len} is out of expected range",
+		);
+
 		for validator in superset {
 			//assert that the distribution is near uniform
 			let value = validator_selection_counts
 				.get(&validator)
 				.expect("validator was not selected at all");
-			assert!((42..=57).contains(value)); //Expected value is 50
+			assert!(
+				(15..=20).contains(value), //Expected value is 17
+				"validator selected count of {value} is out of expected range"
+			);
 		}
 	});
 }
 
 #[test]
-fn root_changes_subset_size() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(ValidatorSubsetSelection::subset_size(), 250);
+fn fewer_validators_than_subset_event_works() {
+	new_test_ext(10, 15).execute_with(|| {
+		let superset = Superset::validators();
+		let mut subset = ValidatorSubsetSelection::select_subset(superset.clone());
+		subset.sort_unstable();
 
-		let origin = RawOrigin::Root.into();
-		let new_subset_size = 176;
-
-		assert_ok!(ValidatorSubsetSelection::change_subset_size(origin, new_subset_size));
-		assert_eq!(ValidatorSubsetSelection::subset_size(), new_subset_size);
-
-		System::assert_last_event(Event::SubsetSizeChanged(new_subset_size).into());
-
-		assert_eq!(System::events().len(), 1);
-	});
-}
-
-#[test]
-fn signed_changes_subset_size() {
-	new_test_ext().execute_with(|| {
-		let account_id = AccountId32::new([0; 32]);
-		let origin: RuntimeOrigin = RuntimeOrigin::signed(account_id);
-		let new_subset_size = 247;
-
-		assert_err!(
-			ValidatorSubsetSelection::change_subset_size(origin, new_subset_size),
-			DispatchError::BadOrigin,
-		);
-		assert_eq!(System::events().len(), 0, "Zero events expected.");
-	});
-}
-
-#[test]
-fn event_fewer_validators_than_subset() {
-	new_test_ext().execute_with(|| {
-		let origin: RuntimeOrigin = RawOrigin::Root.into();
-		let new_subset_size = 1200;
-
-		assert_ok!(ValidatorSubsetSelection::change_subset_size(origin, new_subset_size));
-
-		System::assert_last_event(Event::SubsetSizeChanged(new_subset_size).into());
-
-		let superset = <Test as ValidatorSet<AccountId>>::validators();
-		let subset = ValidatorSubsetSelection::select_subset(superset);
-
-		System::assert_last_event(Event::FewerValidatorsThanSubset.into());
-
-		assert_eq!(subset.len(), 1000, "All validators should be selected.");
-		assert_eq!(System::events().len(), 2, "Two events are expected.");
+		System::assert_has_event(Event::FewerValidatorsThanSubset.into());
+		assert_eq!(superset, subset);
 	});
 }
 
 #[test]
 fn empty_vec_for_select_subset() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(15, 10).execute_with(|| {
 		let empty_vec = Vec::new();
 		let result = ValidatorSubsetSelection::select_subset(empty_vec.clone());
 		assert_eq!(empty_vec, result);
@@ -103,18 +81,13 @@ fn empty_vec_for_select_subset() {
 }
 
 #[test]
-fn empty_subset_event_should_work() {
-	new_test_ext().execute_with(|| {
-		// Changing the size so the random buckets won't be 1 during the 1st call
-		// which results in the selected_subset to be empty
+fn empty_subset_event_works() {
+	new_test_ext(15, 10).execute_with(|| {
+		let validators: Vec<AccountId> = Superset::validators();
 
-		// mean which will be added to the buckets will be 2/100 (1/50)
-		let origin: RuntimeOrigin = RawOrigin::Root.into();
-		let new_subset_size = 2;
-
-		assert_ok!(ValidatorSubsetSelection::change_subset_size(origin, new_subset_size));
-
-		let validators: Vec<AccountId> = (0..50).map(account).collect();
+		for v in &validators {
+			DoubleBucketMap::<Test>::insert(v, (FixedI64::zero(), FixedI64::zero()));
+		}
 
 		ValidatorSubsetSelection::select_subset(validators);
 
@@ -123,52 +96,47 @@ fn empty_subset_event_should_work() {
 }
 
 #[test]
-#[should_panic]
-fn session_index_not_zero_or_one_should_panic() {
-	new_test_ext().execute_with(|| {
-		// anything besides 1 or 0 is good for here, because this panics
-		// if the session_index is not 0 or 1
-		ValidatorSubsetSelection::new_session_genesis(2);
-	});
-}
+fn new_session_genesis_works() {
+	new_test_ext(15, 10).execute_with(|| {
+		let result0 = ValidatorSubsetSelection::new_session_genesis(0).unwrap();
 
-#[test]
-fn new_session_genesis_should_work() {
-	new_test_ext().execute_with(|| {
-		let session_index = 0;
-		let superset = <Test as ValidatorSet<AccountId>>::validators();
-		let subset_size = ValidatorSubsetSelection::subset_size() as usize;
-		let selected_subset = if superset.len() > subset_size {
-			superset[0..subset_size].to_owned()
-		} else {
-			superset
-		};
-		let current_subset_size = (selected_subset.len() as u32).into();
-		let new_session_start = 0;
-		let new_session_end = ValidatorSubsetSelection::session_length(current_subset_size);
-
-		let result = ValidatorSubsetSelection::new_session_genesis(session_index);
-
-		assert_eq!(ValidatorSubsetSelection::current_session_length(), new_session_end);
-		assert_eq!(ValidatorSubsetSelection::current_session_end(), new_session_end);
+		let len0 = ValidatorSubsetSelection::session_length(result0.len() as u64);
+		assert_eq!(ValidatorSubsetSelection::current_session_length(), len0 + 1);
+		assert_eq!(ValidatorSubsetSelection::current_session_end(), len0);
 
 		System::assert_last_event(
 			Event::SubsetSelected {
-				validator_subset: selected_subset.clone(),
-				session_start: new_session_start,
-				session_end: new_session_end,
-				session_index,
+				validator_subset: result0.clone(),
+				session_start: 0,
+				session_end: len0,
+				session_index: 0,
 			}
 			.into(),
 		);
 
-		assert_eq!(result.unwrap(), selected_subset);
+		let result1 = ValidatorSubsetSelection::new_session_genesis(1).unwrap();
+
+		// Rotation not yet happened as session 1 is planned immediately after session 0.
+		assert_eq!(ValidatorSubsetSelection::current_session_length(), len0 + 1);
+		assert_eq!(ValidatorSubsetSelection::current_session_end(), len0);
+
+		let len1 = ValidatorSubsetSelection::session_length(result1.len() as u64);
+
+		System::assert_last_event(
+			Event::SubsetSelected {
+				validator_subset: result1.clone(),
+				session_start: len0 + 1,
+				session_end: len0 + len1,
+				session_index: 1,
+			}
+			.into(),
+		);
 	});
 }
 
 #[test]
-fn end_session_should_work() {
-	new_test_ext().execute_with(|| {
+fn end_session_works() {
+	new_test_ext(15, 10).execute_with(|| {
 		let session_index = 1;
 		let next_session_end = ValidatorSubsetSelection::next_session_end();
 		let current_session_end = ValidatorSubsetSelection::current_session_end();
@@ -182,8 +150,8 @@ fn end_session_should_work() {
 }
 
 #[test]
-fn new_session_should_work() {
-	new_test_ext().execute_with(|| {
+fn new_session_works() {
+	new_test_ext(15, 10).execute_with(|| {
 		let session_index = 2;
 		let current_session_length = ValidatorSubsetSelection::current_session_length();
 		let avg = ValidatorSubsetSelection::avg_session_length();

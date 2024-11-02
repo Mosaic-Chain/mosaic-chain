@@ -21,7 +21,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureWithSuccess};
+use frame_system::{EnsureRoot, EnsureWithSuccess};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -500,16 +500,13 @@ impl pallet_preimage::Config for Runtime {
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
-parameter_types! {
-	pub const MinSessionLength: BlockNumberFor<Runtime> = utils::prod_or_fast!(HOURS, 10);
-}
-
 impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type Randomness = InsecureRandomnessCollectiveFlip;
 	type ValidatorSuperset = pallet_nft_staking::SelectableValidators<Runtime>;
-	type MinSessionLength = MinSessionLength;
+	type SubsetSize = params::dynamic::validator_subset_selection::SubsetSize;
+	type MinSessionLength = params::dynamic::validator_subset_selection::MinSessionLength;
 	type SessionHook = (NftDelegation, NftStaking);
 }
 
@@ -1011,7 +1008,6 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_validator_subset_selection, ValidatorSubsetSelection]
 		[pallet_assets, Assets]
 		[pallet_proxy, Proxy]
 		[pallet_identity, Identity]
