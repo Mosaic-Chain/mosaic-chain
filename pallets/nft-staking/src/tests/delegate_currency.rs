@@ -9,7 +9,7 @@ fn delegate_currency_is_successful(mut ext: TestExternalities) {
 		let res = Staking::delegate_currency(
 			delegator.origin,
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		);
@@ -18,8 +18,8 @@ fn delegate_currency_is_successful(mut ext: TestExternalities) {
 
 		System::assert_last_event(
 			Event::CurrencyStaked {
-				validator: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator.account_id,
+				staker: delegator.account_id,
 				amount: MinimumStakingAmount::get(),
 			}
 			.into(),
@@ -63,7 +63,7 @@ fn staking_period_resets(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin,
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -85,7 +85,7 @@ fn new_commission_applies(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -101,7 +101,7 @@ fn new_commission_applies(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin,
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			new_commission,
 		)
@@ -115,7 +115,7 @@ fn new_commission_applies(mut ext: TestExternalities) {
 #[rstest]
 fn target_not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let validator = account(0);
+		let validator = 0;
 		let delegator = EndowParams::default().endow();
 
 		let res = Staking::delegate_currency(
@@ -236,7 +236,7 @@ fn commission_slippage(
 fn target_is_caller(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
-		let delegator = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegator = EndowParams::default().account_id(validator.account_id).endow();
 
 		let res = Staking::delegate_currency(
 			delegator.origin,

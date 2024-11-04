@@ -15,13 +15,12 @@ use sdk::{
 	sp_runtime, sp_staking, sp_std,
 };
 
-use frame_support::{pallet_prelude::*, traits::ValidatorSet as _};
+use frame_support::{derive_impl, pallet_prelude::*, traits::ValidatorSet as _};
 use pallet_session::SessionManager;
-use sp_core::{ConstU128, ConstU16, ConstU64, H256};
+use sp_core::ConstU128;
 use sp_runtime::{
-	testing::UintAuthorityId,
-	traits::{parameter_types, BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, MultiSignature, Perbill,
+	traits::{parameter_types, ConvertInto},
+	BuildStorage, Perbill,
 };
 
 use sp_std::num::NonZeroU32;
@@ -42,41 +41,15 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub type Signature = MultiSignature;
-pub type AccountPublic = <Signature as Verify>::Signer;
-pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
+// pub type Signature = MultiSignature;
+// pub type AccountPublic = <Signature as Verify>::Signer;
+pub type AccountId = <Test as frame_system::Config>::AccountId;
 pub type Balance = u128;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type RuntimeTask = RuntimeTask;
-	type SingleBlockMigrations = ();
-	type MultiBlockMigrator = ();
-	type PreInherents = ();
-	type PostInherents = ();
-	type PostTransactions = ();
+	type AccountData = pallet_balances::AccountData<Balance>;
 }
 
 impl pallet_offences::Config for Test {
@@ -127,20 +100,11 @@ parameter_types! {
 	pub const ContributionPercentage: Perbill = Perbill::from_percent(20);
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = ();
-	type MaxLocks = ConstU32<50>;
 }
 
 impl pallet_session::Config for Test {
@@ -177,23 +141,15 @@ impl pallet_nft_staking::Config for Test {
 	type ContributionDestination = ();
 }
 
-pub fn account(id: u64) -> AccountId {
-	let id_as_bytes = id.to_ne_bytes();
-	let zeros: [u8; 24] = [0; 24];
-	let ret: [u8; 32] = [&id_as_bytes[..], &zeros[..]].concat().try_into().unwrap();
-
-	ret.into()
-}
-
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let predefined_keys = (0..16)
 		.map(|n| {
-			let account = account(n);
+			let account = n;
 
 			let keys = MockSessionKeys { dummy: n.into() };
-			(account.clone(), account, keys)
+			(account, account, keys)
 		})
 		.collect::<Vec<_>>();
 

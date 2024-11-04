@@ -13,7 +13,7 @@ fn set_commission_is_successful(
 		assert_ok!(res, ());
 
 		assert!(matches!(
-			Validators::<Test>::get(&validator.account_id),
+			Validators::<Test>::get(validator.account_id),
 			Some(ValidatorDetails::DPoS { commission, .. }) if commission == new_commission
 		));
 
@@ -26,7 +26,7 @@ fn set_commission_is_successful(
 #[rstest]
 fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let origin = origin(account(0));
+		let origin = origin(0);
 
 		let res = Staking::set_commission(origin, MinimumCommission::get());
 		assert_noop!(res, Error::<Test>::NotBound);

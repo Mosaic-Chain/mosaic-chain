@@ -5,7 +5,7 @@ fn dpos_self_unstake_currency_is_successful(mut ext: TestExternalities) {
 	let permission = PermissionType::DPoS;
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_currency(validator.origin.clone(), 500).expect("could stake currency");
 
@@ -31,8 +31,8 @@ fn dpos_self_unstake_currency_is_successful(mut ext: TestExternalities) {
 
 		System::assert_last_event(
 			Event::<Test>::CurrencyUnstaked {
-				validator: validator.account_id.clone(),
-				staker: validator.account_id.clone(),
+				validator: validator.account_id,
+				staker: validator.account_id,
 				amount: 300,
 			}
 			.into(),
@@ -52,7 +52,7 @@ fn dpos_self_unstake_currency_is_successful(mut ext: TestExternalities) {
 #[rstest]
 fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let origin = origin(account(0));
+		let origin = origin(0);
 
 		let res = Staking::self_unstake_currency(origin, 100);
 		assert_noop!(res, Error::<Test>::NotBound);
@@ -68,7 +68,7 @@ fn contract_is_binding(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get())
 			.expect("could stake currency");
@@ -88,7 +88,7 @@ fn too_small_unstake(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get())
 			.expect("could stake currency");
@@ -104,8 +104,7 @@ fn too_small_unstake(
 fn not_enough_currency_stake(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get())
 			.expect("could stake currency");
@@ -124,7 +123,7 @@ fn not_enough_currency_stake(mut ext: TestExternalities, permission: PermissionT
 fn unstake_would_dust_stake(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get() + 1)
 			.expect("could stake currency");
@@ -144,7 +143,7 @@ fn can_unstake_all(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_currency(validator.origin.clone(), amount)
 			.expect("could stake currency");
@@ -160,12 +159,12 @@ fn can_unstake_all(
 fn can_unstake_dusted_by_slash(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get())
 			.expect("could stake currency");
 
-		Contracts::<Test>::mutate(&validator.account_id, &validator.account_id, |contract| {
+		Contracts::<Test>::mutate(validator.account_id, validator.account_id, |contract| {
 			let contract = contract.ensure_staging_mut().unwrap();
 			contract.stake.currency = 2;
 		});

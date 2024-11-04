@@ -8,7 +8,7 @@ fn auto_chill_works(mut ext: TestExternalities, #[case] active: bool) {
 		let validator = BindParams::default().mint().bind();
 
 		if active {
-			ValidatorSet::put(vec![validator.account_id.clone()]);
+			ValidatorSet::put(vec![validator.account_id]);
 		} else {
 			ValidatorSet::mutate(|s| s.retain(|v| *v != validator.account_id));
 		}
@@ -40,7 +40,7 @@ fn state_resets_on_reward(mut ext: TestExternalities) {
 		let active_validator = BindParams::default().account_index(1).mint().bind();
 		let inactive_validator = BindParams::default().account_index(2).mint().bind();
 
-		ValidatorSet::put(vec![active_validator.account_id.clone()]);
+		ValidatorSet::put(vec![active_validator.account_id]);
 
 		// skip sessions to enact new validator set
 		next_session();
@@ -84,7 +84,7 @@ fn disqulify(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::ValidatorChilled {
-				validator: validator.account_id.clone(),
+				validator: validator.account_id,
 				reason: ChillReason::Disqualified,
 			}
 			.into(),

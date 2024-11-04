@@ -4,8 +4,8 @@ use super::*;
 #[allow(clippy::redundant_pattern_matching)]
 fn bind_is_successful(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let alice = account(0);
-		let origin = origin(alice.clone());
+		let alice = 0;
+		let origin = origin(alice);
 
 		let nft1 = NftStakingHandler::mint(&alice, &PermissionType::DPoS, &NOMINAL_VALUE)
 			.expect("could mint permission nft");
@@ -14,7 +14,7 @@ fn bind_is_successful(mut ext: TestExternalities) {
 
 		assert_ok!(res);
 
-		assert!(Validators::<Test>::get(&alice).is_some());
+		assert!(Validators::<Test>::get(alice).is_some());
 
 		assert_validator_state!(&alice, Some(ValidatorState::Normal));
 
@@ -32,7 +32,7 @@ fn bind_is_successful(mut ext: TestExternalities) {
 #[rstest]
 fn nft_does_not_exist(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let origin = origin(account(0));
+		let origin = origin(0);
 		let res = Staking::bind_validator(origin, 42);
 		assert_noop!(res, StakingHandlerError::TokenDoesNotExist);
 	});
@@ -41,8 +41,8 @@ fn nft_does_not_exist(mut ext: TestExternalities) {
 #[rstest]
 fn wrong_owner(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let alice = origin(account(0));
-		let bob = account(1);
+		let alice = origin(0);
+		let bob = 1;
 
 		let nft = NftStakingHandler::mint(&bob, &PermissionType::DPoS, &NOMINAL_VALUE)
 			.expect("could mint permission nft");
@@ -55,8 +55,8 @@ fn wrong_owner(mut ext: TestExternalities) {
 #[rstest]
 fn disqualified(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let alice = account(0);
-		let origin = origin(alice.clone());
+		let alice = 0;
+		let origin = origin(alice);
 
 		let nft = NftStakingHandler::mint(&alice, &PermissionType::DPoS, &100)
 			.expect("could mint permission nft");
@@ -73,8 +73,8 @@ fn disqualified(mut ext: TestExternalities) {
 #[rstest]
 fn already_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let alice = account(0);
-		let origin = origin(alice.clone());
+		let alice = 0;
+		let origin = origin(alice);
 
 		let nft1 = NftStakingHandler::mint(&alice, &PermissionType::DPoS, &NOMINAL_VALUE)
 			.expect("could mint permission nft");

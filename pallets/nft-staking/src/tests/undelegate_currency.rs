@@ -9,7 +9,7 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -20,7 +20,7 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 		let res = Staking::undelegate_currency(
 			delegator.origin,
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 		);
 		assert_ok!(res, ());
 
@@ -40,8 +40,8 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 
 		System::assert_last_event(
 			Event::<Test>::CurrencyUnstaked {
-				validator: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator.account_id,
+				staker: delegator.account_id,
 				amount: MinimumStakingAmount::get(),
 			}
 			.into(),
@@ -49,7 +49,7 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 
 		next_session();
 
-		assert!(Contracts::<Test>::get(&validator.account_id, &delegator.account_id)
+		assert!(Contracts::<Test>::get(validator.account_id, delegator.account_id)
 			.current()
 			.is_none());
 
@@ -74,13 +74,13 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
 		.expect("could delegate currency");
 
-		ValidatorStates::<Test>::mutate_extant(&validator.account_id, |s| {
+		ValidatorStates::<Test>::mutate_extant(validator.account_id, |s| {
 			*s = ValidatorState::Chilled(Session::current_index());
 		});
 
@@ -95,7 +95,7 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 		let res = Staking::undelegate_currency(
 			delegator.origin,
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 		);
 		assert_ok!(res, ());
 	});
@@ -104,8 +104,8 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 #[rstest]
 fn target_not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let validator = account(0);
-		let delegator = origin(account(1));
+		let validator = 0;
+		let delegator = origin(1);
 
 		let res = Staking::undelegate_currency(delegator, MinimumStakingAmount::get(), validator);
 		assert_noop!(res, Error::<Test>::NotBound);
@@ -131,7 +131,7 @@ fn target_not_dpos(mut ext: TestExternalities) {
 fn target_is_caller(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		let res = Staking::undelegate_currency(
 			validator.origin,
@@ -170,7 +170,7 @@ fn binding_contract(
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -199,7 +199,7 @@ fn too_small_unstake(
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -221,7 +221,7 @@ fn not_enough_currency_stake(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -247,7 +247,7 @@ fn unstake_would_dust_stake(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get() + 1,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)

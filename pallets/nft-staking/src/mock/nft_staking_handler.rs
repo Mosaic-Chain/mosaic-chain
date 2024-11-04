@@ -64,7 +64,7 @@ impl utils::traits::NftStaking<AccountId, Balance, pallet_nft_staking::Permissio
 			state.next_item_id += 1;
 
 			let nft = PermissionNft {
-				owner: account_id.clone(),
+				owner: *account_id,
 				permission: *permission,
 				nominal_value: *nominal_value,
 				issued_nominal_value: *nominal_value,
@@ -85,7 +85,7 @@ impl utils::traits::NftStaking<AccountId, Balance, pallet_nft_staking::Permissio
 			ensure!(item.owner == *account_id, Error::WrongOwner);
 			ensure!(!state.bound_tokens.contains_key(account_id), Error::AlreadyBound);
 
-			state.bound_tokens.insert(account_id.clone(), *item_id);
+			state.bound_tokens.insert(*account_id, *item_id);
 
 			Ok((item.permission, item.nominal_value))
 		})
@@ -116,7 +116,7 @@ impl utils::traits::NftStaking<AccountId, Balance, pallet_nft_staking::Permissio
 		let state = Self::get();
 		let item = state.tokens.get(item_id).ok_or(DispatchError::Other("token does not exist"))?;
 
-		Ok(item.owner.clone())
+		Ok(item.owner)
 	}
 
 	fn nominal_value(item_id: &ItemId) -> Result<Balance, DispatchError> {

@@ -81,7 +81,7 @@ impl NftDelegation<AccountId, Balance, ItemId, AccountId> for NftDelegationHandl
 			state.tokens.insert(
 				id,
 				DelegatorNft {
-					owner: account_id.clone(),
+					owner: *account_id,
 					expiry: expiration,
 					nominal_value: *nominal_value,
 				},

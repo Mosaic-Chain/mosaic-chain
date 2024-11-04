@@ -8,15 +8,15 @@ fn topup_is_successful(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		// Simulate slash
 		NftStakingHandler::set_nominal_value_of_bound(&validator.account_id, slashed_to)
 			.expect("could set nominal value");
-		TotalValidatorStakes::<Test>::mutate(&validator.account_id, |stake| {
+		TotalValidatorStakes::<Test>::mutate(validator.account_id, |stake| {
 			stake.ensure_staging_mut().map(|s| s.total_stake = slashed_to)
 		});
-		Contracts::<Test>::mutate(&validator.account_id, &validator.account_id, |contract| {
+		Contracts::<Test>::mutate(validator.account_id, validator.account_id, |contract| {
 			contract.ensure_staging_mut().map(|c| c.stake.permission_nft = Some(slashed_to))
 		});
 
@@ -43,7 +43,7 @@ fn topup_is_successful(
 
 		System::assert_last_event(
 			Event::PermissionNftTopup {
-				validator: validator.account_id.clone(),
+				validator: validator.account_id,
 				item: validator.permission_nft,
 				cost: NOMINAL_VALUE - slashed_to,
 			}
@@ -52,7 +52,7 @@ fn topup_is_successful(
 
 		System::assert_has_event(
 			pallet_balances::Event::Withdraw {
-				who: validator.account_id.clone(),
+				who: validator.account_id,
 				amount: NOMINAL_VALUE - slashed_to,
 			}
 			.into(),
@@ -67,11 +67,11 @@ fn topup_restores_normal_state_from_faulted(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		NftStakingHandler::set_nominal_value_of_bound(&validator.account_id, 10)
 			.expect("could set nominal value");
-		ValidatorStates::<Test>::mutate(&validator.account_id, |vstate| {
+		ValidatorStates::<Test>::mutate(validator.account_id, |vstate| {
 			*vstate = Some(ValidatorState::Faulted);
 		});
 
@@ -86,7 +86,7 @@ fn topup_restores_normal_state_from_faulted(
 fn topup_leaves_state_chilled(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 		NftStakingHandler::set_nominal_value_of_bound(&validator.account_id, 10)
@@ -102,7 +102,7 @@ fn topup_leaves_state_chilled(mut ext: TestExternalities, permission: Permission
 #[rstest]
 fn item_does_not_exist(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let origin = origin(account(0));
+		let origin = origin(0);
 
 		let res = Staking::topup(origin, 42, 100);
 		assert_noop!(res, StakingHandlerError::TokenDoesNotExist);
@@ -113,7 +113,7 @@ fn item_does_not_exist(mut ext: TestExternalities) {
 fn wrong_owner(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let bob_origin = origin(account(1));
+		let bob_origin = origin(1);
 
 		let res = Staking::topup(bob_origin, validator.permission_nft, NOMINAL_VALUE);
 		assert_noop!(res, Error::<Test>::TopupWrongOwner);
@@ -149,7 +149,7 @@ fn not_enough_free_balance(
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
 		let _ = EndowParams::default()
-			.account_id(validator.account_id.clone())
+			.account_id(validator.account_id)
 			.currency(NOMINAL_VALUE - slashed_to - 1)
 			.endow();
 
@@ -167,7 +167,7 @@ fn fails_from_staked_balance(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().mint().bind();
 		let _ = EndowParams::default()
-			.account_id(validator.account_id.clone())
+			.account_id(validator.account_id)
 			.currency(NOMINAL_VALUE + 1) // +1 to not dust account
 			.endow();
 

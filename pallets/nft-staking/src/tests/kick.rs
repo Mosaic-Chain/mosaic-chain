@@ -9,7 +9,7 @@ fn kick_is_successful(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			100,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -18,7 +18,7 @@ fn kick_is_successful(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -26,10 +26,10 @@ fn kick_is_successful(mut ext: TestExternalities) {
 
 		skip_min_staking_period();
 
-		let res = Staking::kick(validator.origin, delegator.account_id.clone());
+		let res = Staking::kick(validator.origin, delegator.account_id);
 		assert_ok!(res, ());
 
-		let validator_stake = TotalValidatorStakes::<Test>::get(&validator.account_id)
+		let validator_stake = TotalValidatorStakes::<Test>::get(validator.account_id)
 			.current()
 			.cloned()
 			.expect("validator has stake");
@@ -42,14 +42,14 @@ fn kick_is_successful(mut ext: TestExternalities) {
 		);
 
 		assert!(validator_stake.contract_count == 2);
-		assert!(Contracts::<Test>::get(&validator.account_id, &delegator.account_id)
+		assert!(Contracts::<Test>::get(validator.account_id, delegator.account_id)
 			.current()
 			.is_some_and(|c| c.stake.is_empty()));
 
 		System::assert_has_event(
 			Event::StakerKicked {
-				validator: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator.account_id,
+				staker: delegator.account_id,
 				reason: KickReason::Manual,
 			}
 			.into(),
@@ -62,7 +62,7 @@ fn kick_is_successful(mut ext: TestExternalities) {
 
 		next_session();
 
-		assert!(!Contracts::<Test>::contains_key(&validator.account_id, &delegator.account_id)); // now the contract is removed
+		assert!(!Contracts::<Test>::contains_key(validator.account_id, delegator.account_id)); // now the contract is removed
 
 		assert_current_validator_stake!(
 			&validator.account_id,
@@ -85,9 +85,9 @@ fn kick_is_successful(mut ext: TestExternalities) {
 #[rstest]
 fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let origin = origin(account(0));
+		let origin = origin(0);
 
-		let res = Staking::kick(origin, account(1));
+		let res = Staking::kick(origin, 1);
 		assert_noop!(res, Error::<Test>::NotBound);
 	});
 }
@@ -120,7 +120,7 @@ fn chilled(mut ext: TestExternalities) {
 fn not_dpos(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::PoS).mint().bind();
-		let res = Staking::kick(validator.origin, account(1));
+		let res = Staking::kick(validator.origin, 1);
 		assert_noop!(res, Error::<Test>::CallerNotDPoS);
 	});
 }
@@ -138,7 +138,7 @@ fn caller_is_target(mut ext: TestExternalities) {
 fn no_contract(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
-		let res = Staking::kick(validator.origin, account(1));
+		let res = Staking::kick(validator.origin, 1);
 		assert_noop!(res, Error::<Test>::NoContract);
 	});
 }

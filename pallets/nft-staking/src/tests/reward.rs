@@ -12,7 +12,7 @@ fn reward_is_distributed(mut ext: TestExternalities) {
 			.bind();
 		let delegator = EndowParams::default().nft_nominal_value(50).endow();
 
-		ValidatorSet::set(vec![validator.account_id.clone()]);
+		ValidatorSet::set(vec![validator.account_id]);
 		SessionReward::set(1250); // 1250 * (1 - contribution) = 1000
 		Staking::set_commission(validator.origin, Perbill::from_percent(10))
 			.expect("could set commission rate");
@@ -20,7 +20,7 @@ fn reward_is_distributed(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			50,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			Perbill::from_percent(10),
 		)
@@ -29,7 +29,7 @@ fn reward_is_distributed(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			Perbill::from_percent(10),
 		)
@@ -40,8 +40,8 @@ fn reward_is_distributed(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::ContractReward {
-				validator: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator.account_id,
+				staker: delegator.account_id,
 				reward: 450,
 				commission: 50,
 			}
@@ -50,8 +50,8 @@ fn reward_is_distributed(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::ContractReward {
-				validator: validator.account_id.clone(),
-				staker: validator.account_id.clone(),
+				validator: validator.account_id,
+				staker: validator.account_id,
 				reward: 0,
 				commission: 500,
 			}
@@ -82,11 +82,11 @@ fn does_not_reward_slashed(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 
-		ValidatorSet::set(vec![validator.account_id.clone()]);
+		ValidatorSet::set(vec![validator.account_id]);
 		SessionReward::set(1000);
 
 		next_session();
-		InverseSlashes::<Test>::insert(validator.account_id.clone(), Perbill::from_percent(100));
+		InverseSlashes::<Test>::insert(validator.account_id, Perbill::from_percent(100));
 		next_session();
 
 		assert_current_contract!(
@@ -119,7 +119,7 @@ fn distribute_amongst_validators(mut ext: TestExternalities) {
 
 		let delegator = EndowParams::default().nft_nominal_value(100).endow();
 
-		ValidatorSet::set(vec![validator1.account_id.clone(), validator2.account_id.clone()]);
+		ValidatorSet::set(vec![validator1.account_id, validator2.account_id]);
 
 		SessionReward::set(1250);
 
@@ -131,7 +131,7 @@ fn distribute_amongst_validators(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			100,
-			validator1.account_id.clone(),
+			validator1.account_id,
 			MinimumStakingPeriod::get().into(),
 			Perbill::from_percent(10),
 		)
@@ -140,7 +140,7 @@ fn distribute_amongst_validators(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator2.account_id.clone(),
+			validator2.account_id,
 			MinimumStakingPeriod::get().into(),
 			Perbill::from_percent(10),
 		)
@@ -151,8 +151,8 @@ fn distribute_amongst_validators(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::ContractReward {
-				validator: validator1.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator1.account_id,
+				staker: delegator.account_id,
 				reward: 225,
 				commission: 25,
 			}
@@ -161,8 +161,8 @@ fn distribute_amongst_validators(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::ContractReward {
-				validator: validator1.account_id.clone(),
-				staker: validator1.account_id.clone(),
+				validator: validator1.account_id,
+				staker: validator1.account_id,
 				reward: 0,
 				commission: 250,
 			}
@@ -171,8 +171,8 @@ fn distribute_amongst_validators(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::ContractReward {
-				validator: validator2.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator2.account_id,
+				staker: delegator.account_id,
 				reward: 225,
 				commission: 25,
 			}
@@ -181,8 +181,8 @@ fn distribute_amongst_validators(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::ContractReward {
-				validator: validator2.account_id.clone(),
-				staker: validator2.account_id.clone(),
+				validator: validator2.account_id,
+				staker: validator2.account_id,
 				reward: 0,
 				commission: 250,
 			}

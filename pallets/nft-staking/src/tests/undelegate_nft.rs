@@ -9,7 +9,7 @@ fn undelegate_nft_is_successful(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -20,7 +20,7 @@ fn undelegate_nft_is_successful(mut ext: TestExternalities) {
 		let res = Staking::undelegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 		);
 		assert_ok!(res, ());
 
@@ -40,8 +40,8 @@ fn undelegate_nft_is_successful(mut ext: TestExternalities) {
 
 		System::assert_last_event(
 			Event::<Test>::NftUndelegated {
-				validator: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator.account_id,
+				staker: delegator.account_id,
 				item_id: delegator.delegator_nft,
 			}
 			.into(),
@@ -49,7 +49,7 @@ fn undelegate_nft_is_successful(mut ext: TestExternalities) {
 
 		next_session();
 
-		assert!(!Contracts::<Test>::get(&validator.account_id, &delegator.account_id).exists());
+		assert!(!Contracts::<Test>::get(validator.account_id, delegator.account_id).exists());
 		assert!(!NftDelegationHandler::is_bound(&delegator.delegator_nft));
 	});
 }
@@ -63,13 +63,13 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
 		.expect("could delegate nft");
 
-		ValidatorStates::<Test>::mutate_extant(&validator.account_id, |s| {
+		ValidatorStates::<Test>::mutate_extant(validator.account_id, |s| {
 			*s = ValidatorState::Chilled(Session::current_index());
 		});
 
@@ -84,7 +84,7 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 		let res = Staking::undelegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 		);
 		assert_ok!(res, ());
 	});
@@ -93,7 +93,7 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 #[rstest]
 fn target_not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let validator = account(0);
+		let validator = 0;
 		let delegator = EndowParams::default().endow();
 
 		let res = Staking::undelegate_nft(delegator.origin, delegator.delegator_nft, validator);
@@ -120,7 +120,7 @@ fn target_not_dpos(mut ext: TestExternalities) {
 fn target_is_caller(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
-		let delegator = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegator = EndowParams::default().account_id(validator.account_id).endow();
 
 		let res = Staking::undelegate_nft(
 			validator.origin,
@@ -141,7 +141,7 @@ fn item_does_not_exists(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -162,7 +162,7 @@ fn wrong_owner(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -187,7 +187,7 @@ fn item_not_bound(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -215,7 +215,7 @@ fn binding_contract(
 		Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)

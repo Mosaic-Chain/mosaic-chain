@@ -4,8 +4,7 @@ use super::*;
 fn self_stake_nft_is_successful(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		let res = Staking::self_stake_nft(validator.origin, delegation_details.delegator_nft);
 		assert_ok!(res);
@@ -31,12 +30,12 @@ fn self_stake_nft_is_successful(mut ext: TestExternalities, permission: Permissi
 
 		assert_ok!(
 			NftDelegationHandler::metadata(&delegation_details.delegator_nft),
-			validator.account_id.clone()
+			validator.account_id
 		);
 
 		System::assert_last_event(
 			Event::<Test>::NftDelegated {
-				validator: validator.account_id.clone(),
+				validator: validator.account_id,
 				staker: validator.account_id,
 				item_id: delegation_details.delegator_nft,
 			}
@@ -54,8 +53,7 @@ fn minimum_staking_period_resets(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		run_to_block(to_block.into(), |_| {});
 
@@ -73,8 +71,8 @@ fn minimum_staking_period_resets(
 #[rstest]
 fn caller_not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let validator = account(0);
-		let origin = origin(validator.clone());
+		let validator = 0;
+		let origin = origin(validator);
 		let delegation_details = EndowParams::default().account_id(validator).endow();
 
 		let res = Staking::self_stake_nft(origin, delegation_details.delegator_nft);
@@ -86,8 +84,7 @@ fn caller_not_bound(mut ext: TestExternalities) {
 fn chilled(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
@@ -131,7 +128,7 @@ fn too_small_nominal_value(
 		let validator = BindParams::default().permission(permission).mint().bind();
 		let delegation_details = EndowParams::default()
 			.nft_nominal_value(amount)
-			.account_id(validator.account_id.clone())
+			.account_id(validator.account_id)
 			.endow();
 
 		let res = Staking::self_stake_nft(validator.origin, delegation_details.delegator_nft);
@@ -149,7 +146,7 @@ fn item_expires_early(
 		let validator = BindParams::default().permission(permission).mint().bind();
 		let delegation_details = EndowParams::default()
 			.nft_expiry(expiry)
-			.account_id(validator.account_id.clone())
+			.account_id(validator.account_id)
 			.endow();
 
 		let res = Staking::self_stake_nft(validator.origin, delegation_details.delegator_nft);
@@ -161,8 +158,7 @@ fn item_expires_early(
 fn item_already_bound(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_nft(validator.origin.clone(), delegation_details.delegator_nft)
 			.expect("could stake delegation_details.delegator_nft");
@@ -176,8 +172,7 @@ fn item_already_bound(mut ext: TestExternalities, permission: PermissionType) {
 fn would_be_overdominant(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		let nominal_value =
 			MaximumStakePercentage::get() * (Balances::total_issuance() - NOMINAL_VALUE);

@@ -4,8 +4,7 @@ use super::*;
 fn self_unstake_nft_is_successful(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_nft(validator.origin.clone(), delegation_details.delegator_nft)
 			.expect("could stake nft");
@@ -32,7 +31,7 @@ fn self_unstake_nft_is_successful(mut ext: TestExternalities, permission: Permis
 
 		System::assert_last_event(
 			Event::<Test>::NftUndelegated {
-				validator: validator.account_id.clone(),
+				validator: validator.account_id,
 				staker: validator.account_id,
 				item_id: delegation_details.delegator_nft,
 			}
@@ -48,8 +47,8 @@ fn self_unstake_nft_is_successful(mut ext: TestExternalities, permission: Permis
 #[rstest]
 fn caller_not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let validator = account(0);
-		let delegation_details = EndowParams::default().account_id(validator.clone()).endow();
+		let validator = 0;
+		let delegation_details = EndowParams::default().account_id(validator).endow();
 
 		let res = Staking::self_unstake_nft(origin(validator), delegation_details.delegator_nft);
 		assert_noop!(res, Error::<Test>::NotBound);
@@ -90,8 +89,7 @@ fn wrong_owner(mut ext: TestExternalities) {
 fn item_not_bound(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		let res = Staking::self_unstake_nft(validator.origin, delegation_details.delegator_nft);
 		assert_noop!(res, Error::<Test>::NftNotBound);
@@ -107,8 +105,7 @@ fn self_contract_is_binding(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let delegation_details =
-			EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::self_stake_nft(validator.origin.clone(), delegation_details.delegator_nft)
 			.expect("could stake nft");

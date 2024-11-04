@@ -12,7 +12,7 @@ fn set_minimum_staking_period_is_successful(
 		assert_ok!(res, ());
 
 		assert!(matches!(
-			Validators::<Test>::get(&validator.account_id),
+			Validators::<Test>::get(validator.account_id),
 			Some(ValidatorDetails::DPoS { min_staking_period, .. }) if min_staking_period == new_period
 		));
 
@@ -26,7 +26,7 @@ fn set_minimum_staking_period_is_successful(
 #[rstest]
 fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let origin = origin(account(0));
+		let origin = origin(0);
 
 		let res = Staking::set_minium_staking_period(origin, MinimumStakingPeriod::get().into());
 		assert_noop!(res, Error::<Test>::NotBound);

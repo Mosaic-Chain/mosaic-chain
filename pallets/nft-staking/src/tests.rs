@@ -88,9 +88,9 @@ impl<T: BindState> Validator<T> {
 	/// Simulate an offence
 	pub fn offend(&self) {
 		let offence =
-			Offence { offenders: vec![self.account_id.clone()], session: Session::current_index() };
+			Offence { offenders: vec![self.account_id], session: Session::current_index() };
 
-		Offences::report_offence(vec![account(42)], offence).expect("Could report offence");
+		Offences::report_offence(vec![42], offence).expect("Could report offence");
 	}
 }
 
@@ -102,11 +102,7 @@ struct BindParams {
 
 impl Default for BindParams {
 	fn default() -> Self {
-		Self {
-			account_id: account(0),
-			permission: PermissionType::DPoS,
-			nominal_value: NOMINAL_VALUE,
-		}
+		Self { account_id: 0, permission: PermissionType::DPoS, nominal_value: NOMINAL_VALUE }
 	}
 }
 
@@ -118,7 +114,7 @@ impl BindParams {
 	}
 
 	pub fn account_index(mut self, index: u64) -> Self {
-		self.account_id = account(index);
+		self.account_id = index;
 		self
 	}
 
@@ -133,7 +129,7 @@ impl BindParams {
 	}
 
 	pub fn mint(self) -> Validator<Unbound> {
-		let origin = origin(self.account_id.clone());
+		let origin = origin(self.account_id);
 
 		let nft = NftStakingHandler::mint(&self.account_id, &self.permission, &self.nominal_value)
 			.expect("could mint permission nft");
@@ -157,12 +153,7 @@ struct EndowParams {
 
 impl Default for EndowParams {
 	fn default() -> Self {
-		Self {
-			account_id: account(100),
-			currency: 100_000,
-			nominal_value: NOMINAL_VALUE,
-			expiry: 10_000,
-		}
+		Self { account_id: 100, currency: 100_000, nominal_value: NOMINAL_VALUE, expiry: 10_000 }
 	}
 }
 
@@ -174,7 +165,7 @@ impl EndowParams {
 
 	#[allow(unused)]
 	pub fn account_index(mut self, index: u64) -> Self {
-		self.account_id = account(index);
+		self.account_id = index;
 		self
 	}
 
@@ -194,11 +185,10 @@ impl EndowParams {
 	}
 
 	pub fn endow(self) -> EndowedAccount {
-		let origin = origin(self.account_id.clone());
+		let origin = origin(self.account_id);
 
 		let _ = Balances::deposit_creating(&self.account_id, self.currency);
-		let nft =
-			NftDelegationHandler::mint(self.account_id.clone(), self.expiry, self.nominal_value);
+		let nft = NftDelegationHandler::mint(self.account_id, self.expiry, self.nominal_value);
 
 		EndowedAccount { account_id: self.account_id, origin, delegator_nft: nft }
 	}

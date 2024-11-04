@@ -9,7 +9,7 @@ fn delegate_nft_is_successful(mut ext: TestExternalities) {
 		let res = Staking::delegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		);
@@ -18,8 +18,8 @@ fn delegate_nft_is_successful(mut ext: TestExternalities) {
 
 		System::assert_last_event(
 			Event::NftDelegated {
-				validator: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator.account_id,
+				staker: delegator.account_id,
 				item_id: delegator.delegator_nft,
 			}
 			.into(),
@@ -55,7 +55,7 @@ fn staking_period_resets(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -78,7 +78,7 @@ fn new_commission_applies(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -94,7 +94,7 @@ fn new_commission_applies(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			new_commission,
 		)
@@ -108,7 +108,7 @@ fn new_commission_applies(mut ext: TestExternalities) {
 #[rstest]
 fn target_not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let validator = account(0);
+		let validator = 0;
 		let delegator = EndowParams::default().endow();
 
 		let res = Staking::delegate_nft(
@@ -229,7 +229,7 @@ fn commission_slippage(
 fn target_is_caller(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
-		let delegator = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let delegator = EndowParams::default().account_id(validator.account_id).endow();
 
 		let res = Staking::delegate_nft(
 			validator.origin,
@@ -267,7 +267,7 @@ fn item_wrong_owner(mut ext: TestExternalities) {
 		let delegator = EndowParams::default().endow();
 
 		let res = Staking::delegate_nft(
-			origin(account(1)),
+			origin(1),
 			delegator.delegator_nft,
 			validator.account_id,
 			MinimumStakingPeriod::get().into(),
@@ -286,7 +286,7 @@ fn item_already_bound(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -319,7 +319,7 @@ fn too_small_nominal_value(mut ext: TestExternalities) {
 		let res = Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		);
@@ -339,7 +339,7 @@ fn item_expires_early(mut ext: TestExternalities) {
 		let res = Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		);

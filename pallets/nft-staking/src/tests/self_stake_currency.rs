@@ -4,15 +4,15 @@ use super::*;
 fn self_stake_currency_is_successful(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		let res = Staking::self_stake_currency(validator.origin, MinimumStakingAmount::get());
 		assert_ok!(res, ());
 
 		System::assert_last_event(
 			Event::CurrencyStaked {
-				validator: validator.account_id.clone(),
-				staker: validator.account_id.clone(),
+				validator: validator.account_id,
+				staker: validator.account_id,
 				amount: MinimumStakingAmount::get(),
 			}
 			.into(),
@@ -49,7 +49,7 @@ fn self_stake_currency_is_successful(mut ext: TestExternalities, permission: Per
 fn self_stake_currency_is_unsuccessful(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		assert_noop!(
 			Staking::self_stake_currency(validator.origin, MinimumStakingAmount::get()),
@@ -67,7 +67,7 @@ fn minimum_staking_period_resets(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		run_to_block(to_block.into(), |_| {});
 
@@ -85,8 +85,8 @@ fn minimum_staking_period_resets(
 #[rstest]
 fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let validator = account(0);
-		let _ = EndowParams::default().account_id(validator.clone()).endow();
+		let validator = 0;
+		let _ = EndowParams::default().account_id(validator).endow();
 
 		let res = Staking::self_stake_currency(origin(validator), 100);
 		assert_err!(res, Error::<Test>::NotBound);
@@ -97,7 +97,7 @@ fn not_bound(mut ext: TestExternalities) {
 fn chilled(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
@@ -114,7 +114,7 @@ fn too_small_amount(
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone());
+		let _ = EndowParams::default().account_id(validator.account_id);
 
 		let res = Staking::self_stake_currency(validator.origin, amount);
 		assert_err!(res, Error::<Test>::TooSmallStake);
@@ -141,7 +141,7 @@ fn not_enough_balance(
 fn would_be_overdominant(mut ext: TestExternalities, permission: PermissionType) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
-		let _ = EndowParams::default().account_id(validator.account_id.clone()).endow();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
 		let res = Staking::self_stake_currency(
 			validator.origin,

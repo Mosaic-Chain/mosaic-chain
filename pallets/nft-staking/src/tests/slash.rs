@@ -9,7 +9,7 @@ fn slashing_works(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			100,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -18,7 +18,7 @@ fn slashing_works(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -32,8 +32,8 @@ fn slashing_works(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::Slash {
-				offender: validator.account_id.clone(),
-				staker: validator.account_id.clone(),
+				offender: validator.account_id,
+				staker: validator.account_id,
 				currency: 0,
 				delegator_nfts: vec![],
 				permission_nft: Some(1), // 1% of 100
@@ -43,8 +43,8 @@ fn slashing_works(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::Slash {
-				offender: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				offender: validator.account_id,
+				staker: delegator.account_id,
 				currency: 1,
 				delegator_nfts: vec![(delegator.delegator_nft, 1)],
 				permission_nft: None,
@@ -91,7 +91,7 @@ fn staged_assets_are_not_slashed(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			100,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -104,7 +104,7 @@ fn staged_assets_are_not_slashed(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin.clone(),
 			101,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -113,7 +113,7 @@ fn staged_assets_are_not_slashed(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -124,8 +124,8 @@ fn staged_assets_are_not_slashed(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::Slash {
-				offender: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				offender: validator.account_id,
+				staker: delegator.account_id,
 				currency: 1,            // 1% of the first batch
 				delegator_nfts: vec![], // the nft is not slashed yet as its not commited
 				permission_nft: None,
@@ -138,8 +138,8 @@ fn staged_assets_are_not_slashed(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::Slash {
-				offender: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				offender: validator.account_id,
+				staker: delegator.account_id,
 				currency: 2,                                        // 1% of the total currency stake
 				delegator_nfts: vec![(delegator.delegator_nft, 1)], // the nft is now slashed
 				permission_nft: None,

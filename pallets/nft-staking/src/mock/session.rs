@@ -1,5 +1,7 @@
 use pallet_session::{SessionHandler, ShouldEndSession};
-use sp_runtime::{impl_opaque_keys, traits::OpaqueKeys, RuntimeAppPublic};
+use sp_runtime::{
+	impl_opaque_keys, testing::UintAuthorityId, traits::OpaqueKeys, RuntimeAppPublic,
+};
 
 use super::*;
 
@@ -73,11 +75,11 @@ impl<Hook: SessionHook> SessionManager<AccountId> for DummySessionManager<Accoun
 pub struct EmptySessionHandler;
 impl SessionHandler<AccountId> for EmptySessionHandler {
 	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[UintAuthorityId::ID];
-	fn on_genesis_session<T: OpaqueKeys>(_validators: &[(sp_runtime::AccountId32, T)]) {}
+	fn on_genesis_session<T: OpaqueKeys>(_validators: &[(AccountId, T)]) {}
 	fn on_new_session<T: OpaqueKeys>(
 		_changed: bool,
-		_validators: &[(sp_runtime::AccountId32, T)],
-		_queued_validators: &[(sp_runtime::AccountId32, T)],
+		_validators: &[(AccountId, T)],
+		_queued_validators: &[(AccountId, T)],
 	) {
 	}
 	fn on_disabled(_validator_index: u32) {}

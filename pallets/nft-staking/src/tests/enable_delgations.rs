@@ -10,14 +10,14 @@ fn enable_delegations_is_successful(mut ext: TestExternalities) {
 		let res = Staking::enable_delegations(validator.origin.clone());
 		assert_ok!(res, ());
 
-		System::assert_last_event(Event::DelegationEnabled(validator.account_id.clone()).into());
+		System::assert_last_event(Event::DelegationEnabled(validator.account_id).into());
 
 		let delegator = EndowParams::default().endow();
 
 		let res = Staking::delegate_currency(
 			delegator.origin.clone(),
 			100,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		);
@@ -37,7 +37,7 @@ fn enable_delegations_is_successful(mut ext: TestExternalities) {
 #[rstest]
 fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let origin = origin(account(0));
+		let origin = origin(0);
 
 		let res = Staking::enable_delegations(origin);
 		assert_noop!(res, Error::<Test>::NotBound);

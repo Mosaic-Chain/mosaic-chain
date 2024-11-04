@@ -7,11 +7,11 @@ fn selectable_validators(mut ext: TestExternalities) {
 		let faulted = BindParams::default().account_index(1).mint().bind();
 		let chilled = BindParams::default().account_index(2).mint().bind();
 
-		ValidatorStates::<Test>::mutate_extant(&faulted.account_id, |state| {
+		ValidatorStates::<Test>::mutate_extant(faulted.account_id, |state| {
 			*state = ValidatorState::Faulted;
 		});
 
-		ValidatorStates::<Test>::mutate_extant(&chilled.account_id, |state| {
+		ValidatorStates::<Test>::mutate_extant(chilled.account_id, |state| {
 			*state = ValidatorState::Chilled(0);
 		});
 
@@ -34,27 +34,27 @@ fn slashable_validators(mut ext: TestExternalities, #[case] not_chilled_state: V
 		let chilled_selected = BindParams::default().account_index(4).mint().bind();
 		let chilled_active = BindParams::default().account_index(5).mint().bind();
 
-		ValidatorStates::<Test>::mutate_extant(&chilled.account_id, |state| {
+		ValidatorStates::<Test>::mutate_extant(chilled.account_id, |state| {
 			*state = ValidatorState::Chilled(0);
 		});
 
-		ValidatorStates::<Test>::mutate_extant(&chilled_selected.account_id, |state| {
+		ValidatorStates::<Test>::mutate_extant(chilled_selected.account_id, |state| {
 			*state = ValidatorState::Chilled(0);
 		});
 
-		ValidatorStates::<Test>::mutate_extant(&chilled_active.account_id, |state| {
+		ValidatorStates::<Test>::mutate_extant(chilled_active.account_id, |state| {
 			*state = ValidatorState::Chilled(0);
 		});
 
-		ValidatorStates::<Test>::mutate_extant(&normal.account_id, |state| {
+		ValidatorStates::<Test>::mutate_extant(normal.account_id, |state| {
 			*state = not_chilled_state;
 		});
 
-		ValidatorStates::<Test>::mutate_extant(&selected.account_id, |state| {
+		ValidatorStates::<Test>::mutate_extant(selected.account_id, |state| {
 			*state = not_chilled_state;
 		});
 
-		ValidatorStates::<Test>::mutate_extant(&active.account_id, |state| {
+		ValidatorStates::<Test>::mutate_extant(active.account_id, |state| {
 			*state = not_chilled_state;
 		});
 
@@ -65,11 +65,11 @@ fn slashable_validators(mut ext: TestExternalities, #[case] not_chilled_state: V
 		assert!(slashable.is_empty());
 
 		// Committed contracts
-		ValidatorSet::set(vec![active.account_id.clone(), chilled_active.account_id.clone()]);
+		ValidatorSet::set(vec![active.account_id, chilled_active.account_id]);
 
 		next_session(); // actives are now selected, contracts are committed
 
-		ValidatorSet::set(vec![selected.account_id.clone(), chilled_selected.account_id.clone()]);
+		ValidatorSet::set(vec![selected.account_id, chilled_selected.account_id]);
 
 		next_session(); // actives are now active, selected are selected
 

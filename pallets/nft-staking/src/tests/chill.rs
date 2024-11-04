@@ -23,7 +23,7 @@ fn chill_is_successful(mut ext: TestExternalities, permission: PermissionType) {
 #[rstest]
 fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
-		let origin = origin(account(0));
+		let origin = origin(0);
 
 		let res = Staking::chill_validator(origin);
 		assert_noop!(res, Error::<Test>::NotBound);

@@ -11,7 +11,7 @@ fn expiry_works(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin,
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -36,8 +36,8 @@ fn expiry_works(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::NftUndelegated {
-				validator: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator.account_id,
+				staker: delegator.account_id,
 				item_id: delegator.delegator_nft,
 			}
 			.into(),
@@ -60,7 +60,7 @@ fn expires_even_when_contract_is_binding(mut ext: TestExternalities) {
 		Staking::delegate_nft(
 			delegator.origin.clone(),
 			delegator.delegator_nft,
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -73,7 +73,7 @@ fn expires_even_when_contract_is_binding(mut ext: TestExternalities) {
 		Staking::delegate_currency(
 			delegator.origin,
 			MinimumStakingAmount::get(),
-			validator.account_id.clone(),
+			validator.account_id,
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		)
@@ -84,8 +84,8 @@ fn expires_even_when_contract_is_binding(mut ext: TestExternalities) {
 
 		System::assert_has_event(
 			Event::<Test>::NftUndelegated {
-				validator: validator.account_id.clone(),
-				staker: delegator.account_id.clone(),
+				validator: validator.account_id,
+				staker: delegator.account_id,
 				item_id: delegator.delegator_nft,
 			}
 			.into(),
