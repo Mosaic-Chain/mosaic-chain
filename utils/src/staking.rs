@@ -37,7 +37,7 @@ pub trait NftStaking<AccountId, Balance, Variant, ItemId> {
 
 	fn unbind(account_id: &AccountId) -> Result<Balance, DispatchError>;
 
-	fn nominal_factor_of(account_id: &AccountId) -> Result<Perbill, DispatchError>;
+	fn nominal_factor_of_bound(account_id: &AccountId) -> Result<Perbill, DispatchError>;
 
 	fn owner(item_id: &ItemId) -> Result<AccountId, DispatchError>;
 

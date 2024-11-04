@@ -736,7 +736,8 @@ pub mod pallet {
 			let (permission, nominal_value) = T::NftStakingHandler::bind(&caller, &item_id)?;
 
 			ensure!(
-				T::NftStakingHandler::nominal_factor_of(&caller)? > T::NominalValueThreshold::get(),
+				T::NftStakingHandler::nominal_factor_of_bound(&caller)?
+					> T::NominalValueThreshold::get(),
 				Error::<T>::ValidatorDisqualified
 			);
 
@@ -898,7 +899,8 @@ pub mod pallet {
 			})?;
 
 			ensure!(
-				T::NftStakingHandler::nominal_factor_of(&caller)? > T::NominalValueThreshold::get(),
+				T::NftStakingHandler::nominal_factor_of_bound(&caller)?
+					> T::NominalValueThreshold::get(),
 				Error::<T>::ValidatorDisqualified
 			);
 

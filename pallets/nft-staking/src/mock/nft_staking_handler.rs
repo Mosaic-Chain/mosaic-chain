@@ -103,7 +103,7 @@ impl utils::traits::NftStaking<AccountId, Balance, pallet_nft_staking::Permissio
 		})
 	}
 
-	fn nominal_factor_of(account_id: &AccountId) -> Result<Perbill, DispatchError> {
+	fn nominal_factor_of_bound(account_id: &AccountId) -> Result<Perbill, DispatchError> {
 		let state = Self::get();
 		let item_id =
 			state.bound_tokens.get(account_id).ok_or(DispatchError::Other("not bound"))?;

@@ -631,7 +631,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::ItemNotInitialized.into())
 		}
 
-		fn nominal_factor_of(account_id: &T::AccountId) -> Result<Perbill, DispatchError> {
+		fn nominal_factor_of_bound(account_id: &T::AccountId) -> Result<Perbill, DispatchError> {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 

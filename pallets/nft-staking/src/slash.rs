@@ -27,7 +27,8 @@ impl<T: Config> Pallet<T> {
 
 	fn chill_if_disqualified(validator: &T::AccountId) {
 		// If slashed below some% autochill
-		if T::NftStakingHandler::nominal_factor_of(validator).expect("could get nominal factor")
+		if T::NftStakingHandler::nominal_factor_of_bound(validator)
+			.expect("could get nominal factor")
 			<= T::NominalValueThreshold::get()
 		{
 			ValidatorStates::<T>::mutate_extant(validator, |vstate| {

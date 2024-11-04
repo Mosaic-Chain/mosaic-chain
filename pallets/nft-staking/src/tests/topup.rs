@@ -26,7 +26,7 @@ fn topup_is_successful(
 
 		assert_ok!(NftStakingHandler::nominal_value(&validator.permission_nft), NOMINAL_VALUE);
 		assert_ok!(
-			NftStakingHandler::nominal_factor_of(&validator.account_id),
+			NftStakingHandler::nominal_factor_of_bound(&validator.account_id),
 			Perbill::from_percent(100)
 		);
 
