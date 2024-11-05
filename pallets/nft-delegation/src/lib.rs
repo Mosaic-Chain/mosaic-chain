@@ -177,7 +177,6 @@ pub mod pallet {
 			attribute_key: AttributeKey,
 		},
 		WrongOwner,
-		WrongDelegate,
 		AlreadyBound,
 		NotBound,
 		Expired,
@@ -546,11 +545,13 @@ pub mod pallet {
 			Ok((nominal_value, metadata))
 		}
 
-		fn metadata(item_id: &<T as NftsConfig>::ItemId) -> Result<T::BindMetadata, DispatchError> {
+		fn metadata_of_bound(
+			item_id: &<T as NftsConfig>::ItemId,
+		) -> Result<T::BindMetadata, DispatchError> {
 			BoundItems::<T>::get(item_id).ok_or(Error::<T>::NotBound.into())
 		}
 
-		fn set_metadata(
+		fn set_metadata_of_bound(
 			item_id: &<T as NftsConfig>::ItemId,
 			metadata: T::BindMetadata,
 		) -> DispatchResult {

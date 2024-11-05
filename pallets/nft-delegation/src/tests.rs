@@ -1,69 +1,165 @@
 use sdk::{
-	frame_support::{
-		assert_err, assert_ok,
-		traits::{Incrementable, OnFinalize, OnInitialize},
-	},
+	frame_support::{assert_noop, assert_ok},
 	frame_system::RawOrigin,
 	pallet_nfts::Error as NftsError,
+	sp_runtime::DispatchError,
+};
+
+use utils::{
+	run_until::{run_until, Blocks, ToBlock},
+	traits::NftDelegation as TNftDelegation,
 };
 
 use crate::{mock::*, Error, Event, Status};
-use utils::traits::NftDelegation as TNftDelegation; // This alias is needed to distingish between the runtime definition and the utils trait
-
-fn account(id: u8) -> AccountId {
-	[id; 32].into()
-}
 
 #[test]
-fn mint_delegator_token_should_work() {
+fn mint_delegator_token_works() {
 	new_test_ext().execute_with(|| {
 		let owner = account(1);
 		let expiration = 3;
 		let nominal_value = 100;
-		let item_id =
-			<<Test as sdk::pallet_nfts::Config>::ItemId as Incrementable>::initial_value().unwrap();
+		let item = 0;
 
-		assert_ok!(
-			NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value),
-			item_id
-		);
+		assert_ok!(NftDelegation::mint(&owner, expiration, &nominal_value), item);
 
-		System::assert_last_event(Event::TokenCreated { account: owner, item_id }.into());
+		System::assert_last_event(Event::TokenCreated { account: owner, item_id: item }.into());
 
-		assert_ok!(NftDelegation::status_of(&item_id), Status::Inactive { expiration });
-		assert_ok!(NftDelegation::nominal_value_of(&item_id), nominal_value);
+		assert_ok!(NftDelegation::status_of(&item), Status::Inactive { expiration });
+		assert_ok!(NftDelegation::nominal_value_of(&item), nominal_value);
 	});
 }
 
 #[test]
-fn bind_should_work() {
+fn mint_id_increments() {
+	new_test_ext().execute_with(|| {
+		let item1 = NftDelegation::mint(&account(1), 3, &42).expect("could mint nft");
+		let item2 = NftDelegation::mint(&account(2), 3, &42).expect("could mint nft");
+		assert!(item2 > item1);
+	});
+}
+
+#[test]
+fn mint_ext_requires_privileged_origin() {
+	new_test_ext().execute_with(|| {
+		// A simple signed origin is not privileged in the mock configuration
+		let res = NftDelegation::mint_delegator_token(
+			RuntimeOrigin::signed(account(1)),
+			account(2),
+			3,
+			42,
+		);
+
+		assert_noop!(res, DispatchError::BadOrigin);
+
+		// The root origin is privileged
+		let res = NftDelegation::mint_delegator_token(RuntimeOrigin::root(), account(2), 3, 42);
+
+		assert_ok!(res);
+	});
+}
+
+#[test]
+fn set_metadata_of_bound_works() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let item = NftDelegation::mint(&owner, 3, &42).expect("could mint nft");
+		NftDelegation::bind(&owner, &item, account(2)).expect("could bind nft");
+
+		assert_ok!(NftDelegation::metadata_of_bound(&item), account(2));
+
+		NftDelegation::set_metadata_of_bound(&item, account(3)).expect("could set metadata");
+
+		assert_ok!(NftDelegation::metadata_of_bound(&item), account(3));
+	});
+}
+
+#[test]
+fn set_metadata_of_bound_not_bound() {
+	new_test_ext().execute_with(|| {
+		let item = NftDelegation::mint(&account(0), 3, &42).expect("could mint nft");
+		assert_noop!(
+			NftDelegation::set_metadata_of_bound(&item, account(2)),
+			Error::<Test>::NotBound
+		);
+	});
+}
+
+#[test]
+fn set_nominal_value_works() {
+	new_test_ext().execute_with(|| {
+		let item = NftDelegation::mint(&account(0), 3, &42).expect("could mint nft");
+		NftDelegation::set_nominal_value(&item, 420).expect("could set nominal value");
+
+		assert_ok!(NftDelegation::nominal_value_of(&item), 420);
+	});
+}
+
+#[test]
+fn bind_works() {
 	new_test_ext().execute_with(|| {
 		let owner = account(1);
 		let validator = account(2);
 		let expiration = 4;
 		let nominal_value = 42;
-		let item_id =
-			NftDelegation::do_mint_delegator_token(&owner, expiration, &nominal_value).unwrap();
+		let item = NftDelegation::mint(&owner, expiration, &nominal_value).unwrap();
 
-		assert_err!(
-			NftDelegation::bind(&account(2), &item_id, validator.clone()),
-			Error::<Test>::WrongOwner
-		);
 		assert_ok!(
-			NftDelegation::bind(&owner, &item_id, validator.clone()),
+			NftDelegation::bind(&owner, &item, validator.clone()),
 			(expiration, nominal_value)
 		);
 
-		System::assert_last_event(Event::TokenBound { item_id }.into());
+		assert_ok!(NftDelegation::metadata_of_bound(&item), validator);
 
-		assert_err!(NftDelegation::bind(&owner, &item_id, validator), Error::<Test>::AlreadyBound);
-		assert_err!(NftDelegation::bind(&owner, &item_id, account(3)), Error::<Test>::AlreadyBound);
-		assert_err!(
+		System::assert_last_event(Event::TokenBound { item_id: item }.into());
+	});
+}
+
+#[test]
+fn bind_wrong_owner() {
+	new_test_ext().execute_with(|| {
+		let item = NftDelegation::mint(&account(1), 3, &42).expect("could mint nft");
+		assert_noop!(
+			NftDelegation::bind(&account(2), &item, account(2)),
+			Error::<Test>::WrongOwner
+		);
+	});
+}
+
+#[test]
+fn bind_item_does_not_exist() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(NftDelegation::bind(&account(1), &42, account(2)), Error::<Test>::WrongOwner);
+	});
+}
+
+#[test]
+fn bind_already_bound() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let item = NftDelegation::mint(&owner, 3, &42).expect("could mint nft");
+		NftDelegation::bind(&owner, &item, account(2)).expect("could bind nft");
+
+		assert_noop!(
+			NftDelegation::bind(&account(1), &item, account(2)),
+			Error::<Test>::AlreadyBound
+		);
+	});
+}
+
+#[test]
+fn bind_transfer_is_locked() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let item = NftDelegation::mint(&owner, 3, &42).expect("could mint nft");
+
+		NftDelegation::bind(&owner, &item, account(2)).expect("could bind nft");
+
+		assert_noop!(
 			Nfts::transfer(
-				RawOrigin::Signed(owner.clone()).into(),
+				RuntimeOrigin::signed(owner.clone()),
 				NftDelegation::collection_id().unwrap(),
-				item_id,
-				account(4),
+				item,
+				account(3),
 			),
 			NftsError::<Test>::ItemLocked
 		);
@@ -71,58 +167,110 @@ fn bind_should_work() {
 }
 
 #[test]
-fn unbind_should_work() {
+fn unbind_works() {
 	new_test_ext().execute_with(|| {
 		let owner1 = account(1);
 		let owner2 = account(4);
 		let validator = account(2);
 		let expiration = 3;
 		let nominal_value = 42;
-		let item_id =
-			NftDelegation::do_mint_delegator_token(&owner1, expiration, &nominal_value).unwrap();
+		let item = NftDelegation::mint(&owner1, expiration, &nominal_value).unwrap();
 
-		assert_err!(NftDelegation::unbind(&validator, &item_id), Error::<Test>::WrongOwner);
+		assert_noop!(NftDelegation::unbind(&validator, &item), Error::<Test>::WrongOwner);
 
-		assert_err!(NftDelegation::unbind(&owner1, &item_id), Error::<Test>::NotBound);
+		assert_noop!(NftDelegation::unbind(&owner1, &item), Error::<Test>::NotBound);
 
-		NftDelegation::bind(&owner1, &item_id, validator.clone()).unwrap();
+		NftDelegation::bind(&owner1, &item, validator.clone()).unwrap();
 
-		assert_ok!(NftDelegation::unbind(&owner1, &item_id), (nominal_value, validator.clone()));
+		assert_ok!(NftDelegation::unbind(&owner1, &item), (nominal_value, validator.clone()));
 
-		System::assert_last_event(Event::TokenUnbound { item_id }.into());
+		System::assert_last_event(Event::TokenUnbound { item_id: item }.into());
 
 		assert_ok!(
 			Nfts::transfer(
 				RawOrigin::Signed(owner1.clone()).into(),
 				NftDelegation::collection_id().unwrap(),
-				item_id,
+				item,
 				owner2.clone(),
 			),
 			()
 		);
 
 		// Check whether unbind cleaned up everything correctly for a rebind
-		assert_ok!(NftDelegation::bind(&owner2, &item_id, validator), (expiration, nominal_value));
+		assert_ok!(NftDelegation::bind(&owner2, &item, validator), (expiration, nominal_value));
 	});
 }
 
 #[test]
-fn expiration_should_work() {
+fn unbind_not_bound() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let item = NftDelegation::mint(&owner, 3, &42).expect("could mint nft");
+
+		assert_noop!(NftDelegation::unbind(&owner, &item), Error::<Test>::NotBound);
+	});
+}
+
+#[test]
+fn unbind_wrong_owner() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let item = NftDelegation::mint(&owner, 3, &42).expect("could mint nft");
+		NftDelegation::bind(&owner, &item, account(2)).expect("could bind nft");
+
+		assert_noop!(NftDelegation::unbind(&account(3), &item), Error::<Test>::WrongOwner);
+	});
+}
+
+#[test]
+fn unbind_transfer_is_unlocked() {
+	new_test_ext().execute_with(|| {
+		let owner1 = account(1);
+		let owner2 = account(2);
+
+		let item = NftDelegation::mint(&owner1, 3, &42).expect("could mint nft");
+		NftDelegation::bind(&owner1, &item, account(3)).expect("could bind nft");
+		NftDelegation::unbind(&owner1, &item).expect("could unbind nft");
+
+		assert_ok!(Nfts::transfer(
+			RawOrigin::Signed(owner1).into(),
+			NftDelegation::collection_id().unwrap(),
+			item,
+			owner2.clone(),
+		));
+
+		// Check whether unbind cleaned up everything correctly for a rebind
+		assert_ok!(NftDelegation::bind(&owner2, &item, account(4)));
+	});
+}
+
+#[test]
+fn expiration_works() {
 	new_test_ext().execute_with(|| {
 		let owner = account(1);
 		let nominal_value = 100;
 
 		for i in 1..11 {
-			let item_id =
-				NftDelegation::do_mint_delegator_token(&owner, i, &nominal_value).unwrap();
+			let item = NftDelegation::mint(&owner, i, &nominal_value).unwrap();
 
-			NftDelegation::bind(&owner, &item_id, account(42)).unwrap();
+			NftDelegation::bind(&owner, &item, account(42)).unwrap();
 		}
 
-		// Each block is a session in this case.
-		run_to_block(11, |n| {
-			System::assert_has_event(Event::TokensExpired { items: vec![n - 1] }.into());
-			assert_ok!(NftDelegation::status_of(&(n - 1)), Status::Expired { expired_on: n });
+		run_until::<AllPalletsWithoutSystem, Test>(|| {
+			let session = Session::current_index();
+			if session >= 11 {
+				return false;
+			}
+
+			if session > 0 {
+				System::assert_has_event(Event::TokensExpired { items: vec![session - 1] }.into());
+				assert_ok!(
+					NftDelegation::status_of(&(session - 1)),
+					Status::Expired { expired_on: session }
+				);
+			}
+
+			true
 		});
 
 		for i in 1..11 {
@@ -133,23 +281,23 @@ fn expiration_should_work() {
 }
 
 #[test]
-fn status_change_should_work() {
+fn status_change_works() {
 	new_test_ext().execute_with(|| {
 		let owner = account(1);
 		let nominal_value = 100;
 
-		let item_id = NftDelegation::do_mint_delegator_token(&owner, 10, &nominal_value).unwrap();
-		assert_ok!(NftDelegation::status_of(&item_id), Status::Inactive { expiration: 10 });
+		let item = NftDelegation::mint(&owner, 10, &nominal_value).unwrap();
+		assert_ok!(NftDelegation::status_of(&item), Status::Inactive { expiration: 10 });
 
 		// nth session = n+1 block
-		run_to_block(11, |_| {});
+		run_until::<AllPalletsWithoutSystem, Test>(ToBlock(11));
 
-		NftDelegation::bind(&owner, &item_id, account(42)).unwrap();
-		assert_ok!(NftDelegation::status_of(&item_id), Status::Active { expires_on: 20 });
+		NftDelegation::bind(&owner, &item, account(42)).unwrap();
+		assert_ok!(NftDelegation::status_of(&item), Status::Active { expires_on: 20 });
 
-		run_to_block(21, |_| {});
+		run_until::<AllPalletsWithoutSystem, Test>(Blocks(10u32));
 
-		assert_ok!(NftDelegation::status_of(&item_id), Status::Expired { expired_on: 20 });
+		assert_ok!(NftDelegation::status_of(&item), Status::Expired { expired_on: 20 });
 	});
 }
 
@@ -159,47 +307,13 @@ fn expires_even_if_unbound() {
 		let owner = account(1);
 		let nominal_value = 100;
 
-		let item_id = NftDelegation::do_mint_delegator_token(&owner, 10, &nominal_value).unwrap();
+		let item = NftDelegation::mint(&owner, 10, &nominal_value).unwrap();
 
-		NftDelegation::bind(&owner, &item_id, account(42)).unwrap();
-		assert_ok!(NftDelegation::status_of(&item_id), Status::Active { expires_on: 10 });
+		NftDelegation::bind(&owner, &item, account(42)).unwrap();
+		assert_ok!(NftDelegation::status_of(&item), Status::Active { expires_on: 10 });
 
-		NftDelegation::unbind(&owner, &item_id).unwrap();
-		run_to_block(11, |_| {});
-		assert_ok!(NftDelegation::status_of(&item_id), Status::Expired { expired_on: 10 });
+		NftDelegation::unbind(&owner, &item).unwrap();
+		run_until::<AllPalletsWithoutSystem, Test>(Blocks(11u32));
+		assert_ok!(NftDelegation::status_of(&item), Status::Expired { expired_on: 10 });
 	});
-}
-
-// Testing block production, for reference see:
-// https://web.archive.org/web/20230129131011/https://docs.substrate.io/test/unit-testing/#block-production
-fn run_to_block(n: u64, on_new: impl Fn(u32)) {
-	let mut block_number = System::block_number();
-
-	assert!(
-		block_number < n,
-		"Fix your test! It does not know that block {n} has already been created."
-	);
-
-	loop {
-		block_number = System::block_number();
-
-		if block_number >= n {
-			break;
-		}
-
-		if block_number > 0 {
-			Session::on_finalize(block_number);
-			System::on_finalize(block_number);
-		}
-
-		System::reset_events();
-		System::set_block_number(block_number + 1);
-
-		block_number = System::block_number();
-
-		System::on_initialize(block_number);
-		Session::on_initialize(block_number);
-
-		on_new(Session::current_index());
-	}
 }

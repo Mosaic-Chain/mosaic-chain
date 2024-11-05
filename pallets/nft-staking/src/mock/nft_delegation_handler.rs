@@ -123,12 +123,12 @@ impl NftDelegation<AccountId, Balance, ItemId, AccountId> for NftDelegationHandl
 		})
 	}
 
-	fn metadata(item_id: &ItemId) -> Result<AccountId, DispatchError> {
+	fn metadata_of_bound(item_id: &ItemId) -> Result<AccountId, DispatchError> {
 		let state = NftDelegationHandlerStore::get();
 		state.bound_tokens.get(item_id).ok_or(Error::NotBound.into()).cloned()
 	}
 
-	fn set_metadata(item_id: &ItemId, metadata: AccountId) -> DispatchResult {
+	fn set_metadata_of_bound(item_id: &ItemId, metadata: AccountId) -> DispatchResult {
 		NftDelegationHandlerStore::mutate(|state| {
 			ensure!(state.bound_tokens.contains_key(item_id), Error::NotBound);
 			state.bound_tokens.insert(*item_id, metadata);

@@ -29,7 +29,7 @@ fn self_stake_nft_is_successful(mut ext: TestExternalities, permission: Permissi
 			.contains_key(&delegation_details.delegator_nft));
 
 		assert_ok!(
-			NftDelegationHandler::metadata(&delegation_details.delegator_nft),
+			NftDelegationHandler::metadata_of_bound(&delegation_details.delegator_nft),
 			validator.account_id
 		);
 

@@ -5,17 +5,13 @@ use sdk::{
 
 use sp_std::collections::btree_map::BTreeMap;
 
-use frame_support::{
-	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64},
-	PalletId,
-};
+use frame_support::{derive_impl, parameter_types, traits::AsEnsureOriginWithArg, PalletId};
 use pallet_session::{SessionHandler, SessionManager, ShouldEndSession};
-use sp_core::{ConstU32, H256};
+use sp_core::ConstU32;
 use sp_runtime::{
 	impl_opaque_keys,
 	testing::UintAuthorityId,
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, OpaqueKeys, Verify},
+	traits::{IdentifyAccount, IdentityLookup, OpaqueKeys, Verify},
 	BuildStorage, MultiSignature, RuntimeAppPublic,
 };
 
@@ -39,56 +35,17 @@ pub type Signature = MultiSignature;
 pub type AccountPublic = <Signature as Verify>::Signer;
 pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type RuntimeTask = ();
-	type SingleBlockMigrations = ();
-	type MultiBlockMigrator = ();
-	type PreInherents = ();
-	type PostInherents = ();
-	type PostTransactions = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ConstU32<50>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-
-	/// The type for recording an account's balance.
-	type Balance = u64;
-
-	/// The ubiquitous event type.
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 impl pallet_nfts::Config for Test {
@@ -238,6 +195,10 @@ impl nft_delegation::Config for Test {
 	type NftExpirationHandler = ExpirationHandler;
 	type Balance = u64;
 	type BindMetadata = AccountId;
+}
+
+pub fn account(id: u8) -> AccountId {
+	[id; 32].into()
 }
 
 // Build genesis storage according to the mock runtime.
