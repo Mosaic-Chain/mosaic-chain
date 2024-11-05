@@ -111,17 +111,19 @@ impl<T: Config> Pallet<T> {
 				)
 				.expect("BestEffort deposit should not fail");
 
-				Self::lock_currency(&staker, s_imbalance.peek())
-					.expect("the reward is available as free balance");
+				let s_locked =
+					Self::lock_currency(&staker, s_imbalance.peek(), Precision::BestEffort)
+						.expect("the reward is available as free balance");
+
+				total_rewarded.subsume(s_imbalance);
 
 				Contracts::<T>::mutate(&validator, &staker, |s| {
 					if let Some(new) = s.ensure_staging_mut() {
-						new.stake.currency = new.stake.currency.saturating_add(s_imbalance.peek());
+						new.stake.currency = new.stake.currency.saturating_add(s_locked);
 					}
 				});
 
-				Self::grow_total_validator_stake_by(&validator, s_imbalance.peek());
-				total_rewarded.subsume(s_imbalance);
+				Self::grow_total_validator_stake_by(&validator, s_locked);
 
 				Self::deposit_event(Event::<T>::ContractReward {
 					validator: validator.clone(),
@@ -131,18 +133,19 @@ impl<T: Config> Pallet<T> {
 				});
 			}
 
-			Self::lock_currency(&validator, total_v_imbalance.peek())
-				.expect("the reward is available as free balance");
+			let v_locked =
+				Self::lock_currency(&validator, total_v_imbalance.peek(), Precision::BestEffort)
+					.expect("the reward is available as free balance");
+
+			total_rewarded.subsume(total_v_imbalance);
 
 			Contracts::<T>::mutate(&validator, &validator, |s| {
 				if let Some(new) = s.ensure_staging_mut() {
-					new.stake.currency =
-						new.stake.currency.saturating_add(total_v_imbalance.peek());
+					new.stake.currency = new.stake.currency.saturating_add(v_locked);
 				}
 			});
 
-			Self::grow_total_validator_stake_by(&validator, total_v_imbalance.peek());
-			total_rewarded.subsume(total_v_imbalance);
+			Self::grow_total_validator_stake_by(&validator, v_locked);
 		}
 
 		T::OnReward::on_unbalanced(total_rewarded);

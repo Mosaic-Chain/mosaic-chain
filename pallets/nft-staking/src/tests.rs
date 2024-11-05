@@ -6,7 +6,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_io::TestExternalities;
-use sp_runtime::{PerThing, Perbill};
+use sp_runtime::{traits::Get, PerThing, Perbill};
 use sp_staking::offence::ReportOffence;
 
 use utils::{

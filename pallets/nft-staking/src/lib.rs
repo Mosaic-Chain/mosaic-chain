@@ -506,9 +506,26 @@ pub mod pallet {
 		pub(crate) fn lock_currency(
 			account_id: &T::AccountId,
 			amount: T::Balance,
-		) -> DispatchResult {
-			<T as Config>::Fungible::hold(&HoldReason::Staking.into(), account_id, amount)
-				.map_err(|_| Error::<T>::InsufficientFunds.into())
+			precision: Precision,
+		) -> Result<T::Balance, DispatchError> {
+			let reducible = <T as Config>::Fungible::reducible_balance(
+				account_id,
+				Preservation::Preserve, // do not put ed on hold
+				Fortitude::Force,       // do put frozen on hold
+			);
+
+			let amount = if amount > reducible {
+				match precision {
+					Precision::Exact => return Err(Error::<T>::InsufficientFunds.into()),
+					Precision::BestEffort => reducible,
+				}
+			} else {
+				amount
+			};
+
+			<T as Config>::Fungible::hold(&HoldReason::Staking.into(), account_id, amount)?;
+
+			Ok(amount)
 		}
 
 		/// Removes the provided amount from the account's lock.
@@ -549,7 +566,7 @@ pub mod pallet {
 
 			ensure!(amount >= T::MinimumStakingAmount::get(), Error::<T>::TooSmallStake);
 
-			Self::lock_currency(staker, amount)?;
+			Self::lock_currency(staker, amount, Precision::Exact)?;
 			Self::grow_total_validator_stake_by(validator, amount);
 			Self::ensure_not_overdominant(validator)?;
 
