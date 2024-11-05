@@ -352,10 +352,10 @@ fn item_expires_early(mut ext: TestExternalities) {
 fn target_would_be_overdominant(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
-
-		let nominal_value =
-			MaximumStakePercentage::get() * (Balances::total_issuance() - NOMINAL_VALUE);
-		let delegator = EndowParams::default().nft_nominal_value(nominal_value).endow();
+		let delegator = EndowParams::default()
+			.currency(1000)
+			.nft_nominal_value(MaximumStakePercentage::get() * (1000 - NOMINAL_VALUE))
+			.endow();
 
 		let res = Staking::delegate_nft(
 			delegator.origin,
