@@ -146,8 +146,8 @@ fn no_contract(mut ext: TestExternalities) {
 #[rstest]
 fn binding_contract(
 	mut ext: TestExternalities,
-	#[values(2, u32::from(MinimumStakingPeriod::get()) / 2, u32::from(MinimumStakingPeriod::get()))]
-	block: u32,
+	#[values(1, MinimumStakingPeriod::get().get() / 2, MinimumStakingPeriod::get().get() - 1)]
+	session: u32,
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
@@ -161,7 +161,7 @@ fn binding_contract(
 			MinimumCommission::get(),
 		)
 		.expect("could delegate currency");
-		run_to_block(block.into(), |_| {});
+		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
 
 		let res = Staking::kick(validator.origin, delegator.account_id);
 		assert_noop!(res, Error::<Test>::EarlyKick);

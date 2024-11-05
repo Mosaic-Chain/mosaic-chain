@@ -100,8 +100,8 @@ fn item_not_bound(mut ext: TestExternalities, permission: PermissionType) {
 fn self_contract_is_binding(
 	mut ext: TestExternalities,
 	permission: PermissionType,
-	#[values(2, u32::from(MinimumStakingPeriod::get()) / 2, u32::from(MinimumStakingPeriod::get()))]
-	block: u32,
+	#[values(1, MinimumStakingPeriod::get().get() / 2, MinimumStakingPeriod::get().get() - 1)]
+	session: u32,
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
@@ -110,7 +110,7 @@ fn self_contract_is_binding(
 		Staking::self_stake_nft(validator.origin.clone(), delegation_details.delegator_nft)
 			.expect("could stake nft");
 
-		run_to_block(block.into(), |_| {});
+		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
 
 		let res = Staking::self_unstake_nft(validator.origin, delegation_details.delegator_nft);
 		assert_noop!(res, Error::<Test>::EarlyUnstake);

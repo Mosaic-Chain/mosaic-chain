@@ -73,13 +73,9 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 			*s = ValidatorState::Chilled(Session::current_index());
 		});
 
-		// 1 block = 1 session
-		// (n + 1)th block = nth session
 		// is_slacking = current_index - chill_index > SlackingPeriod
-		// => chill_imdex is 0
-		// => slacking since session SlackingPeriod + 1
-		// => slacking since block SlackingPeriod + 2
-		run_to_block(u64::from(SlackingPeriod::get()) + 2, |_| {});
+		// => slacking since session `current` + `SlackingPeriod` + 1
+		run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(SlackingPeriod::get() + 1));
 
 		let res = Staking::undelegate_nft(
 			delegator.origin,
@@ -205,8 +201,8 @@ fn item_not_bound(mut ext: TestExternalities) {
 #[rstest]
 fn binding_contract(
 	mut ext: TestExternalities,
-	#[values(2, u32::from(MinimumStakingPeriod::get()) / 2, u32::from(MinimumStakingPeriod::get()))]
-	block: u32,
+	#[values(1, MinimumStakingPeriod::get().get() / 2, MinimumStakingPeriod::get().get() - 1)]
+	session: u32,
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
@@ -221,7 +217,7 @@ fn binding_contract(
 		)
 		.expect("could delegate nft");
 
-		run_to_block(block.into(), |_| {});
+		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
 
 		let res = Staking::undelegate_nft(
 			delegator.origin,

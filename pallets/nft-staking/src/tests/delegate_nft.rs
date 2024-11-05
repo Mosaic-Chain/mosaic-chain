@@ -50,7 +50,7 @@ fn staking_period_resets(mut ext: TestExternalities) {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
 
-		run_to_block(50, |_| {});
+		run_until::<AllPalletsWithoutSystem, _>(ToSession(50));
 
 		Staking::delegate_nft(
 			delegator.origin,

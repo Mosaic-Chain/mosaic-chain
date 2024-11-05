@@ -3,6 +3,8 @@ use sp_runtime::{
 	impl_opaque_keys, testing::UintAuthorityId, traits::OpaqueKeys, RuntimeAppPublic,
 };
 
+use utils::{traits::Until, SessionIndex};
+
 use super::*;
 
 impl_opaque_keys! {
@@ -90,37 +92,16 @@ impl sp_runtime::BoundToRuntimeAppPublic for EmptySessionHandler {
 	type Public = UintAuthorityId;
 }
 
-// Testing block production, for reference see:
-// https://web.archive.org/web/20230129131011/https://docs.substrate.io/test/unit-testing/#block-production
-// In case of using `AlwaysEndSession` one block = one session;
-pub fn run_to_block(n: u64, on_new: impl Fn(u32)) {
-	let mut block_number = System::block_number();
+pub struct ToSession(pub SessionIndex);
 
-	assert!(
-		block_number < n,
-		"Fix your test! It does not know that block {n} has already been created."
-	);
+impl ToSession {
+	pub fn current_plus(n: SessionIndex) -> Self {
+		Self(Session::current_index() + n)
+	}
+}
 
-	loop {
-		block_number = System::block_number();
-
-		if block_number >= n {
-			break;
-		}
-
-		if block_number > 0 {
-			Session::on_finalize(block_number);
-			System::on_finalize(block_number);
-		}
-
-		System::reset_events();
-		System::set_block_number(block_number + 1);
-
-		block_number = System::block_number();
-
-		System::on_initialize(block_number);
-		Session::on_initialize(block_number);
-
-		on_new(Session::current_index());
+impl Until<Test> for ToSession {
+	fn should_step(&mut self) -> bool {
+		Session::current_index() < self.0
 	}
 }

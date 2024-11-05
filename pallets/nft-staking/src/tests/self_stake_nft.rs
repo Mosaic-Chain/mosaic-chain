@@ -48,14 +48,14 @@ fn self_stake_nft_is_successful(mut ext: TestExternalities, permission: Permissi
 fn minimum_staking_period_resets(
 	mut ext: TestExternalities,
 	permission: PermissionType,
-	#[values(2, MinimumStakingPeriod::get().get(), MinimumStakingPeriod::get().get() + 1, 1000)]
-	to_block: u32,
+	#[values(1, MinimumStakingPeriod::get().get(), MinimumStakingPeriod::get().get(), 1000)]
+	session: u32,
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
 		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
-		run_to_block(to_block.into(), |_| {});
+		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
 
 		let res = Staking::self_stake_nft(validator.origin, delegation_details.delegator_nft);
 		assert_ok!(res, ());

@@ -10,6 +10,7 @@ use sp_runtime::{PerThing, Perbill};
 use sp_staking::offence::ReportOffence;
 
 use utils::{
+	run_until::run_until,
 	traits::{NftDelegation, NftStaking},
 	SessionIndex,
 };
@@ -200,15 +201,13 @@ fn origin(account: AccountId) -> RuntimeOrigin {
 
 /// Run to the session after the minimum staking period expires, so that contracts can be unstaked from.
 fn skip_min_staking_period() {
-	// 1 session = 1 block
-	let index = System::block_number() + u64::from(MinimumStakingPeriod::get().get());
-	run_to_block(index, |_| {});
+	let until = ToSession::current_plus(MinimumStakingPeriod::get().get());
+	run_until::<AllPalletsWithoutSystem, _>(until);
 }
 
 /// Skip to the next session
 fn next_session() {
-	// 1 session = 1 block
-	run_to_block(System::block_number() + 1, |_| {});
+	run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(1));
 }
 
 #[macro_export]

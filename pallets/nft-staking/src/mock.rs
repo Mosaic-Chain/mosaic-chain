@@ -6,9 +6,7 @@ pub use nft_delegation_handler::{
 	Error as NftDeleationHandlerError, NftDelegationHandler, NftDelegationHandlerStore,
 };
 pub use nft_staking_handler::{Error as StakingHandlerError, NftStakingHandler};
-pub use session::{
-	run_to_block, MockSessionKeys, SessionReward, SessionRewardInstance, ValidatorSet,
-};
+pub use session::{MockSessionKeys, SessionReward, SessionRewardInstance, ToSession, ValidatorSet};
 
 use sdk::{
 	frame_support, frame_system, pallet_balances, pallet_offences, pallet_session, sp_core, sp_io,

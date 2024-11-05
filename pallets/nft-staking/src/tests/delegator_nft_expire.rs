@@ -17,8 +17,7 @@ fn expiry_works(mut ext: TestExternalities) {
 		)
 		.expect("could delegate nft");
 
-		// nth session = n+1 block
-		run_to_block(u64::from(expiry) + 1, |_| {});
+		run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(expiry));
 
 		assert_current_validator_stake!(
 			&validator.account_id,
@@ -67,7 +66,7 @@ fn expires_even_when_contract_is_binding(mut ext: TestExternalities) {
 		.expect("could delegate nft");
 
 		// Almost expires
-		run_to_block(u64::from(expiry), |_| {});
+		run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(expiry - 1));
 
 		// Update contract
 		Staking::delegate_currency(

@@ -63,8 +63,8 @@ fn not_bound(mut ext: TestExternalities) {
 fn contract_is_binding(
 	mut ext: TestExternalities,
 	permission: PermissionType,
-	#[values(2, u32::from(MinimumStakingPeriod::get()) / 2, u32::from(MinimumStakingPeriod::get()))]
-	block: u32,
+	#[values(1, MinimumStakingPeriod::get().get() / 2, MinimumStakingPeriod::get().get() - 1)]
+	session: u32,
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
@@ -73,7 +73,7 @@ fn contract_is_binding(
 		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get())
 			.expect("could stake currency");
 
-		run_to_block(block.into(), |_| {});
+		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
 
 		let res = Staking::self_unstake_currency(validator.origin, MinimumStakingAmount::get());
 		assert_noop!(res, Error::<Test>::EarlyUnstake);
