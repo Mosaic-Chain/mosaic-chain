@@ -37,5 +37,5 @@ rstest_reuse = { workspace = true }
 [features]
 default = [ "std" ]
 std = [ "codec/std", "scale-info/std", "sdk/std", "utils/std" ]
-runtime-benchmarks = [ "sdk/runtime-benchmarks" ]
+runtime-benchmarks = [ "sdk/runtime-benchmarks", "utils/runtime-benchmarks" ]
 try-runtime = [ "sdk/try-runtime" ]

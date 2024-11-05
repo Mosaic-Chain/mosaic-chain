@@ -17,3 +17,4 @@ utils = { workspace = true }
 default = [ "std" ]
 std = [ "sdk/std", "utils/std" ]
 try-runtime = [ "sdk/try-runtime" ]
+runtime-benchmarks = [ "utils/runtime-benchmarks" ]

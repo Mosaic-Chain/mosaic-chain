@@ -102,6 +102,7 @@ std = [
 	"utils/std",
 ]
 runtime-benchmarks = [
+	"pallet-airdrop/runtime-benchmarks",
 	"pallet-doas/runtime-benchmarks",
 	"pallet-hold-vesting/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
@@ -110,7 +111,9 @@ runtime-benchmarks = [
 	"pallet-nft-staking/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-validator-subset-selection/runtime-benchmarks",
+	"pallet-vesting-to-freeze/runtime-benchmarks",
 	"sdk/runtime-benchmarks",
+	"utils/runtime-benchmarks",
 ]
 try-runtime = [
 	"pallet-airdrop/try-runtime",

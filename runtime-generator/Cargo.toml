@@ -72,6 +72,7 @@ std = [
 ]
 runtime-benchmarks = [
 	"mosaic-testnet-solo-runtime?/runtime-benchmarks",
+	"pallet-airdrop?/runtime-benchmarks",
 	"pallet-im-online?/runtime-benchmarks",
 	"pallet-nft-permission?/runtime-benchmarks",
 	"pallet-nft-staking?/runtime-benchmarks",

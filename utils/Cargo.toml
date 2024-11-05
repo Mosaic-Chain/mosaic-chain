@@ -8,11 +8,12 @@ edition = "2021"
 
 [dependencies]
 
-sdk = { workspace = true, features = ["frame-support", "sp-staking"] }
+sdk = { workspace = true, features = [ "frame-support", "sp-staking", "frame-system" ] }
 impl-trait-for-tuples = { workspace = true }
-codec = { workspace = true, features = ["derive"] }
-scale-info = { workspace = true, features = ["derive"] }
+codec = { workspace = true, features = [ "derive" ] }
+scale-info = { workspace = true, features = [ "derive" ] }
 
 [features]
 default = [ "std" ]
 std = [ "sdk/std" ]
+runtime-benchmarks = []
