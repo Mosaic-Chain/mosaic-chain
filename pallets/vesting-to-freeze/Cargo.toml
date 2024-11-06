@@ -13,6 +13,9 @@ codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 utils = { workspace = true }
 
+[dev-dependencies]
+sdk = { workspace = true, features = ["pallet-balances", "sp-io", "sp-runtime"] }
+
 [features]
 default = [ "std" ]
 std = [ "sdk/std", "utils/std" ]

@@ -2,6 +2,14 @@
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect)]
 
+pub use pallet::*;
+
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 use sdk::{frame_support, frame_system, sp_core};
 
 use frame_support::{
@@ -20,8 +28,6 @@ use frame_system::pallet_prelude::*;
 use sp_core::Get;
 
 use utils::traits::HoldVestingSchedule;
-
-pub use pallet::*;
 
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
