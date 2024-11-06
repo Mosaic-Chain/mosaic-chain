@@ -87,6 +87,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		NeverThaws,
+		AlreadyExpired,
 		NoFrozenSchedules,
 		MaxFrozenSchedulesReached,
 	}
@@ -105,15 +106,20 @@ pub mod pallet {
 				.and_then(|b| b.try_into().ok())
 				.ok_or(Error::<T>::NeverThaws)?;
 
-			let frozen_now = schedule.locked_at::<T::BlockNumberToBalance>(
-				T::BlockNumberProvider::current_block_number(),
-			);
+			let now = T::BlockNumberProvider::current_block_number();
+			let frozen_now = schedule.locked_at::<T::BlockNumberToBalance>(now);
+
+			if thaws_on < now || frozen_now.is_zero() {
+				return Err(Error::<T>::AlreadyExpired.into());
+			}
 
 			T::Fungible::increase_frozen(&FreezeReason::VestingToFreeze.into(), &who, frozen_now)?;
 
-			FrozenSchedules::<T>::get(&who)
-				.try_push((thaws_on, frozen_now))
-				.map_err(|_| Error::<T>::MaxFrozenSchedulesReached)?;
+			FrozenSchedules::<T>::mutate(&who, |schedules| {
+				schedules
+					.try_push((thaws_on, frozen_now))
+					.map_err(|_| Error::<T>::MaxFrozenSchedulesReached)
+			})?;
 
 			T::VestingSchedule::remove_vesting_schedule(&who, schedule_index)?;
 
