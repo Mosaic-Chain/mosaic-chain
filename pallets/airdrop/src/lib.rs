@@ -1,6 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect)]
+pub use pallet::*;
+
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
 
 use sdk::{frame_support, frame_system, sp_core, sp_runtime, sp_std};
 
@@ -32,8 +39,6 @@ use utils::{
 	vesting::Schedule as VestingSchedule,
 	SessionIndex,
 };
-
-pub use pallet::*;
 
 // TODO: Once the pallet is ready turn off dev_mode
 #[frame_support::pallet(dev_mode)]
@@ -71,7 +76,7 @@ pub mod pallet {
 
 		const MAX_DELEGATOR_NFTS: u32;
 
-		/// NOTE: this should have the maximum value of u64::MAX - `Self::MaxAirdropsPerBlock`
+		/// NOTE: this value must never exceed u64::MAX - `Self::MaxAirdropsPerBlock`
 		type BaseTransactionPriority: Get<u64>;
 	}
 
@@ -124,7 +129,7 @@ pub mod pallet {
 
 	type Signature = <sr25519::Pair as Pair>::Signature;
 
-	type PackageOf<T> = Package<
+	pub type PackageOf<T> = Package<
 		<T as frame_system::Config>::AccountId,
 		<T as Config>::Balance,
 		<T as Config>::PermissionType,
@@ -133,22 +138,22 @@ pub mod pallet {
 	>;
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
-	struct PermissionNft<PermissionType, Balance> {
-		permission: PermissionType,
-		nominal_value: Balance,
+	pub struct PermissionNft<PermissionType, Balance> {
+		pub permission: PermissionType,
+		pub nominal_value: Balance,
 	}
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
-	struct DelegatorNft<Balance> {
-		expiration: SessionIndex,
-		nominal_value: Balance,
+	pub struct DelegatorNft<Balance> {
+		pub expiration: SessionIndex,
+		pub nominal_value: Balance,
 	}
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
-	struct VestingInfo<Balance, BlockNumber> {
-		amount: Balance,
-		unlock_per_block: Balance,
-		start_block: Option<BlockNumber>,
+	pub struct VestingInfo<Balance, BlockNumber> {
+		pub amount: Balance,
+		pub unlock_per_block: Balance,
+		pub start_block: Option<BlockNumber>,
 	}
 
 	impl<Balance, BlockNumber> From<VestingInfo<Balance, BlockNumber>>
@@ -161,12 +166,12 @@ pub mod pallet {
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
 	pub struct Package<AccountId, Balance, PermissionType, BlockNumber, MaxDelegatorNfts: Get<u32>> {
-		nonce: u64,
-		account_id: AccountId,
-		balance: Option<Balance>,
-		vesting: Option<VestingInfo<Balance, BlockNumber>>,
-		permission_nft: Option<PermissionNft<PermissionType, Balance>>,
-		delegator_nfts: Option<BoundedVec<DelegatorNft<Balance>, MaxDelegatorNfts>>,
+		pub nonce: u64,
+		pub account_id: AccountId,
+		pub balance: Option<Balance>,
+		pub vesting: Option<VestingInfo<Balance, BlockNumber>>,
+		pub permission_nft: Option<PermissionNft<PermissionType, Balance>>,
+		pub delegator_nfts: Option<BoundedVec<DelegatorNft<Balance>, MaxDelegatorNfts>>,
 	}
 
 	/// Identifies the pallet.

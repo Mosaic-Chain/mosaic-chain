@@ -1,8 +1,5 @@
 use super::*;
-use sdk::{
-	frame_support::{self, traits::VariantCountOf},
-	frame_system, pallet_balances, sp_io, sp_runtime,
-};
+use sdk::{frame_support, frame_system, pallet_balances, sp_io, sp_runtime};
 
 use frame_support::{
 	derive_impl,
@@ -11,6 +8,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, MutateHold},
 		tokens::Precision,
+		VariantCountOf,
 	},
 };
 use sp_core::{ConstU128, ConstU32};
