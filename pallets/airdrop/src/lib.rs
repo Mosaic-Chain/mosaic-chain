@@ -2,7 +2,7 @@
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect)]
 
-use sdk::{frame_support, frame_system, sp_core, sp_std};
+use sdk::{frame_support, frame_system, sp_core, sp_runtime, sp_std};
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -10,7 +10,6 @@ use frame_support::{
 		BuildGenesisConfig, InvalidTransaction, Member, StorageValue, TransactionSource,
 		TransactionValidity, ValidTransaction, ValueQuery,
 	},
-	sp_runtime::{traits::AccountIdConversion, DispatchResult},
 	storage::bounded_vec::BoundedVec,
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -22,6 +21,10 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_core::{crypto::Pair, sr25519, Get};
+use sp_runtime::{
+	traits::{AccountIdConversion, AtLeast32BitUnsigned, Saturating, Zero},
+	DispatchResult,
+};
 use sp_std::marker::PhantomData;
 
 use utils::{
@@ -41,7 +44,7 @@ pub mod pallet {
 	pub trait Config: sdk::frame_system::Config {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-		type Balance: Member + Parameter;
+		type Balance: Member + Parameter + AtLeast32BitUnsigned;
 		type PermissionType: Member + Parameter;
 		type ItemId: Clone + core::fmt::Debug;
 		type DelegatorNftBindMetadata;
@@ -210,8 +213,16 @@ pub mod pallet {
 				return Err(Error::<T>::BadNonce.into());
 			}
 
-			if let Some(balance) = &package.balance {
-				T::Fungible::mint_into(&package.account_id, balance.clone())?;
+			// Ensure the account has at least enough balance to not be dusted
+			let minimum_balance = T::Fungible::minimum_balance();
+			let current_balance = T::Fungible::balance(&package.account_id);
+			let endowed_balance = package.balance.unwrap_or_else(Zero::zero);
+
+			let total_to_mint = endowed_balance.clone()
+				+ (minimum_balance.saturating_sub(current_balance.saturating_add(endowed_balance)));
+
+			if !total_to_mint.is_zero() {
+				T::Fungible::mint_into(&package.account_id, total_to_mint)?;
 			}
 
 			if let Some(permission_nft) = &package.permission_nft {
