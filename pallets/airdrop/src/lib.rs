@@ -300,19 +300,20 @@ pub mod pallet {
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
 				Call::airdrop { package, signature } => {
-					if !Self::check_signature(&package.encode(), signature) {
-						return InvalidTransaction::BadSigner.into();
-					}
-
 					let current_nonce = Nonce::<T>::get();
-					let nonce_limit = current_nonce.saturating_add(T::MaxAirdropsInPool::get());
 
 					if package.nonce < current_nonce {
 						return InvalidTransaction::Stale.into();
 					}
 
+					let nonce_limit = current_nonce.saturating_add(T::MaxAirdropsInPool::get());
+
 					if package.nonce >= nonce_limit {
 						return InvalidTransaction::Future.into();
+					}
+
+					if !Self::check_signature(&package.encode(), signature) {
+						return InvalidTransaction::BadSigner.into();
 					}
 
 					let valid = ValidTransaction::with_tag_prefix("Airdrop")

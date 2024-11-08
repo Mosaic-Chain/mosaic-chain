@@ -335,7 +335,7 @@ fn rotate_key_ensures_root() {
 fn validate_unsigned_checks_signature() {
 	new_test_ext().execute_with(|| {
 		let (mut package, signature) = dummy_package();
-		package.nonce = 42; // this invalidates the signature
+		package.balance = Some(42); // this invalidates the signature
 
 		assert_err!(
 			Airdrop::validate_unsigned(
