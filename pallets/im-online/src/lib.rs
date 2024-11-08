@@ -253,6 +253,10 @@ pub type IdentificationTuple<T> = (
 	>>::Identification,
 );
 
+pub type IdentificationOf<T> = <<T as Config>::ValidatorSet as ValidatorSetWithIdentification<
+	<T as frame_system::Config>::AccountId,
+>>::IdentificationOf;
+
 type OffchainResult<T, A> = Result<A, OffchainErr<BlockNumberFor<T>>>;
 
 #[frame_support::pallet]
@@ -343,6 +347,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Keys<T: Config> =
 		StorageMap<_, Twox64Concat, T::AuthorityKey, ValidatorId<T>, OptionQuery>;
+
+	/// Validators that should send a heartbeat, but are missing the right key to do so.
+	#[pallet::storage]
+	pub type MissingKeys<T: Config> = StorageMap<_, Twox64Concat, ValidatorId<T>, (), OptionQuery>;
 
 	/// For each session index, we keep a mapping of `SessionIndex` and `ValidatorId`.
 	#[pallet::storage]
@@ -618,6 +626,8 @@ impl<T: Config> Pallet<T> {
 
 		local_keys.sort();
 
+		// Even when the authority's registered key in `pallet_session` changes during the session
+		// as long as the key remains in the local keystore the heartbeat can be sent.
 		authorities.into_iter().filter_map(move |authority| {
 			local_keys
 				.binary_search(&authority)
@@ -675,15 +685,20 @@ impl<T: Config> Pallet<T> {
 
 	fn rotate_keys() {
 		Keys::<T>::clear_all(350);
+		MissingKeys::<T>::clear_all(350);
 
-		//TODO: when should ValidatorSet::validators() be called?
+		for id in T::ValidatorSet::validators() {
+			let keys = pallet_session::NextKeys::<T>::get(&id);
 
-		for (v, k) in T::ValidatorSet::validators()
-			.into_iter()
-			.filter_map(|v| pallet_session::NextKeys::<T>::get(&v).map(|a| (v, a)))
-			.filter_map(|(k, v)| v.get::<T::AuthorityKey>(T::AuthorityKey::ID).map(|a| (k, a)))
-		{
-			Keys::<T>::insert(k, v);
+			match keys.and_then(|k| k.get::<T::AuthorityKey>(T::AuthorityKey::ID)) {
+				Some(auth_key) => {
+					// NOTE: pallet_session guarantees that there will be no two validators with the same im-online key.
+					Keys::<T>::insert(auth_key, id);
+				},
+				None => {
+					MissingKeys::<T>::insert(id, ());
+				},
+			}
 		}
 	}
 }
@@ -713,16 +728,19 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 
 	fn on_before_session_ending() {
 		let session_index = SessionPallet::<T>::current_index();
-		let validators = T::ValidatorSet::validators();
-		let validator_set_count = validators.len() as u32;
 
-		let offenders = validators
-			.into_iter()
-			.filter(|id| !Self::is_online_aux(id))
+		// NOTE: a `CountedStorageMap` could be considered instead, but there
+		// would be an overhead each time we add or remove items.
+		let mut validator_set_count = 0;
+
+		let offenders = Keys::<T>::iter_values()
+			.chain(MissingKeys::<T>::iter_keys())
+			.inspect(|_| validator_set_count.saturating_inc())
 			.filter_map(|id| {
-				<T::ValidatorSet as ValidatorSetWithIdentification<T::AccountId>>::IdentificationOf::convert(
-					id.clone()
-				).map(|full_id| (id, full_id))
+				if Self::is_online_aux(&id) {
+					return None;
+				}
+				IdentificationOf::<T>::convert(id.clone()).map(|full_id| (id, full_id))
 			})
 			.collect::<Vec<IdentificationTuple<T>>>();
 
