@@ -113,6 +113,8 @@ use sp_staking::{
 	SessionIndex,
 };
 
+use pallet_session::Pallet as SessionPallet;
+
 use utils::storage::{ClearAll, ClearAllPrefix};
 
 use sp_std::prelude::*;
@@ -378,7 +380,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
-			let current_session = T::ValidatorSet::session_index();
+			let current_session = SessionPallet::<T>::current_index();
 
 			let Some(validator) = Keys::<T>::get(&heartbeat.key) else {
 				return Err(Error::<T>::InvalidKey.into());
@@ -432,7 +434,7 @@ pub mod pallet {
 				}
 
 				// check if session index from heartbeat is recent
-				let current_session = T::ValidatorSet::session_index();
+				let current_session = SessionPallet::<T>::current_index();
 				if heartbeat.session_index != current_session {
 					return InvalidTransaction::Stale.into();
 				}
@@ -488,7 +490,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn is_online_aux(authority: &ValidatorId<T>) -> bool {
-		let current_session = T::ValidatorSet::session_index();
+		let current_session = SessionPallet::<T>::current_index();
 
 		ReceivedHeartbeats::<T>::contains_key(current_session, authority)
 			|| AuthoredBlocks::<T>::get(current_session, authority) != 0
@@ -497,7 +499,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns `true` if a heartbeat has been received for the authority at `authority_index` in
 	/// the authorities series, during the current session. Otherwise `false`.
 	pub fn received_heartbeat_in_current_session(key: T::AuthorityKey) -> bool {
-		let current_session = T::ValidatorSet::session_index();
+		let current_session = SessionPallet::<T>::current_index();
 
 		let Some(authority) = Keys::<T>::get(key) else {
 			return false;
@@ -508,7 +510,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Note that the given authority has authored a block in the current session.
 	fn note_authorship(author: ValidatorId<T>) {
-		let current_session = T::ValidatorSet::session_index();
+		let current_session = SessionPallet::<T>::current_index();
 		AuthoredBlocks::<T>::mutate(current_session, author, |authored: &mut u32| *authored += 1);
 	}
 
@@ -558,7 +560,7 @@ impl<T: Config> Pallet<T> {
 			return Err(OffchainErr::TooEarly);
 		}
 
-		let session_index = T::ValidatorSet::session_index();
+		let session_index = SessionPallet::<T>::current_index();
 
 		Ok(Self::local_authority_keys()
 			.map(move |key| Self::send_single_heartbeat(&key, session_index, block_number)))
@@ -710,7 +712,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	}
 
 	fn on_before_session_ending() {
-		let session_index = T::ValidatorSet::session_index();
+		let session_index = SessionPallet::<T>::current_index();
 		let validators = T::ValidatorSet::validators();
 		let validator_set_count = validators.len() as u32;
 
