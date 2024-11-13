@@ -8,7 +8,7 @@ use sdk::{
 
 use super::{
 	Config, Contract, Contracts, Event, Get, NegativeImbalanceOf, Pallet, PositiveImbalanceOf,
-	TotalValidatorStakes, ValidatorState, ValidatorStates,
+	StakingHooks, TotalValidatorStakes, ValidatorState, ValidatorStates,
 };
 
 #[inline]
@@ -125,6 +125,8 @@ impl<T: Config> Pallet<T> {
 
 				Self::grow_total_validator_stake_by(&validator, s_locked);
 
+				T::Hooks::on_reward(&staker, reward.staker_reward);
+
 				Self::deposit_event(Event::<T>::ContractReward {
 					validator: validator.clone(),
 					staker,
@@ -137,6 +139,8 @@ impl<T: Config> Pallet<T> {
 				Self::lock_currency(&validator, total_v_imbalance.peek(), Precision::BestEffort)
 					.expect("the reward is available as free balance");
 
+			T::Hooks::on_reward(&validator, total_v_imbalance.peek());
+
 			total_rewarded.subsume(total_v_imbalance);
 
 			Contracts::<T>::mutate(&validator, &validator, |s| {
@@ -148,7 +152,6 @@ impl<T: Config> Pallet<T> {
 			Self::grow_total_validator_stake_by(&validator, v_locked);
 		}
 
-		T::OnReward::on_unbalanced(total_rewarded);
 		T::ContributionDestination::on_unbalanced(total_contribution);
 	}
 }

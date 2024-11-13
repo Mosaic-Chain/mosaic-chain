@@ -79,3 +79,35 @@ pub trait NftDelegation<AccountId, Balance, ItemId, BindMetadata> {
 
 	fn set_nominal_value(item_id: &ItemId, new_value: Balance) -> DispatchResult;
 }
+
+// TODO: add more events and detailed parameters (eg.: chill reason)
+pub trait StakingHooks<AccountId, Balance, ItemId> {
+	/// A validator is bound
+	fn on_bound(_validator: &AccountId) {}
+	/// A validator is unbound
+	fn on_unbound(_validator: &AccountId) {}
+	/// Currency has been staked
+	fn on_currency_stake(_delegator: &AccountId, _validator: &AccountId, _amount: Balance) {}
+	/// Currency has been unstaked
+	fn on_currency_unstake(_delegator: &AccountId, _validator: &AccountId, _amount: Balance) {}
+	/// A delegator NFT has been staked
+	fn on_nft_stake(_delegator: &AccountId, _validator: &AccountId, _item_id: &ItemId) {}
+	/// A delegator NFT has been staked
+	fn on_nft_unstake(_delegator: &AccountId, _validator: &AccountId, _item_id: &ItemId) {}
+	/// Account's currency has been slashed by given amount
+	fn on_currency_slash(_account_id: &AccountId, _amount: Balance) {}
+	/// A delegator nft has been slashed
+	fn on_nft_slash(_account_id: &AccountId, _item_id: &ItemId, _amount: Balance) {}
+	/// A validator's permission nft has been slashed
+	fn on_permission_nft_slash(_validator: &AccountId, _amountt: Balance) {}
+	/// A validator got chilled
+	fn on_chill(_validator: &AccountId) {}
+	/// A validator got unchilled
+	fn on_unchill(_validator: &AccountId) {}
+	/// Account has been rewarded with the given amount
+	fn on_reward(_account_id: &AccountId, _amountt: Balance) {}
+	/// A delegator has been kicked by the validator
+	fn on_kick(_delegator: &AccountId, _validator: &AccountId) {}
+}
+
+impl<AccountId, Balance, ItemId> StakingHooks<AccountId, Balance, ItemId> for () {}

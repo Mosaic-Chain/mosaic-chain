@@ -447,7 +447,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_minium_staking_period() {
+	fn set_minimum_staking_period() {
 		let fixture = Fixture::<T>::default();
 		let validator = &fixture.validator;
 		validator.mint_and_bind();

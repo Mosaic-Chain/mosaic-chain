@@ -425,8 +425,7 @@ impl pallet_nft_staking::Config for Runtime {
 	type MaximumContractsPerValidator = ConstU32<1000>;
 	type ContributionPercentage = params::dynamic::nft_staking::ContributionPercentage;
 	type ContributionDestination = Treasury;
-	type OnReward = ();
-
+	type Hooks = ();
 	type WeightInfo = pallet_nft_staking::weights::SubstrateWeight<Self>;
 }
 

@@ -133,7 +133,7 @@ impl pallet_nft_staking::Config for Test {
 	type MaximumStakePercentage = MaximumStakePercentage;
 	type MaximumContractsPerValidator = MaximumContractsPerValidator;
 	type SessionReward = SessionRewardInstance;
-	type OnReward = ();
+	type Hooks = ();
 	type OffenderToValidatorId = ConvertInto;
 	type ContributionPercentage = ContributionPercentage;
 	type ContributionDestination = ();

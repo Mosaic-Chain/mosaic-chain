@@ -48,7 +48,7 @@ use types::{
 	ChillReason, Contract, KickReason, NegativeImbalanceOf, PositiveImbalanceOf, Staging, Stake,
 	TotalValidatorStake, ValidatorDetails, ValidatorState,
 };
-use utils::traits::{NftDelegation, NftStaking};
+use utils::traits::{NftDelegation, NftStaking, StakingHooks};
 
 pub use impls::{SelectableValidators, SlashableValidators};
 /// Mosaic's very own staking pallet
@@ -124,7 +124,7 @@ pub mod pallet {
 
 		// Amount of **Tiles** to be rewarded in a given session.
 		type SessionReward: Get<u128>;
-		type OnReward: OnUnbalanced<PositiveImbalanceOf<Self>>;
+		type Hooks: StakingHooks<Self::AccountId, Self::Balance, Self::ItemId>;
 
 		/// A percent of the distributed session reward that goes somewhere other than the stakers
 		type ContributionPercentage: Get<Perbill>;
@@ -398,6 +398,7 @@ pub mod pallet {
 
 		/// Returns a chilled validator state and publishes an event of the chill.
 		pub(crate) fn chill_state(validator: T::AccountId, reason: ChillReason) -> ValidatorState {
+			T::Hooks::on_chill(&validator);
 			Self::deposit_event(Event::<T>::ValidatorChilled { validator, reason });
 			ValidatorState::Chilled(SessionPallet::<T>::current_index())
 		}
@@ -580,7 +581,7 @@ pub mod pallet {
 			let min_staking_period_end =
 				SessionPallet::<T>::current_index() + validator_details.min_staking_period::<T>();
 
-			Contracts::<T>::mutate(validator, staker, |s| {
+			Contracts::<T>::mutate(validator, staker, |s| -> DispatchResult {
 				let stake = match s.current() {
 					Some(Contract { stake: old, .. }) => {
 						Stake { currency: old.currency.saturating_add(amount), ..old.clone() }
@@ -601,7 +602,11 @@ pub mod pallet {
 				s.stage(contract);
 
 				Ok(())
-			})
+			})?;
+
+			T::Hooks::on_currency_stake(staker, validator, amount);
+
+			Ok(())
 		}
 
 		fn do_stake_nft(
@@ -626,7 +631,7 @@ pub mod pallet {
 			Self::grow_total_validator_stake_by(validator, nominal_value);
 			Self::ensure_not_overdominant(validator)?;
 
-			Contracts::<T>::mutate(validator, staker, |s| {
+			Contracts::<T>::mutate(validator, staker, |s| -> DispatchResult {
 				let stake = match s.current() {
 					Some(Contract { stake: old, .. }) => {
 						let mut new = old.clone();
@@ -655,7 +660,11 @@ pub mod pallet {
 
 				s.stage(contract);
 				Ok(())
-			})
+			})?;
+
+			T::Hooks::on_nft_stake(staker, validator, item_id);
+
+			Ok(())
 		}
 
 		fn do_unstake_currency(
@@ -663,7 +672,7 @@ pub mod pallet {
 			staker: &T::AccountId,
 			amount: T::Balance,
 		) -> DispatchResult {
-			Contracts::<T>::mutate(validator, staker, |s| {
+			Contracts::<T>::mutate(validator, staker, |s| -> DispatchResult {
 				let Some(contract) = s.ensure_staging_mut() else {
 					return Err(Error::<T>::NoContract.into());
 				};
@@ -691,11 +700,15 @@ pub mod pallet {
 					Error::<T>::WouldDust
 				);
 
-				Self::shrink_total_validator_stake_by(validator, amount);
-				Self::stage_unlock_currency(staker, amount);
-
 				Ok(())
-			})
+			})?;
+
+			Self::shrink_total_validator_stake_by(validator, amount);
+			Self::stage_unlock_currency(staker, amount);
+
+			T::Hooks::on_currency_unstake(staker, validator, amount);
+
+			Ok(())
 		}
 
 		fn do_unstake_nft(
@@ -703,7 +716,7 @@ pub mod pallet {
 			staker: &T::AccountId,
 			item_id: &T::ItemId,
 		) -> DispatchResult {
-			Contracts::<T>::mutate(validator, staker, |s| {
+			Contracts::<T>::mutate(validator, staker, |s| -> DispatchResult {
 				let Some(contract) = s.ensure_staging_mut() else {
 					return Err(Error::<T>::NoContract.into());
 				};
@@ -729,7 +742,11 @@ pub mod pallet {
 				Self::shrink_total_validator_stake_by(validator, nominal_value);
 
 				Ok(())
-			})
+			})?;
+
+			T::Hooks::on_nft_unstake(staker, validator, item_id);
+
+			Ok(())
 		}
 	}
 
@@ -772,6 +789,7 @@ pub mod pallet {
 
 			Contracts::<T>::insert(&caller, &caller, Staging::new_staged(self_contract));
 
+			T::Hooks::on_bound(&caller);
 			Self::deposit_event(Event::<T>::ValidatorBound(caller));
 
 			Ok(())
@@ -823,6 +841,8 @@ pub mod pallet {
 					T::NftDelegationHandler::unbind(&contractee, item_id)?;
 				}
 
+				T::Hooks::on_kick(&contractee, &caller);
+
 				Self::deposit_event(Event::<T>::StakerKicked {
 					validator: caller.clone(),
 					staker: contractee,
@@ -837,6 +857,7 @@ pub mod pallet {
 			TotalValidatorStakes::<T>::remove(&caller);
 			InverseSlashes::<T>::remove(&caller);
 
+			T::Hooks::on_unbound(&caller);
 			Self::deposit_event(Event::<T>::ValidatorUnbound(caller));
 
 			Ok(())
@@ -912,6 +933,7 @@ pub mod pallet {
 					ValidatorState::Chilled(_) => {
 						*validator_state = ValidatorState::Normal;
 
+						T::Hooks::on_unchill(&caller);
 						Self::deposit_event(Event::<T>::ValidatorUnchilled(caller.clone()));
 						Ok(())
 					},
@@ -1128,8 +1150,8 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(14)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_minium_staking_period())]
-		pub fn set_minium_staking_period(
+		#[pallet::weight(<T as Config>::WeightInfo::set_minimum_staking_period())]
+		pub fn set_minimum_staking_period(
 			origin: OriginFor<T>,
 			new_min_period: u32,
 		) -> DispatchResult {
@@ -1221,6 +1243,8 @@ pub mod pallet {
 				// Note: contracts with empty stake are removed in next session,
 				// but the delegator can always just restake even in this session
 				contract.stake = Stake::default();
+
+				T::Hooks::on_kick(&target, &caller);
 
 				Self::deposit_event(Event::<T>::StakerKicked {
 					validator: caller.clone(),

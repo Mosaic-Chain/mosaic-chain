@@ -4,7 +4,7 @@ use sdk::{
 	sp_std::vec::Vec as SpVec,
 };
 
-use utils::traits::{NftDelegation, NftStaking};
+use utils::traits::{NftDelegation, NftStaking, StakingHooks};
 
 use super::{
 	ChillReason, Config, Contracts, Event, HoldReason, InverseSlashes, Pallet, UnlockingCurrency,
@@ -84,6 +84,8 @@ impl<T: Config> Pallet<T> {
 					log::debug!("actual slash did not match calculated currency slash");
 				}
 
+				T::Hooks::on_currency_slash(&delegator, actual_slash.peek());
+
 				new_contract.stake.currency =
 					new_contract.stake.currency.saturating_sub(actual_slash.peek());
 
@@ -120,6 +122,7 @@ impl<T: Config> Pallet<T> {
 						}
 					}
 
+					T::Hooks::on_nft_slash(&delegator, nft, slashed_from_this);
 					slashed_delegator_nfts.push((nft.clone(), slashed_from_this));
 				}
 
@@ -135,6 +138,8 @@ impl<T: Config> Pallet<T> {
 							.expect("could set nominal value");
 
 						Self::chill_if_disqualified(&validator);
+
+						T::Hooks::on_permission_nft_slash(&validator, p_slash);
 
 						Some(p_slash)
 					} else {

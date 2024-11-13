@@ -47,7 +47,7 @@ pub trait WeightInfo {
 	fn delegate_nft() -> Weight;
 	fn undelegate_currency() -> Weight;
 	fn undelegate_nft() -> Weight;
-	fn set_minium_staking_period() -> Weight;
+	fn set_minimum_staking_period() -> Weight;
 	fn set_commission() -> Weight;
 	fn kick() -> Weight;
 	fn topup() -> Weight;
@@ -398,7 +398,7 @@ impl<T: sdk::frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `NftStaking::ValidatorStates` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
 	/// Storage: `Parameters::Parameters` (r:1 w:0)
 	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
-	fn set_minium_staking_period() -> Weight {
+	fn set_minimum_staking_period() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `610`
 		//  Estimated: `3515`
@@ -814,7 +814,7 @@ impl WeightInfo for () {
 	/// Proof: `NftStaking::ValidatorStates` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
 	/// Storage: `Parameters::Parameters` (r:1 w:0)
 	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
-	fn set_minium_staking_period() -> Weight {
+	fn set_minimum_staking_period() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `610`
 		//  Estimated: `3515`

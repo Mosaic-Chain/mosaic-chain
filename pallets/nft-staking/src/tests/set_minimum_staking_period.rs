@@ -8,7 +8,7 @@ fn set_minimum_staking_period_is_successful(
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 
-		let res = Staking::set_minium_staking_period(validator.origin, new_period);
+		let res = Staking::set_minimum_staking_period(validator.origin, new_period);
 		assert_ok!(res, ());
 
 		assert!(matches!(
@@ -28,7 +28,7 @@ fn not_bound(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let origin = origin(0);
 
-		let res = Staking::set_minium_staking_period(origin, MinimumStakingPeriod::get().into());
+		let res = Staking::set_minimum_staking_period(origin, MinimumStakingPeriod::get().into());
 		assert_noop!(res, Error::<Test>::NotBound);
 	});
 }
@@ -40,7 +40,7 @@ fn chilled(mut ext: TestExternalities) {
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::set_minium_staking_period(
+		let res = Staking::set_minimum_staking_period(
 			validator.origin,
 			MinimumStakingPeriod::get().into(),
 		);
@@ -53,7 +53,7 @@ fn not_dpos(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::PoS).mint().bind();
 
-		let res = Staking::set_minium_staking_period(
+		let res = Staking::set_minimum_staking_period(
 			validator.origin,
 			MinimumStakingPeriod::get().into(),
 		);
@@ -69,7 +69,7 @@ fn too_small_staiking_period(
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 
-		let res = Staking::set_minium_staking_period(validator.origin, new_period);
+		let res = Staking::set_minimum_staking_period(validator.origin, new_period);
 
 		assert_noop!(res, Error::<Test>::InvalidStakingPeriod);
 	});
