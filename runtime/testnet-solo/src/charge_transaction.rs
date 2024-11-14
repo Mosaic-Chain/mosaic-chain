@@ -2,14 +2,14 @@ use sdk::{frame_support, pallet_authorship, sp_core::Get, sp_runtime};
 
 use super::{
 	funds::treasury::Account as TreasuryAccount, params, AccountId, Balance, Balanced, Balances,
-	Credit, Currency, Debt, Imbalance, InvalidTransaction, OnChargeTransaction, Precision, Runtime,
+	Credit, Debt, Imbalance, Inspect, InvalidTransaction, OnChargeTransaction, Precision, Runtime,
 	RuntimeCall, TransactionValidityError, Zero,
 };
 
 pub struct ChargeTransaction;
 
 impl ChargeTransaction {
-	fn process_fees<I: Imbalance<Balance>>(fee: I, tip: I) {
+	fn process_fees(fee: Credit<AccountId, Balances>, tip: Credit<AccountId, Balances>) {
 		if let Some(author) = <pallet_authorship::Pallet<Runtime>>::author() {
 			let ratio = params::dynamic::transaction_payment::FeePaymentRatio::get();
 
@@ -18,14 +18,14 @@ impl ChargeTransaction {
 
 			let author_share = fee_to_author.merge(tip);
 
-			let _ = Balances::deposit_creating(&author, author_share.peek());
-			let _ = Balances::deposit_creating(&TreasuryAccount::get(), fee_to_treasury.peek());
+			let _ = Balances::resolve(&author, author_share);
+			let _ = Balances::resolve(&TreasuryAccount::get(), fee_to_treasury);
 		} else {
 			// NOTE: I can't really imagine a scenario when we can't find the author,
 			// but this behaviour seems fine in either case.
 
 			let total = fee.merge(tip);
-			let _ = Balances::deposit_creating(&TreasuryAccount::get(), total.peek());
+			let _ = Balances::resolve(&TreasuryAccount::get(), total);
 		}
 	}
 }

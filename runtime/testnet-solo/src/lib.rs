@@ -14,7 +14,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	pallet_prelude::TransactionValidityError,
 	traits::{
-		fungible::{Balanced, Credit, Debt, HoldConsideration},
+		fungible::{Balanced, Credit, Debt, HoldConsideration, Inspect},
 		tokens::{PayFromAccount, Precision, UnityAssetBalanceConversion},
 		AsEnsureOriginWithArg, Currency, EitherOfDiverse, EqualPrivilegeOnly, Imbalance,
 		InstanceFilter, LinearStoragePrice, VariantCountOf, WithdrawReasons,
