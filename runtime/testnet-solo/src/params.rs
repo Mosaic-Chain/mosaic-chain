@@ -37,6 +37,7 @@ pub mod time {
 	pub const MINUTES: BlockNumber = 60_000 / (SLOT_DURATION as BlockNumber);
 	pub const HOURS: BlockNumber = MINUTES * 60;
 	pub const DAYS: BlockNumber = HOURS * 24;
+	pub const YEARS: BlockNumber = 5259600;
 }
 
 #[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<crate::Runtime>)]

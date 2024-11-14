@@ -172,6 +172,9 @@ fn genesis(
 
 	let balances = pallet_balances::GenesisConfig { balances: endowed.chain(funds).collect() };
 
+	let staking_incentive =
+		pallet_staking_incentive::GenesisConfig { incentive_pool: 500_000_000 * MOSAIC };
+
 	let session = pallet_session::GenesisConfig {
 		keys: initial_authorities
 			.into_iter()
@@ -216,6 +219,7 @@ fn genesis(
 		team_and_advisors_membership: membership_config(&council_members),
 		security_membership: membership_config(&council_members),
 		education_membership: membership_config(&council_members),
+		staking_incentive,
 		..Default::default()
 	};
 

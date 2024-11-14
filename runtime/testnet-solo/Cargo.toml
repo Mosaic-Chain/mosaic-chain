@@ -26,6 +26,7 @@ pallet-treasury = { workspace = true }
 pallet-hold-vesting = { workspace = true }
 pallet-airdrop = { workspace = true }
 pallet-vesting-to-freeze = { workspace = true }
+pallet-staking-incentive = { workspace = true }
 utils = { workspace = true }
 
 [build-dependencies]
@@ -50,6 +51,7 @@ std = [
 	"pallet-nft-delegation/std",
 	"pallet-nft-permission/std",
 	"pallet-nft-staking/std",
+	"pallet-staking-incentive/std",
 	"pallet-treasury/std",
 	"pallet-validator-subset-selection/std",
 	"pallet-vesting-to-freeze/std",
@@ -65,6 +67,7 @@ runtime-benchmarks = [
 	"pallet-nft-delegation/runtime-benchmarks",
 	"pallet-nft-permission/runtime-benchmarks",
 	"pallet-nft-staking/runtime-benchmarks",
+	"pallet-staking-incentive/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-validator-subset-selection/runtime-benchmarks",
 	"pallet-vesting-to-freeze/runtime-benchmarks",
@@ -79,6 +82,7 @@ try-runtime = [
 	"pallet-nft-delegation/try-runtime",
 	"pallet-nft-permission/try-runtime",
 	"pallet-nft-staking/try-runtime",
+	"pallet-staking-incentive/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-validator-subset-selection/try-runtime",
 	"pallet-vesting-to-freeze/try-runtime",

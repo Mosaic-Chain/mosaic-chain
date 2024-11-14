@@ -13,6 +13,7 @@ members = [
   "pallets/airdrop",
   "pallets/hold-vesting",
   "pallets/vesting-to-freeze",
+  "pallets/staking-incentive",
   "runtime/parachain",
   "runtime/testnet-solo",
   "runtime-generator",
@@ -71,6 +72,7 @@ pallet-treasury = { default-features = false, path = "pallets/treasury" }
 pallet-airdrop = { default-features = false, path = "pallets/airdrop" }
 pallet-hold-vesting = { default-features = false, path = "pallets/hold-vesting" }
 pallet-vesting-to-freeze = { default-features = false, path = "pallets/vesting-to-freeze" }
+pallet-staking-incentive = { default-features = false, path = "pallets/staking-incentive" }
 utils = { default-features = false, path = "utils"}
 runtime-generator = { default-features = false, path = "runtime-generator" }
 

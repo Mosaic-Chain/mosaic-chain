@@ -18,7 +18,7 @@
     - [Generating chainspec with `runtime-generator`](#generating-chainspec-with-runtime-generator)
     - [Generating node keys](#generating-node-keys)
     - [Scenario 1: development accounts spread across different servers](#scenario-1-development-accounts-spread-across-different-servers)
-    - [Scenario 2: real accounts spread accross different servers](#scenario-2-real-accounts-spread-accross-different-servers)
+    - [Scenario 2: real accounts spread across different servers](#scenario-2-real-accounts-spread-across-different-servers)
     - [Useful links:](#useful-links)
 - [Parachain](#parachain)
 <!--toc:end-->
@@ -209,6 +209,7 @@ Mosaic Chain implements it's business logic in custom built pallets:
 - [`pallet-airdrop`](./pallets/airdrop/README.md) allows a minting authority to create permission and delegator NFTs, vesting schedules and free tokens via unsgined extrinsics.
 - `pallet-doas` allows a custom origin to make calls in the name of arbitrary accounts, or even as root.
 - `pallet-vesting-to-freeze` allows users to convert unvested tokens to immediately stakable frozen assets.
+- `pallet-staking-incentive` distributes incentives from a predefined pool based on staking actions.
 
 We also had to fork and modify some FRAME pallets:
 
@@ -276,7 +277,7 @@ NOTE: currently our chainspec presets only support running a minimum of 6 nodes.
    - Let's pick alice to be the bootnode and note down her node id (printed to `stderr`) when
      generating `nodekey.alice`
 3. define bootnode multiaddress: `/ip4/<ip>/tcp/<p2p port>/p2p/<node id>`
-   - protocols can be mixed and mached, so a node can have multiple valid multiaddrs
+   - protocols can be mixed and matched, so a node can have multiple valid multiaddrs
    - we can also use dns name instead of raw ip: `/dns4/boot1.example.com/tcp/<p2p port>/p2p/<node id>`
 4. start bootnode (for example):
 
@@ -297,7 +298,7 @@ NOTES:
 - if listening on an address that belongs to a VPN add these extra args: `--allow-private-ip --discover-local --no-mdns`
 - further options can be found with `mosaic-testnet-solo --help` for example ones related to rpc availability.
 
-#### Scenario 2: real accounts spread accross different servers
+#### Scenario 2: real accounts spread across different servers
 
 In this scenario we run **six** nodes across multiple machines.
 We use the `mosaic-solo-live` chainspec preset with baked in initial authorities.
@@ -329,7 +330,7 @@ the deployer has access to these secrets (suri) in form of files for each node's
 
   NOTES:
 
-  - when definding these keys in the chainspec (currently manually in `runtime-generator`'s source) we can use `mosaic-testnet-solo key generate` to do so.
+  - when defining these keys in the chainspec (currently manually in `runtime-generator`'s source) we can use `mosaic-testnet-solo key generate` to do so.
   - currently only the solochain node has functionality related to key handling, parachain node needs to be updated.
 
 3. follow steps from `Scenario 1`, but **DO NOT** use dev account names as node names!

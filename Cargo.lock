@@ -6448,6 +6448,7 @@ dependencies = [
  "pallet-nft-delegation",
  "pallet-nft-permission",
  "pallet-nft-staking",
+ "pallet-staking-incentive",
  "pallet-treasury 27.0.0",
  "pallet-validator-subset-selection",
  "pallet-vesting-to-freeze",
@@ -8648,6 +8649,16 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+]
+
+[[package]]
+name = "pallet-staking-incentive"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "utils",
 ]
 
 [[package]]
@@ -12152,6 +12163,7 @@ dependencies = [
  "pallet-im-online 27.0.0",
  "pallet-nft-permission",
  "pallet-nft-staking",
+ "pallet-staking-incentive",
  "parachain-template-runtime",
  "polkadot-sdk",
  "serde",

@@ -1,8 +1,8 @@
 // construct_runtime procmacro creates a __hidden_use_of_unchecked_extrinsic type name that rustc frowns upon:
 #![allow(non_camel_case_types)]
 #![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
+// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
+#![recursion_limit = "512"]
 
 #[allow(clippy::wildcard_imports)]
 use sdk::*;
@@ -36,7 +36,7 @@ use sp_runtime::{
 	},
 	transaction_validity::InvalidTransaction,
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, ExtrinsicInclusionMode, MultiSignature, SaturatedConversion,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedU128, MultiSignature, SaturatedConversion,
 };
 use sp_staking::offence::{Offence, ReportOffence};
 #[cfg(feature = "std")]
@@ -72,7 +72,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 pub use params::{
 	currency::{deposit, Balance, CENTS, MOSAIC},
-	time::{DAYS, HOURS, MINUTES, SLOT_DURATION},
+	time::{DAYS, HOURS, MINUTES, SLOT_DURATION, YEARS},
 };
 use utils::SessionIndex;
 
@@ -425,7 +425,7 @@ impl pallet_nft_staking::Config for Runtime {
 	type MaximumContractsPerValidator = ConstU32<1000>;
 	type ContributionPercentage = params::dynamic::nft_staking::ContributionPercentage;
 	type ContributionDestination = Treasury;
-	type Hooks = ();
+	type Hooks = StakingIncentive;
 	type WeightInfo = pallet_nft_staking::weights::SubstrateWeight<Self>;
 }
 
@@ -911,6 +911,42 @@ impl pallet_vesting_to_freeze::Config for Runtime {
 	type MaxFrozenSchedules = ConstU32<8>;
 }
 
+parameter_types! {
+	pub const ScoreCut: Perbill = Perbill::from_percent(10);
+	pub const PerBlockMultiplier: FixedU128 = utils::prod_or_fast!(
+		// 2x growth over a year: exp(ln(2)/5259600)
+		FixedU128::from_rational(1_000_000_131_787_061_037, 1_000_000_000_000_000_000),
+		// At max supply an overflow occurs in 269 blocks: (128-91) * ln(2)/ln(1.1)
+		FixedU128::from_rational(11, 10)
+	);
+	pub const IncentivePalletId: PalletId = PalletId(*b"mstkince");
+}
+
+pub struct BalanceToScore;
+
+impl Convert<Balance, FixedU128> for BalanceToScore {
+	fn convert(a: Balance) -> FixedU128 {
+		// One MOS is 10^18 tiles
+		// The divisor of `FixedU128` is also 10^18
+		// => 1 MOS can be considered as 1 Score
+		// => Around 3.4028 * 10^20 MOS can thus be represented as score
+		FixedU128::from_inner(a)
+	}
+}
+
+impl pallet_staking_incentive::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type Fungible = Balances;
+	type VestingSchedule = HoldVesting;
+	type ClaimVestingScheduleLength = ConstU32<{ YEARS }>;
+	type PerBlockMultiplier = PerBlockMultiplier;
+	type BlockNumberProvider = System;
+	type BalanceToScore = BalanceToScore;
+	type PalletId = IncentivePalletId;
+	type MaxPayouts = ConstU32<16>;
+}
+
 // this is needed, otherwise fmt will remove the :: from ::<Instance1>
 #[rustfmt::skip::macros(construct_runtime)]
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -965,6 +1001,7 @@ construct_runtime!(
 		Airdrop: pallet_airdrop,
 		HoldVesting: pallet_hold_vesting,
 		VestingToFreeze: pallet_vesting_to_freeze,
+		StakingIncentive: pallet_staking_incentive,
 	}
 );
 

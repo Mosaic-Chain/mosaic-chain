@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdk = { workspace = true, features = ["frame-support", "sp-staking", "frame-system"] }
+sdk = { workspace = true, features = [ "frame-support", "sp-staking", "frame-system", "sp-runtime" ] }
 impl-trait-for-tuples = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
