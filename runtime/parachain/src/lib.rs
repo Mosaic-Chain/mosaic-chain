@@ -366,6 +366,7 @@ impl pallet_doas::Config for Runtime {
 	//
 	// This ensures that a vote with 2/3 aye ratio is needed for a doas proposal to be accepted.
 	type EnsureOrigin = pallet_collective::EnsureProportionAtLeast<AccountId, Council, 2, 3>;
+	type WeightInfo = pallet_doas::weights::SubstrateWeight<Self>;
 }
 
 // TODO: review these values

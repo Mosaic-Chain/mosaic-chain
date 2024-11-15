@@ -721,6 +721,7 @@ impl pallet_doas::Config for Runtime {
 		2,
 		3,
 	>;
+	type WeightInfo = pallet_doas::weights::SubstrateWeight<Self>;
 }
 
 parameter_types! {
@@ -1057,16 +1058,21 @@ mod benches {
 	define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
-		[pallet_balances, Balances]
+		[pallet_parameters, Parameters]
 		[pallet_timestamp, Timestamp]
+		[pallet_balances, Balances]
+		[pallet_nfts, Nfts]
 		[pallet_nft_delegation, NftDelegation]
 		[pallet_nft_permission, NftPermission]
 		[pallet_nft_staking, NftStaking]
-		[pallet_assets, Assets]
 		[pallet_proxy, Proxy]
-		[pallet_identity, Identity]
 		[pallet_utility, Utility]
 		[pallet_recovery, Recovery]
+		[pallet_identity, Identity]
+		[pallet_assets, Assets]
+		[pallet_doas, DoAs]
+		[pallet_preimage, Preimage]
+		[pallet_scheduler, Scheduler]
 		[pallet_collective, CouncilCollective]
 		[pallet_membership, CouncilMembership]
 		[pallet_collective, DevelopmentCollective]
@@ -1081,9 +1087,6 @@ mod benches {
 		[pallet_membership, SecurityMembership]
 		[pallet_collective, EducationCollective]
 		[pallet_membership, EducationMembership]
-		[pallet_scheduler, Scheduler]
-		[pallet_preimage, Preimage]
-		[pallet_parameters, Parameters]
 		[pallet_treasury, Treasury]
 	);
 }

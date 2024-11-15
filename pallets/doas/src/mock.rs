@@ -107,6 +107,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type EnsureOrigin = EnsurePrivileged;
+	type WeightInfo = ();
 }
 
 pub const PRIVILEGED_ACCOUNT: AccountId = 42;
@@ -138,3 +139,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
+
+// #[cfg(feature = "runtime-benchmarks")]
+// pub fn new_bench_ext() -> sp_io::TestExternalities {
+// 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+// }

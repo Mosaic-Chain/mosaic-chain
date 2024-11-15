@@ -125,6 +125,7 @@ impl pallet_doas::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type EnsureOrigin = pallet_collective::EnsureProportionAtLeast<AccountId, TestCouncil, 2, 3>;
+	type WeightInfo = ();
 }
 
 pub fn account(id: u64) -> AccountId {

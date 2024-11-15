@@ -8,7 +8,7 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sdk = { workspace = true, features = ["frame-benchmarking", "frame-support", "frame-system", "sp-runtime", "sp-std", "sp-staking", "pallet-offences", "pallet-session"] }
+sdk = { workspace = true, features = ["frame-support", "frame-system", "sp-runtime", "sp-std", "sp-staking", "pallet-offences", "pallet-session"] }
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 log = { workspace = true }
@@ -34,6 +34,7 @@ std = [
 runtime-benchmarks = [
 	"dep:pallet-nft-delegation",
 	"pallet-nft-delegation?/runtime-benchmarks",
+	"sdk/frame-benchmarking",
 	"sdk/pallet-balances",
 	"sdk/runtime-benchmarks",
 	"utils/runtime-benchmarks",

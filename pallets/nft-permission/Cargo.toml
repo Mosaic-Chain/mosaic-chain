@@ -8,7 +8,7 @@ edition = "2021"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sdk = { workspace = true, features = ["frame-benchmarking", "frame-support", "frame-system", "sp-runtime", "sp-std", "pallet-nfts"] }
+sdk = { workspace = true, features = ["frame-support", "frame-system", "sp-runtime", "sp-std", "pallet-nfts"] }
 codec = { workspace = true, features = ["derive"] }
 pallet-nft-staking = { workspace = true, optional = true }
 scale-info = { workspace = true, features = ["derive"] }
@@ -29,6 +29,7 @@ std = [
 runtime-benchmarks = [
 	"dep:pallet-nft-staking",
 	"pallet-nft-staking?/runtime-benchmarks",
+	"sdk/frame-benchmarking",
 	"sdk/runtime-benchmarks",
 	"utils/runtime-benchmarks",
 ]

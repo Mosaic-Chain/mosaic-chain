@@ -8,15 +8,15 @@ repository.workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sdk = { workspace = true, features = [ "frame-benchmarking", "frame-support", "frame-system", "frame-system", "sp-runtime", "sp-std" ] }
-codec = { workspace = true, default-features = false, features = [ "derive" ] }
-scale-info = { workspace = true, default-features = false, features = [ "derive" ] }
+sdk = { workspace = true, features = ["frame-support", "frame-system", "frame-system", "sp-runtime", "sp-std"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-sdk = { workspace = true, features = [ "sp-io" ] }
+sdk = { workspace = true, features = ["sp-io"] }
 
 [features]
 default = [ "std" ]
 std = [ "codec/std", "scale-info/std", "sdk/std" ]
-runtime-benchmarks = [ "sdk/runtime-benchmarks" ]
+runtime-benchmarks = [ "sdk/frame-benchmarking", "sdk/runtime-benchmarks" ]
 try-runtime = [ "sdk/try-runtime" ]
