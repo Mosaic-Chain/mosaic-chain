@@ -21,12 +21,14 @@ fn mint_permission_works() {
 
 		assert_ok!(NftPermission::mint(&owner, &permission, &nominal_value), item_id);
 
-		assert_ok!(NftPermission::permission_of(&item_id), permission);
+		assert_ok!(NftPermission::permission_of(&item_id).as_ref(), &permission);
 		assert_ok!(NftPermission::nominal_value(&item_id), nominal_value);
 		assert_ok!(NftPermission::issued_nominal_value(&item_id), nominal_value);
 		assert_ok!(NftPermission::owner(&item_id), owner.clone());
 
-		System::assert_last_event(Event::TokenCreated { account: owner, item_id }.into());
+		System::assert_last_event(
+			Event::TokenCreated { account: owner, item_id, nominal_value, permission }.into(),
+		);
 	});
 }
 

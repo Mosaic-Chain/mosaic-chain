@@ -23,7 +23,9 @@ fn mint_delegator_token_works() {
 
 		assert_ok!(NftDelegation::mint(&owner, expiration, &nominal_value), item);
 
-		System::assert_last_event(Event::TokenCreated { account: owner, item_id: item }.into());
+		System::assert_last_event(
+			Event::TokenCreated { account: owner, item_id: item, nominal_value, expiration }.into(),
+		);
 
 		assert_ok!(NftDelegation::status_of(&item), Status::Inactive { expiration });
 		assert_ok!(NftDelegation::nominal_value_of(&item), nominal_value);
@@ -112,6 +114,9 @@ fn bind_works() {
 		assert_ok!(NftDelegation::metadata_of_bound(&item), validator);
 
 		System::assert_last_event(Event::TokenBound { item_id: item }.into());
+		System::assert_has_event(
+			Event::TokenActivated { item_id: item, expires_on: expiration }.into(),
+		);
 	});
 }
 

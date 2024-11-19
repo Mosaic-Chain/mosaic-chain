@@ -147,13 +147,21 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A token has been minted to the specified account.
-		TokenCreated { account: T::AccountId, item_id: <T as NftsConfig>::ItemId },
+		TokenCreated {
+			account: T::AccountId,
+			item_id: <T as NftsConfig>::ItemId,
+			nominal_value: T::Balance,
+			expiration: SessionIndex,
+		},
 
 		/// A token has been successfully bound
 		TokenBound { item_id: <T as NftsConfig>::ItemId },
 
 		/// A token has been successfully unbound
 		TokenUnbound { item_id: <T as NftsConfig>::ItemId },
+
+		/// A token was first bound and became active
+		TokenActivated { item_id: <T as NftsConfig>::ItemId, expires_on: SessionIndex },
 
 		/// A set of token has been expired
 		TokensExpired { items: BoundedVec<<T as NftsConfig>::ItemId, T::MaxExpirationsPerSession> },
@@ -252,18 +260,13 @@ pub mod pallet {
 
 				let status = Status::Inactive { expiration: *expiration };
 
-				nominal_value
-					.using_encoded(|nominal_value| {
-						status.using_encoded(|status| {
-							Pallet::<T>::init_attributes(
-								&collection_id,
-								&item_id,
-								status,
-								nominal_value,
-							)
-						})
-					})
-					.expect("could initialize attributes");
+				Pallet::<T>::init_attributes(
+					&collection_id,
+					&item_id,
+					&status.encode(),
+					&nominal_value.encode(),
+				)
+				.expect("could initialize attributes");
 
 				item_id = item_id.increment().expect("could increment item_id");
 			}
@@ -296,34 +299,36 @@ pub mod pallet {
 		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
 			let status = Status::Inactive { expiration };
 
-			nominal_value.using_encoded(|nominal_value| {
-				status.using_encoded(|status_bytes| {
-					let item_id =
-						Self::next_item_id().ok_or(Error::<T>::CollectionNotInitialized)?;
-					let collection_id =
-						Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+			let item_id = Self::next_item_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 
-					NftsPallet::<T>::mint_into(
-						&collection_id,
-						&item_id,
-						account_id,
-						&ItemConfig::default(),
-						true,
-					)?;
+			NftsPallet::<T>::mint_into(
+				&collection_id,
+				&item_id,
+				account_id,
+				&ItemConfig::default(),
+				true,
+			)?;
 
-					Self::init_attributes(&collection_id, &item_id, status_bytes, nominal_value)?;
+			Self::init_attributes(
+				&collection_id,
+				&item_id,
+				&status.encode(),
+				&nominal_value.encode(),
+			)?;
 
-					Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
-						account: account_id.clone(),
-						item_id,
-					});
+			Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
+				account: account_id.clone(),
+				item_id,
+				nominal_value: *nominal_value,
+				expiration,
+			});
 
-					let next_item_id = item_id.increment().ok_or(Error::<T>::ItemNotInitialized)?;
-					NextItemId::<T>::put(next_item_id);
+			let next_item_id = item_id.increment().ok_or(Error::<T>::ItemNotInitialized)?;
+			NextItemId::<T>::put(next_item_id);
 
-					Ok(item_id)
-				})
-			})
+			Ok(item_id)
 		}
 
 		/// Returns the nominal value of the provided item
@@ -382,14 +387,12 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 			nominal_value: &T::Balance,
 		) -> DispatchResult {
-			nominal_value.using_encoded(|nominal_value| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					collection_id,
-					item_id,
-					AttributeKey::NominalValue.into(),
-					nominal_value,
-				)
-			})
+			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+				collection_id,
+				item_id,
+				AttributeKey::NominalValue.into(),
+				&nominal_value.encode(),
+			)
 		}
 
 		fn encode_status(
@@ -397,14 +400,12 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 			status: Status,
 		) -> DispatchResult {
-			status.using_encoded(|status| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					collection_id,
-					item_id,
-					AttributeKey::Status.into(),
-					status,
-				)
-			})
+			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+				collection_id,
+				item_id,
+				AttributeKey::Status.into(),
+				&status.encode(),
+			)
 		}
 
 		fn decode_nominal_value(
@@ -536,6 +537,11 @@ pub mod pallet {
 					let expires_on = T::CurrentSession::get() + expiration;
 					Self::cache_expiration(item_id, expires_on)?;
 					Self::encode_status(&collection_id, item_id, Status::Active { expires_on })?;
+
+					Self::deposit_event(Event::<T>::TokenActivated {
+						item_id: *item_id,
+						expires_on,
+					});
 
 					expires_on
 				},

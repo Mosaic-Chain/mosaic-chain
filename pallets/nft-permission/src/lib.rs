@@ -130,7 +130,12 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A token has been minted to the specified account.
-		TokenCreated { account: T::AccountId, item_id: <T as NftsConfig>::ItemId },
+		TokenCreated {
+			account: T::AccountId,
+			item_id: <T as NftsConfig>::ItemId,
+			nominal_value: T::Balance,
+			permission: T::Permission,
+		},
 
 		/// A token has been successfully bound
 		TokenBound { item_id: <T as NftsConfig>::ItemId },
@@ -242,11 +247,37 @@ pub mod pallet {
 			permission: &T::Permission,
 			nominal_value: &T::Balance,
 		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
-			nominal_value.using_encoded(|nominal_value| {
-				permission.using_encoded(|permission| {
-					Self::create_token(account_id, permission, nominal_value)
-				})
-			})
+			let item_id = Self::next_item_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
+			NftsPallet::<T>::mint_into(
+				&collection_id,
+				&item_id,
+				account_id,
+				&ItemConfig::default(),
+				true,
+			)?;
+
+			Self::init_attributes(
+				&collection_id,
+				&item_id,
+				&permission.encode(),
+				&nominal_value.encode(),
+			)?;
+
+			Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
+				account: account_id.clone(),
+				item_id,
+				nominal_value: *nominal_value,
+				permission: permission.clone(),
+			});
+
+			let next_item_id = item_id.increment().ok_or(Error::<T>::ItemNotInitialized)?;
+
+			NextItemId::<T>::put(next_item_id);
+
+			Ok(item_id)
 		}
 
 		/// Returns the nominal value of the provided item
@@ -299,14 +330,12 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 			nominal_value: &T::Balance,
 		) -> DispatchResult {
-			nominal_value.using_encoded(|nominal_value| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					collection_id,
-					item_id,
-					AttributeKey::NominalValue.into(),
-					nominal_value,
-				)
-			})
+			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+				collection_id,
+				item_id,
+				AttributeKey::NominalValue.into(),
+				&nominal_value.encode(),
+			)
 		}
 
 		fn encode_issued_nominal_value(
@@ -314,14 +343,12 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 			nominal_value: &T::Balance,
 		) -> DispatchResult {
-			nominal_value.using_encoded(|nominal_value| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					collection_id,
-					item_id,
-					AttributeKey::IssuedNominalValue.into(),
-					nominal_value,
-				)
-			})
+			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+				collection_id,
+				item_id,
+				AttributeKey::IssuedNominalValue.into(),
+				&nominal_value.encode(),
+			)
 		}
 
 		fn encode_permission(
@@ -329,14 +356,12 @@ pub mod pallet {
 			item_id: &<T as NftsConfig>::ItemId,
 			permission: &T::Permission,
 		) -> DispatchResult {
-			permission.using_encoded(|permission| {
-				<NftsPallet<T> as Mutate<_, _>>::set_attribute(
-					collection_id,
-					item_id,
-					AttributeKey::Permission.into(),
-					permission,
-				)
-			})
+			<NftsPallet<T> as Mutate<_, _>>::set_attribute(
+				collection_id,
+				item_id,
+				AttributeKey::Permission.into(),
+				&permission.encode(),
+			)
 		}
 
 		fn decode_nominal_value(
@@ -421,37 +446,6 @@ pub mod pallet {
 				nominal_value,
 			)
 		}
-
-		fn create_token(
-			account_id: &T::AccountId,
-			permission: &[u8],
-			nominal_value: &[u8],
-		) -> Result<<T as NftsConfig>::ItemId, DispatchError> {
-			let item_id = Self::next_item_id().ok_or(Error::<T>::CollectionNotInitialized)?;
-			let collection_id =
-				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
-
-			NftsPallet::<T>::mint_into(
-				&collection_id,
-				&item_id,
-				account_id,
-				&ItemConfig::default(),
-				true,
-			)?;
-
-			Self::init_attributes(&collection_id, &item_id, permission, nominal_value)?;
-
-			Pallet::<T>::deposit_event(Event::<T>::TokenCreated {
-				account: account_id.clone(),
-				item_id,
-			});
-
-			let next_item_id = item_id.increment().ok_or(Error::<T>::ItemNotInitialized)?;
-
-			NextItemId::<T>::put(next_item_id);
-
-			Ok(item_id)
-		}
 	}
 
 	#[pallet::call]
@@ -482,11 +476,7 @@ pub mod pallet {
 			nominal_value: T::Balance,
 		) -> DispatchResult {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
-			permission.using_encoded(|permission| {
-				nominal_value.using_encoded(|nominal_value| {
-					Self::create_token(&account_id, permission, nominal_value).map(|_| ())
-				})
-			})
+			Self::do_mint_permission_token(&account_id, &permission, &nominal_value).map(|_| ())
 		}
 	}
 
