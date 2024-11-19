@@ -306,7 +306,7 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxSetIdSessionEntries = ConstU64<0>;
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
-	// We have no such things as nominators, grandpa only uses this for weight calulation of offence reporting extrinsics.
+	// We have no such things as nominators, grandpa only uses this for weight calculation of offence reporting extrinsics.
 	// Since we use the default implementation of EquivocationReportSystem (noop), we can safely set this to 0.
 	type MaxNominators = ConstU32<0>;
 }
@@ -339,6 +339,12 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+}
+
+impl pallet_extra_fungible_events::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Fungible = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 parameter_types! {
@@ -407,7 +413,7 @@ impl Convert<IdTuple, AccountId> for IdTupleToValidatorId {
 impl pallet_nft_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Fungible = Balances;
+	type Fungible = FungibleWrapper;
 	type NftDelegationHandler = NftDelegation;
 	type NftStakingHandler = NftPermission;
 	type Balance = Balance;
@@ -874,7 +880,7 @@ impl pallet_airdrop::Config for Runtime {
 	type PermissionType = pallet_nft_staking::PermissionType;
 	type ItemId = <Self as pallet_nfts::Config>::ItemId;
 	type NftStaking = NftPermission;
-	type Fungible = Balances;
+	type Fungible = FungibleWrapper;
 	type DelegatorNftBindMetadata = AccountId;
 	type NftDelegation = NftDelegation;
 	type VestingSchedule = HoldVesting;
@@ -892,7 +898,7 @@ impl pallet_hold_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
-	type Fungible = Balances;
+	type Fungible = FungibleWrapper;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
 	type BlockNumberProvider = System;
@@ -904,7 +910,7 @@ impl pallet_vesting_to_freeze::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Balance = Balance;
-	type Fungible = Balances;
+	type Fungible = FungibleWrapper;
 	type VestingSchedule = HoldVesting;
 	type BlockNumberToBalance = ConvertInto;
 	type BlockNumberProvider = System;
@@ -937,7 +943,7 @@ impl Convert<Balance, FixedU128> for BalanceToScore {
 impl pallet_staking_incentive::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type Fungible = Balances;
+	type Fungible = FungibleWrapper;
 	type VestingSchedule = HoldVesting;
 	type ClaimVestingScheduleLength = ConstU32<{ YEARS }>;
 	type PerBlockMultiplier = PerBlockMultiplier;
@@ -1002,6 +1008,7 @@ construct_runtime!(
 		HoldVesting: pallet_hold_vesting,
 		VestingToFreeze: pallet_vesting_to_freeze,
 		StakingIncentive: pallet_staking_incentive,
+		FungibleWrapper: pallet_extra_fungible_events,
 	}
 );
 

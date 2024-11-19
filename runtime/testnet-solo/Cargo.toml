@@ -27,6 +27,7 @@ pallet-hold-vesting = { workspace = true }
 pallet-airdrop = { workspace = true }
 pallet-vesting-to-freeze = { workspace = true }
 pallet-staking-incentive = { workspace = true }
+pallet-extra-fungible-events = { workspace = true }
 utils = { workspace = true }
 
 [build-dependencies]
@@ -46,6 +47,7 @@ std = [
 	"log/std",
 	"pallet-airdrop/std",
 	"pallet-doas/std",
+	"pallet-extra-fungible-events/std",
 	"pallet-hold-vesting/std",
 	"pallet-im-online/std",
 	"pallet-nft-delegation/std",
@@ -62,6 +64,7 @@ std = [
 runtime-benchmarks = [
 	"pallet-airdrop/runtime-benchmarks",
 	"pallet-doas/runtime-benchmarks",
+	"pallet-extra-fungible-events/runtime-benchmarks",
 	"pallet-hold-vesting/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-nft-delegation/runtime-benchmarks",
@@ -77,6 +80,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"pallet-airdrop/try-runtime",
 	"pallet-doas/try-runtime",
+	"pallet-extra-fungible-events/try-runtime",
 	"pallet-hold-vesting/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-nft-delegation/try-runtime",

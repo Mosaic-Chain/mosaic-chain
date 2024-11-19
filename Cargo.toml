@@ -14,6 +14,7 @@ members = [
   "pallets/hold-vesting",
   "pallets/vesting-to-freeze",
   "pallets/staking-incentive",
+  "pallets/extra-fungible-events",
   "runtime/parachain",
   "runtime/testnet-solo",
   "runtime-generator",
@@ -58,6 +59,7 @@ docify = { version = "0.2.8" }
 inventory = { version = "0.3.15" }
 rstest = { version = "0.22.0" }
 rstest_reuse = { version = "0.7.0" }
+delegate = { version = "0.13.1" }
 
 # Local
 mosaic-testnet-solo-runtime = { default-features = false, path = "runtime/testnet-solo" }
@@ -73,6 +75,7 @@ pallet-airdrop = { default-features = false, path = "pallets/airdrop" }
 pallet-hold-vesting = { default-features = false, path = "pallets/hold-vesting" }
 pallet-vesting-to-freeze = { default-features = false, path = "pallets/vesting-to-freeze" }
 pallet-staking-incentive = { default-features = false, path = "pallets/staking-incentive" }
+pallet-extra-fungible-events = { default-features = false, path = "pallets/extra-fungible-events" }
 utils = { default-features = false, path = "utils"}
 runtime-generator = { default-features = false, path = "runtime-generator" }
 

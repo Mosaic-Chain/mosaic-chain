@@ -3045,6 +3045,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "delegate"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc2323e10c92e1cf4d86e11538512e6dc03ceb586842970b6332af3d4046a046"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.82",
+]
+
+[[package]]
 name = "der"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6443,6 +6454,7 @@ dependencies = [
  "log",
  "pallet-airdrop",
  "pallet-doas",
+ "pallet-extra-fungible-events",
  "pallet-hold-vesting",
  "pallet-im-online 27.0.0",
  "pallet-nft-delegation",
@@ -7781,6 +7793,16 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-staking",
+]
+
+[[package]]
+name = "pallet-extra-fungible-events"
+version = "0.1.0"
+dependencies = [
+ "delegate",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
 ]
 
 [[package]]
