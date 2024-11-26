@@ -9,13 +9,11 @@ repository.workspace = true
 description = "FRAME pallet for manage vesting"
 readme = "README.md"
 
-
 [dependencies]
-sdk = { workspace = true, features = ["frame-benchmarking", "frame-support", "frame-system", "sp-runtime", "sp-std"] }
+sdk = { workspace = true, features = ["frame-support", "frame-system", "sp-runtime", "sp-std"] }
 codec = { workspace = true }
 scale-info = { workspace = true }
 utils = { workspace = true }
-
 
 [dev-dependencies]
 sdk = { workspace = true, features = ["pallet-balances", "sp-core", "sp-io"] }
@@ -23,5 +21,9 @@ sdk = { workspace = true, features = ["pallet-balances", "sp-core", "sp-io"] }
 [features]
 default = [ "std" ]
 std = [ "codec/std", "scale-info/std", "sdk/std", "utils/std" ]
-runtime-benchmarks = [ "sdk/runtime-benchmarks", "utils/runtime-benchmarks" ]
+runtime-benchmarks = [
+	"sdk/frame-benchmarking",
+	"sdk/runtime-benchmarks",
+	"utils/runtime-benchmarks",
+]
 try-runtime = [ "sdk/try-runtime" ]

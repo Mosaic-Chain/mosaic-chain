@@ -1,5 +1,3 @@
-// TODO: redo benchmarks
-
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -47,8 +45,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect, clippy::type_complexity)] // TODO: make it so this is not needed to be allowed
-
-// mod benchmarking;
+#![cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 // #[cfg(test)]
 // mod mock;
@@ -92,9 +90,9 @@ use utils::vesting::{HoldVestingSchedule, Schedule};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-type MaxHoldsOf<T> = VariantCountOf<<T as Config>::RuntimeHoldReason>;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type ScheduleOf<T> = Schedule<<T as Config>::Balance, BlockNumberFor<T>>;
+pub type MaxHoldsOf<T> = VariantCountOf<<T as Config>::RuntimeHoldReason>;
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type ScheduleOf<T> = Schedule<<T as Config>::Balance, BlockNumberFor<T>>;
 
 /// Actions to take against a user's `Vesting` storage entry.
 #[derive(Clone, Copy)]
@@ -140,8 +138,7 @@ impl<T: Config> Get<u32> for MaxVestingSchedulesGet<T> {
 	}
 }
 
-// TODO: when ready remove devmode
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -196,13 +193,21 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must ge greater than 0");
+			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must be greater than 0");
 		}
 	}
 
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		Vesting,
+		#[cfg(feature = "runtime-benchmarks")]
+		Test1,
+		#[cfg(feature = "runtime-benchmarks")]
+		Test2,
+		#[cfg(feature = "runtime-benchmarks")]
+		Test3,
+		#[cfg(feature = "runtime-benchmarks")]
+		Test4,
 	}
 
 	/// Information regarding the vesting of a given account.
@@ -472,6 +477,10 @@ pub mod pallet {
 		///
 		/// If the starting block is already set
 		#[pallet::call_index(6)]
+		#[pallet::weight(
+			T::WeightInfo::start_vesting_schedule_locked(MaxHoldsOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
+			.max(T::WeightInfo::start_vesting_schedule_unlocked(MaxHoldsOf::<T>::get(), T::MAX_VESTING_SCHEDULES))
+		)]
 		pub fn start_vesting_schedule(
 			origin: OriginFor<T>,
 			target: <T::Lookup as StaticLookup>::Source,
@@ -481,7 +490,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(target)?;
 
-			let mut schedules = Self::vesting(&who).unwrap_or_default();
+			let mut schedules = Self::vesting(&who).ok_or(Error::<T>::NotVesting)?;
 			let schedule = schedules
 				.get_mut(schedule_index as usize)
 				.ok_or(Error::<T>::InvalidScheduleParams)?;
@@ -725,7 +734,7 @@ where
 			let total_locked_now = v.iter().fold(Zero::zero(), |total, schedule| {
 				schedule.locked_at::<T::BlockNumberToBalance>(now).saturating_add(total)
 			});
-			Some(T::Fungible::balance(who).min(total_locked_now))
+			Some(T::Fungible::total_balance(who).min(total_locked_now))
 		} else {
 			None
 		}

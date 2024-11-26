@@ -1088,6 +1088,7 @@ mod benches {
 		[pallet_collective, EducationCollective]
 		[pallet_membership, EducationMembership]
 		[pallet_treasury, Treasury]
+		[pallet_hold_vesting, HoldVesting]
 	);
 }
 

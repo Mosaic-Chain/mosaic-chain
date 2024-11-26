@@ -10,7 +10,7 @@ use sdk::{
 	frame_benchmarking::v2::*,
 	frame_support::traits::{tokens::fungible::Mutate, Incrementable, ValidatorSet},
 	frame_system::{pallet_prelude::*, RawOrigin},
-	pallet_balances::{Config as BalancesConfig, Pallet as Balances},
+	pallet_balances::{Config as BalancesConfig, Pallet as BalancesPallet},
 	pallet_session::Config as SessionConfig,
 	sp_std::{vec, vec::Vec as SpVec},
 };
@@ -45,7 +45,7 @@ where
 	T: NftStakingConfig<Balance = <T as BalancesConfig>::Balance>,
 {
 	fn endow(&self, amount: <T as NftStakingConfig>::Balance) {
-		<Balances<T> as Mutate<_>>::mint_into(&self.id, amount).expect("Should succeed");
+		<BalancesPallet<T> as Mutate<_>>::mint_into(&self.id, amount).expect("Should succeed");
 	}
 }
 
