@@ -78,11 +78,12 @@
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect)]
 
-// mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 // pub mod migration;
 // mod mock;
 // mod tests;
-// pub mod weights;
+pub mod weights;
 
 use sdk::{
 	frame_support, frame_system, pallet_authorship, pallet_session, sp_application_crypto, sp_io,
@@ -117,7 +118,7 @@ use sp_staking::{
 use utils::storage::{ClearAll, ClearAllPrefix};
 
 use sp_std::prelude::*;
-// pub use weights::WeightInfo;
+pub use weights::WeightInfo;
 
 pub mod sr25519 {
 	mod app_sr25519 {
@@ -240,6 +241,8 @@ where
 /// A type for representing the validator id in a session.
 pub type ValidatorId<T> = <T as pallet_session::Config>::ValidatorId;
 
+pub type HeartbeatOf<T> = Heartbeat<BlockNumberFor<T>, <T as Config>::AuthorityKey>;
+
 /// A tuple of (ValidatorId, Identification) where `Identification` is the full identification of
 /// `ValidatorId`.
 pub type IdentificationTuple<T> = (
@@ -251,7 +254,7 @@ pub type IdentificationTuple<T> = (
 
 type OffchainResult<T, A> = Result<A, OffchainErr<BlockNumberFor<T>>>;
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -302,7 +305,7 @@ pub mod pallet {
 		type UnsignedPriority: Get<TransactionPriority>;
 
 		/// Weight information for extrinsics in this pallet.
-		type WeightInfo; //: WeightInfo
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
@@ -369,9 +372,7 @@ pub mod pallet {
 		// NOTE: the weight includes the cost of validate_unsigned as it is part of the cost to
 		// import block with such an extrinsic.
 		#[pallet::call_index(0)]
-		// #[pallet::weight(<T as Config>::WeightInfo::validate_unsigned_and_then_heartbeat(
-		// 	heartbeat.validators_len,
-		// ))]
+		#[pallet::weight(<T as Config>::WeightInfo::validate_unsigned_and_then_heartbeat(2000))]
 		pub fn heartbeat(
 			origin: OriginFor<T>,
 			heartbeat: Heartbeat<BlockNumberFor<T>, T::AuthorityKey>,

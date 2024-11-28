@@ -511,7 +511,7 @@ impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type Randomness = InsecureRandomnessCollectiveFlip;
-	type ValidatorSuperset = pallet_nft_staking::SelectableValidators<Runtime>;
+	type ValidatorSuperset = pallet_nft_staking::SelectableValidators<Self>;
 	type SubsetSize = params::dynamic::validator_subset_selection::SubsetSize;
 	type MinSessionLength = params::dynamic::validator_subset_selection::MinSessionLength;
 	type SessionHook = (NftDelegation, NftStaking);
@@ -836,11 +836,11 @@ impl ReportOffence<AccountId, IdTuple, ImOnlineOffence> for ImOnlineReporter {
 impl pallet_im_online::Config for Runtime {
 	type AuthorityKey = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
-	type ValidatorSet = pallet_nft_staking::SlashableValidators<Runtime>;
+	type ValidatorSet = pallet_nft_staking::SlashableValidators<Self>;
 	type ReportUnresponsiveness = ImOnlineReporter;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
-	type WeightInfo = (); // pallet_im_online::weights::SubstrateWeight<Self>;
+	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Self>;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -1065,6 +1065,7 @@ mod benches {
 		[pallet_nft_delegation, NftDelegation]
 		[pallet_nft_permission, NftPermission]
 		[pallet_nft_staking, NftStaking]
+		[pallet_im_online, ImOnline]
 		[pallet_proxy, Proxy]
 		[pallet_utility, Utility]
 		[pallet_recovery, Recovery]
