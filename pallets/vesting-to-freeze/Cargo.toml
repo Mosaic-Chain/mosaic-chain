@@ -20,4 +20,8 @@ sdk = { workspace = true, features = ["pallet-balances", "sp-io", "sp-runtime"] 
 default = [ "std" ]
 std = [ "sdk/std", "utils/std" ]
 try-runtime = [ "sdk/try-runtime" ]
-runtime-benchmarks = [ "utils/runtime-benchmarks" ]
+runtime-benchmarks = [
+	"sdk/frame-benchmarking",
+	"sdk/runtime-benchmarks",
+	"utils/runtime-benchmarks",
+]

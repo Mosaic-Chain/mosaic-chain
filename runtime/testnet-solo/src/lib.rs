@@ -25,7 +25,7 @@ use frame_system::{EnsureRoot, EnsureWithSuccess};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, ConstBool, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, ConstBool, Get, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
 	generic::{self, Era},
@@ -903,8 +903,19 @@ impl pallet_hold_vesting::Config for Runtime {
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
 	type BlockNumberProvider = System;
-	type WeightInfo = ();
+	type WeightInfo = pallet_hold_vesting::weights::SubstrateWeight<Self>;
 	const MAX_VESTING_SCHEDULES: u32 = 8;
+}
+
+// TODO: when parameters are reviewed and organized better consider removing this.
+pub struct MaxFreezesAndLocks;
+impl Get<u32> for MaxFreezesAndLocks {
+	fn get() -> u32 {
+		let freezes: u32 = <Runtime as pallet_balances::Config>::MaxFreezes::get();
+		let locks: u32 = <Runtime as pallet_balances::Config>::MaxLocks::get();
+
+		freezes + locks
+	}
 }
 
 impl pallet_vesting_to_freeze::Config for Runtime {
@@ -916,6 +927,10 @@ impl pallet_vesting_to_freeze::Config for Runtime {
 	type BlockNumberToBalance = ConvertInto;
 	type BlockNumberProvider = System;
 	type MaxFrozenSchedules = ConstU32<8>;
+	type MaxFreezes = MaxFreezesAndLocks;
+	type MaxVestingSchedules =
+		ConstU32<{ <Self as pallet_hold_vesting::Config>::MAX_VESTING_SCHEDULES }>;
+	type WeightInfo = pallet_vesting_to_freeze::SubstrateWeight<Self>;
 }
 
 parameter_types! {
@@ -1090,6 +1105,7 @@ mod benches {
 		[pallet_membership, EducationMembership]
 		[pallet_treasury, Treasury]
 		[pallet_hold_vesting, HoldVesting]
+		[pallet_vesting_to_freeze, VestingToFreeze]
 	);
 }
 

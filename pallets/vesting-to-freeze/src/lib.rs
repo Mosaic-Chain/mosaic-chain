@@ -10,17 +10,22 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+pub mod weights;
+pub use weights::*;
+
 use sdk::{frame_support, frame_system, sp_core};
 
 use frame_support::{
-	pallet_prelude::{StorageMap, ValueQuery},
+	pallet_prelude::{Hooks, StorageMap, ValueQuery},
 	sp_runtime::{
 		traits::{AtLeast32BitUnsigned, BlockNumberProvider, Convert, Saturating, Zero},
 		DispatchError, DispatchResult,
 	},
 	traits::{
 		fungible::{Inspect, InspectFreeze, MutateFreeze},
-		IsType,
+		IsType, VariantCount, VariantCountOf,
 	},
 	BoundedVec, Parameter, Twox64Concat,
 };
@@ -38,7 +43,7 @@ pub mod pallet {
 	pub trait Config: sdk::frame_system::Config {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-		type RuntimeFreezeReason: From<FreezeReason>;
+		type RuntimeFreezeReason: From<FreezeReason> + VariantCount;
 		type Balance: Parameter + Copy + AtLeast32BitUnsigned + TryInto<BlockNumberFor<Self>>;
 
 		type Fungible: Inspect<Self::AccountId, Balance = Self::Balance>
@@ -54,12 +59,47 @@ pub mod pallet {
 		type BlockNumberToBalance: Convert<BlockNumberFor<Self>, Self::Balance>;
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
+		/// Maximum number of freezes, used for weight estimation.
+		///
+		/// Note: The de-facto fungible implementor `pallet_balances`
+		/// updates freezes and locks together so it's recommended
+		/// to provided a combined value.
+		type MaxFreezes: Get<u32>;
+
+		/// Maximum number of converted schedules.
+		/// This value is enforced by the pallet.
 		#[pallet::constant]
 		type MaxFrozenSchedules: Get<u32>;
+
+		/// Maximum number of vesting schedules that might be converted,
+		/// used for weight calculation.
+		type MaxVestingSchedules: Get<u32>;
+
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(
+				T::MaxFreezes::get() >= T::RuntimeFreezeReason::VARIANT_COUNT,
+				"`MaxFreezes` must be at least the number of `RuntimeFreezeReason`s"
+			);
+			assert!(
+				T::MaxFrozenSchedules::get() > 0,
+				"`MaxFrozenSchedules` must be greater than 0"
+			);
+			assert!(
+				T::MaxVestingSchedules::get() > 0,
+				"`MaxVestingSchedules` must be greater than 0"
+			);
+		}
+	}
+
+	pub type MaxFreezesOf<T> = VariantCountOf<<T as Config>::RuntimeFreezeReason>;
 
 	#[pallet::storage]
 	pub type FrozenSchedules<T: Config> = StorageMap<
@@ -73,6 +113,14 @@ pub mod pallet {
 	#[pallet::composite_enum]
 	pub enum FreezeReason {
 		VestingToFreeze,
+		#[cfg(feature = "runtime-benchmarks")]
+		Test1,
+		#[cfg(feature = "runtime-benchmarks")]
+		Test2,
+		#[cfg(feature = "runtime-benchmarks")]
+		Test3,
+		#[cfg(feature = "runtime-benchmarks")]
+		Test4,
 	}
 
 	#[pallet::event]
@@ -101,6 +149,11 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::convert_schedule(
+			T::MaxVestingSchedules::get(),
+			T::MaxFreezes::get(),
+			T::MaxFrozenSchedules::get(),
+		))]
 		pub fn convert_schedule(origin: OriginFor<T>, schedule_index: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let schedule = T::VestingSchedule::get_vesting_schedule(&who, schedule_index)?;
@@ -140,6 +193,10 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::thaw_expired(
+			T::MaxFreezes::get(),
+			T::MaxFrozenSchedules::get(),
+		))]
 		pub fn thaw_expired(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 

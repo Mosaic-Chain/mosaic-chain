@@ -45,7 +45,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect, clippy::type_complexity)] // TODO: make it so this is not needed to be allowed
-#![cfg(feature = "runtime-benchmarks")]
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 // #[cfg(test)]

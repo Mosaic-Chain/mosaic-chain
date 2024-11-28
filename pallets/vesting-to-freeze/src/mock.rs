@@ -60,6 +60,9 @@ impl vesting_to_freeze::Config for Test {
 	type BlockNumberToBalance = ConvertInto;
 	type BlockNumberProvider = System;
 	type MaxFrozenSchedules = ConstU32<3>;
+	type MaxFreezes = ConstU32<5>;
+	type MaxVestingSchedules = ConstU32<{ MAX_VESTING_SCHEDULES }>;
+	type WeightInfo = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
