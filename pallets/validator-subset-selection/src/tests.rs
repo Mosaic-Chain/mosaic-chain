@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use sdk::{
 	frame_support::traits::ValidatorSet,
 	pallet_session::SessionManager,
+	sp_core::Get,
 	sp_runtime::{traits::Zero, FixedI64},
 };
 
@@ -18,7 +19,8 @@ fn select_subset_statistics() {
 		let n_rounds = 168; // Approximately one week (1h session, 6s block time)
 
 		for _ in 0..n_rounds {
-			let subset = ValidatorSubsetSelection::select_subset(superset.clone());
+			let subset =
+				ValidatorSubsetSelection::select_subset(superset.clone(), SubsetSize::get());
 			let size = subset.len();
 
 			assert!((135..=265).contains(&size), "subset size of {size} is out of expected range");
@@ -62,7 +64,8 @@ fn select_subset_statistics() {
 fn fewer_validators_than_subset_event_works() {
 	new_test_ext(10, 15).execute_with(|| {
 		let superset = Superset::validators();
-		let mut subset = ValidatorSubsetSelection::select_subset(superset.clone());
+		let mut subset =
+			ValidatorSubsetSelection::select_subset(superset.clone(), SubsetSize::get());
 		subset.sort_unstable();
 
 		System::assert_has_event(Event::FewerValidatorsThanSubset.into());
@@ -74,7 +77,7 @@ fn fewer_validators_than_subset_event_works() {
 fn empty_vec_for_select_subset() {
 	new_test_ext(15, 10).execute_with(|| {
 		let empty_vec = Vec::new();
-		let result = ValidatorSubsetSelection::select_subset(empty_vec.clone());
+		let result = ValidatorSubsetSelection::select_subset(empty_vec.clone(), SubsetSize::get());
 		assert_eq!(empty_vec, result);
 		System::assert_last_event(Event::FewerValidatorsThanSubset.into());
 	});
@@ -89,7 +92,7 @@ fn empty_subset_event_works() {
 			DoubleBucketMap::<Test>::insert(v, (FixedI64::zero(), FixedI64::zero()));
 		}
 
-		ValidatorSubsetSelection::select_subset(validators);
+		ValidatorSubsetSelection::select_subset(validators, SubsetSize::get());
 
 		System::assert_last_event(Event::EmptySubset.into());
 	});

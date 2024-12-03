@@ -436,7 +436,7 @@ pub mod dynamic {
 	pub mod validator_subset_selection {
 		/// The desired mean subset size to be selected.
 		#[codec(index = 0)]
-		pub static SubsetSize: u64 = prod_or_fast!(200, 3);
+		pub static SubsetSize: u32 = prod_or_fast!(200, 3);
 
 		/// The minimum length of a session.
 		/// A session's maximum length is `MinSessionLength + SubsetSize - 1`

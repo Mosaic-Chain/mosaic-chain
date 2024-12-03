@@ -1080,6 +1080,7 @@ mod benches {
 		[pallet_nft_delegation, NftDelegation]
 		[pallet_nft_permission, NftPermission]
 		[pallet_nft_staking, NftStaking]
+		[pallet_validator_subset_selection, ValidatorSubsetSelection]
 		[pallet_im_online, ImOnline]
 		[pallet_proxy, Proxy]
 		[pallet_utility, Utility]

@@ -29,6 +29,12 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod weights;
+
 use sdk::{frame_support, frame_system, pallet_session, sp_runtime, sp_std};
 
 use sp_std::prelude::*;
@@ -46,7 +52,7 @@ use utils::{traits::SessionHook, SessionIndex};
 
 pub use pallet::*;
 
-#[frame_support::pallet(dev_mode)] //TODO: remove dev mode
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	// If a validator's bucket is full, then the bucket value is decreased with decrease_ratio
@@ -61,10 +67,10 @@ pub mod pallet {
 	pub trait Config: sdk::frame_system::Config {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-		type ValidatorId: Member + Parameter;
+		type ValidatorId: Member + Parameter + MaxEncodedLen;
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 		type ValidatorSuperset: ValidatorSet<Self::ValidatorId, ValidatorId = Self::ValidatorId>;
-		type SubsetSize: Get<u64>;
+		type SubsetSize: Get<u32>;
 
 		#[pallet::constant]
 		type MinSessionLength: Get<BlockNumberFor<Self>>;
@@ -89,9 +95,8 @@ pub mod pallet {
 	pub type Nonce<T: Config> = StorageValue<_, u64>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn buckets)]
 	pub type DoubleBucketMap<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::ValidatorId, (FixedI64, FixedI64)>;
+		StorageMap<_, Twox64Concat, T::ValidatorId, (FixedI64, FixedI64), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn current_session_end)]
@@ -111,10 +116,13 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Select a subset of the validators for the next session with the two buckets algorithm
-		pub(super) fn select_subset(validators: Vec<T::ValidatorId>) -> Vec<T::ValidatorId> {
-			let subset_size = T::SubsetSize::get().max(1);
+		pub(super) fn select_subset(
+			validators: Vec<T::ValidatorId>,
+			subset_size: u32,
+		) -> Vec<T::ValidatorId> {
+			let subset_size = subset_size.max(1);
 
-			if (validators.len() as u64) < subset_size {
+			if validators.len() < subset_size as usize {
 				Self::deposit_event(Event::FewerValidatorsThanSubset);
 
 				return validators;
@@ -126,18 +134,22 @@ pub mod pallet {
 			let mut selected_subset = Vec::<T::ValidatorId>::with_capacity(subset_size as usize);
 
 			for v in &validators {
-				let mut buckets =
-					Self::buckets(v).unwrap_or_else(|| (Self::random(), Self::random()));
-				buckets.0 = buckets.0 + mean;
-				buckets.1 = buckets.1 + mean;
+				DoubleBucketMap::<T>::mutate(v, |maybe_buckets: &mut Option<_>| {
+					let mut buckets = match maybe_buckets {
+						Some(buckets) => *buckets,
+						None => (Self::random(), Self::random()),
+					};
 
-				if let Some(new_buckets) = Self::select(buckets) {
-					buckets = new_buckets;
+					buckets.0 = buckets.0 + mean;
+					buckets.1 = buckets.1 + mean;
 
-					selected_subset.push(v.clone());
-				}
+					if let Some(new_buckets) = Self::select(buckets) {
+						buckets = new_buckets;
+						selected_subset.push(v.clone());
+					}
 
-				DoubleBucketMap::<T>::insert(v, buckets);
+					*maybe_buckets = Some(buckets);
+				});
 			}
 
 			if selected_subset.is_empty() {
@@ -145,7 +157,7 @@ pub mod pallet {
 
 				// If the subset is empty we redo the process
 				// With enough validators the probability of this is negligible
-				Self::select_subset(validators)
+				Self::select_subset(validators, subset_size)
 			} else {
 				selected_subset
 			}
@@ -238,7 +250,8 @@ pub mod pallet {
 			T::SessionHook::session_genesis(session_index).expect("session hook ran successfully");
 
 			if session_index == 0 {
-				let subset = Self::select_subset(T::ValidatorSuperset::validators());
+				let subset =
+					Self::select_subset(T::ValidatorSuperset::validators(), T::SubsetSize::get());
 
 				// NOTE: this should usually not happen outside of tests
 				// as it means the runtime is misconfigured.
@@ -288,7 +301,8 @@ pub mod pallet {
 		fn new_session(session_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
 			T::SessionHook::session_planned(session_index).expect("session hook ran successfully");
 
-			let selected_subset = Self::select_subset(T::ValidatorSuperset::validators());
+			let selected_subset =
+				Self::select_subset(T::ValidatorSuperset::validators(), T::SubsetSize::get());
 
 			// TODO: a better strategy to handle this case
 			// problem: the runtime might assume that a validator is only selected

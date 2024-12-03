@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 if [ $# -eq 0 ]; then
-  pallets=(doas hold-vesting im-online nft-delegation nft-permission nft-staking vesting-to-freeze)
+  pallets=(doas hold-vesting im-online nft-delegation nft-permission nft-staking validator-subset-selection vesting-to-freeze)
 else
   pallets=("$@")
 fi

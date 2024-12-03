@@ -64,10 +64,10 @@ impl frame_support::traits::StorageInstance for SubsetSize {
 	const STORAGE_PREFIX: &'static str = "SubsetSize";
 }
 
-pub type SubsetSizeStorage = StorageValue<SubsetSize, u64, ValueQuery>;
+pub type SubsetSizeStorage = StorageValue<SubsetSize, u32, ValueQuery>;
 
-impl Get<u64> for SubsetSize {
-	fn get() -> u64 {
+impl Get<u32> for SubsetSize {
+	fn get() -> u32 {
 		SubsetSizeStorage::get()
 	}
 }
@@ -132,7 +132,7 @@ impl pallet_validator_subset_selection::Config for Test {
 	type MinSessionLength = ConstU64<450>; // 45 minutes
 }
 
-pub fn new_test_ext(superset_size: u64, subset_size: u64) -> sp_io::TestExternalities {
+pub fn new_test_ext(superset_size: u64, subset_size: u32) -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 
