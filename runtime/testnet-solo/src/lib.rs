@@ -898,6 +898,7 @@ impl pallet_airdrop::Config for Runtime {
 	type BaseTransactionPriority = ConstU64<{ TransactionPriority::MAX / 2 }>;
 	type MaxAirdropsInPool = ConstU64<12>;
 	const MAX_DELEGATOR_NFTS: u32 = 16;
+	type WeightInfo = pallet_airdrop::weights::SubstrateWeight<Self>;
 }
 
 parameter_types! {
@@ -1114,6 +1115,7 @@ mod benches {
 		[pallet_collective, EducationCollective]
 		[pallet_membership, EducationMembership]
 		[pallet_treasury, Treasury]
+		[pallet_airdrop, Airdrop]
 		[pallet_hold_vesting, HoldVesting]
 		[pallet_vesting_to_freeze, VestingToFreeze]
 	);

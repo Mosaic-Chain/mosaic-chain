@@ -7079,6 +7079,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 name = "pallet-airdrop"
 version = "0.2.0"
 dependencies = [
+ "pallet-nft-staking",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",

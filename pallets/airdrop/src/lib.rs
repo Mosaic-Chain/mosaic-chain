@@ -40,8 +40,12 @@ use utils::{
 	SessionIndex,
 };
 
-// TODO: Once the pallet is ready turn off dev_mode
-#[frame_support::pallet(dev_mode)]
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+pub mod weights;
+pub use weights::WeightInfo;
+
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -78,6 +82,9 @@ pub mod pallet {
 
 		/// NOTE: this value must never exceed u64::MAX - `Self::MaxAirdropsPerBlock`
 		type BaseTransactionPriority: Get<u64>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::extra_constants]
@@ -171,7 +178,7 @@ pub mod pallet {
 		pub balance: Option<Balance>,
 		pub vesting: Option<VestingInfo<Balance, BlockNumber>>,
 		pub permission_nft: Option<PermissionNft<PermissionType, Balance>>,
-		pub delegator_nfts: Option<BoundedVec<DelegatorNft<Balance>, MaxDelegatorNfts>>,
+		pub delegator_nfts: BoundedVec<DelegatorNft<Balance>, MaxDelegatorNfts>,
 	}
 
 	/// Identifies the pallet.
@@ -203,6 +210,11 @@ pub mod pallet {
 		T::AccountId: From<sr25519::Public>,
 	{
 		#[pallet::call_index(0)]
+		#[pallet::weight({
+			let delegator_nft_count = package.delegator_nfts.len().try_into().unwrap_or(T::MAX_DELEGATOR_NFTS);
+			<T as Config>::WeightInfo::airdrop(delegator_nft_count) +
+			<T as Config>::WeightInfo::validate_unsigned(delegator_nft_count)
+		})]
 		pub fn airdrop(
 			origin: OriginFor<T>,
 			package: PackageOf<T>,
@@ -238,14 +250,8 @@ pub mod pallet {
 				)?;
 			}
 
-			if let Some(delegator_nfts) = &package.delegator_nfts {
-				for nft in delegator_nfts {
-					T::NftDelegation::mint(
-						&package.account_id,
-						nft.expiration,
-						&nft.nominal_value,
-					)?;
-				}
+			for nft in &package.delegator_nfts {
+				T::NftDelegation::mint(&package.account_id, nft.expiration, &nft.nominal_value)?;
 			}
 
 			if let Some(vesting) = package.vesting.clone() {
@@ -264,6 +270,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::rotate_key())]
 		pub fn rotate_key(origin: OriginFor<T>, key: sr25519::Public) -> DispatchResult {
 			ensure_root(origin)?;
 

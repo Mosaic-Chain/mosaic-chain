@@ -15,7 +15,7 @@ fn dummy_package() -> (PackageOf<Test>, sr25519::Signature) {
 		balance: None,
 		vesting: None,
 		permission_nft: None,
-		delegator_nfts: None,
+		delegator_nfts: BoundedVec::truncate_from(vec![]),
 	};
 
 	let signature = sign_package(&package);
@@ -59,7 +59,7 @@ fn mints_tokens() {
 			balance: Some(42),
 			vesting: None,
 			permission_nft: None,
-			delegator_nfts: None,
+			delegator_nfts: BoundedVec::truncate_from(vec![]),
 		};
 		let signature = sign_package(&package);
 
@@ -115,10 +115,10 @@ fn mints_delegator_nfts() {
 			balance: None,
 			vesting: None,
 			permission_nft: None,
-			delegator_nfts: Some(BoundedVec::truncate_from(vec![
+			delegator_nfts: BoundedVec::truncate_from(vec![
 				DelegatorNft { expiration: 1, nominal_value: 100 },
 				DelegatorNft { expiration: 2, nominal_value: 200 },
-			])),
+			]),
 		};
 
 		let signature = sign_package(&package);
@@ -155,7 +155,7 @@ fn mints_permission_nfts() {
 				permission: Permission::DPoS,
 				nominal_value: 100,
 			}),
-			delegator_nfts: None,
+			delegator_nfts: BoundedVec::truncate_from(vec![]),
 		};
 
 		let signature = sign_package(&package);
@@ -188,7 +188,7 @@ fn adds_vesting_schedule() {
 			balance: None,
 			vesting: Some(VestingInfo { amount: 101, unlock_per_block: 1, start_block: None }),
 			permission_nft: None,
-			delegator_nfts: None,
+			delegator_nfts: BoundedVec::truncate_from(vec![]),
 		};
 
 		let signature = sign_package(&package);
@@ -230,7 +230,7 @@ fn refuses_invalid_vesting_schedule() {
 			// `per_block` = 0 => schedule is invalid
 			vesting: Some(VestingInfo { amount: 101, unlock_per_block: 0, start_block: None }),
 			permission_nft: None,
-			delegator_nfts: None,
+			delegator_nfts: BoundedVec::truncate_from(vec![]),
 		};
 
 		let signature = sign_package(&package);

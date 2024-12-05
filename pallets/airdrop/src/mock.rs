@@ -56,6 +56,7 @@ impl airdrop::Config for Test {
 
 	/// NOTE: this value must never exceed u64::MAX - `Self::MaxAirdropsPerBlock`
 	type BaseTransactionPriority = ConstU64<0>;
+	type WeightInfo = ();
 }
 
 pub fn account(index: u8) -> AccountId {

@@ -10,6 +10,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 sdk = { workspace = true, features = ["frame-support", "frame-system", "sp-std", "sp-core", "sp-runtime"] }
 codec = { workspace = true, features = ["derive"] }
+pallet-nft-staking = { workspace = true, optional = true }
 scale-info = { workspace = true, features = ["derive"] }
 utils = { workspace = true }
 
@@ -18,6 +19,11 @@ sdk = { workspace = true, features = ["sp-io"] }
 
 [features]
 default = [ "std" ]
-std = [ "sdk/std", "utils/std" ]
-try-runtime = [ "sdk/try-runtime" ]
-runtime-benchmarks = [ "sdk/runtime-benchmarks", "utils/runtime-benchmarks" ]
+std = [ "pallet-nft-staking?/std", "sdk/std", "utils/std" ]
+try-runtime = [ "pallet-nft-staking?/try-runtime", "sdk/try-runtime" ]
+runtime-benchmarks = [
+	"dep:pallet-nft-staking",
+	"pallet-nft-staking?/runtime-benchmarks",
+	"sdk/runtime-benchmarks",
+	"utils/runtime-benchmarks",
+]
