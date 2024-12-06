@@ -39,10 +39,7 @@ use sdk::{frame_support, frame_system, pallet_session, sp_runtime, sp_std};
 
 use sp_std::prelude::*;
 
-use frame_support::{
-	pallet_prelude::*,
-	traits::{Randomness, ValidatorSet},
-};
+use frame_support::{pallet_prelude::*, traits::ValidatorSet};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{Hash, One, Zero},
@@ -68,7 +65,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 		type ValidatorId: Member + Parameter + MaxEncodedLen;
-		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 		type ValidatorSuperset: ValidatorSet<Self::ValidatorId, ValidatorId = Self::ValidatorId>;
 		type SubsetSize: Get<u32>;
 
@@ -99,19 +95,15 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, T::ValidatorId, (FixedI64, FixedI64), OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn current_session_end)]
 	pub type CurrentSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_session_end)]
 	pub type NextSessionEnd<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn current_session_length)]
 	pub type CurrentSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn avg_session_length)]
 	pub type AvgSessionLength<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	impl<T: Config> Pallet<T> {
@@ -206,26 +198,17 @@ pub mod pallet {
 		///Generate a random FixedI64 number between 0 and 1
 		fn random() -> FixedI64 {
 			let nonce = Self::next_nonce().to_le_bytes();
-			let hash = if T::ValidatorSuperset::session_index() == 0 {
-				Self::bootstrap_randomness(&nonce)
-			} else {
-				T::Randomness::random(&nonce).0
-			};
+			let s = [b"Mosaic", nonce.as_slice(), b"Chain"].concat();
+
+			let hash = T::Hashing::hash(&s);
 
 			let p = u128::from_le_bytes(
 				hash.as_ref()[0..16]
 					.try_into()
-					.expect("Can't convert first part of random hash to u128!"),
+					.expect("A hash is known to have at the very least 16 bytes"),
 			);
 
 			FixedI64::from_rational(p, u128::MAX)
-		}
-
-		/// Initial "randomness" expected to be used in the 0th session
-		fn bootstrap_randomness(nonce: &[u8]) -> T::Hash {
-			let s = [b"Mosaic", nonce, b"Chain"].concat();
-
-			T::Hashing::hash(&s)
 		}
 
 		pub(crate) fn session_length(subset_size: BlockNumberFor<T>) -> BlockNumberFor<T> {
@@ -316,7 +299,7 @@ pub mod pallet {
 			let new_subset_size: BlockNumberFor<T> = (selected_subset.len() as u32).into();
 			let new_session_length = Self::session_length(new_subset_size);
 			let new_session_end: BlockNumberFor<T> =
-				Self::current_session_end() + new_session_length;
+				CurrentSessionEnd::<T>::get() + new_session_length;
 
 			NextSessionEnd::<T>::put(new_session_end);
 
@@ -326,8 +309,8 @@ pub mod pallet {
 
 			Self::deposit_event(Event::SubsetSelected {
 				validator_subset: selected_subset.clone(),
-				session_start: Self::current_session_end() + One::one(),
-				session_end: Self::next_session_end(),
+				session_start: CurrentSessionEnd::<T>::get() + One::one(),
+				session_end: NextSessionEnd::<T>::get(),
 				session_index,
 			});
 
@@ -337,7 +320,7 @@ pub mod pallet {
 
 	impl<T: Config> pallet_session::ShouldEndSession<BlockNumberFor<T>> for Pallet<T> {
 		fn should_end_session(now: BlockNumberFor<T>) -> bool {
-			Self::current_session_end() == now
+			CurrentSessionEnd::<T>::get() == now
 		}
 	}
 
@@ -345,15 +328,15 @@ pub mod pallet {
 		for Pallet<T>
 	{
 		fn average_session_length() -> BlockNumberFor<T> {
-			Self::avg_session_length()
+			AvgSessionLength::<T>::get()
 		}
 
 		fn estimate_current_session_progress(
 			now: BlockNumberFor<T>,
 		) -> (Option<sp_runtime::Permill>, Weight) {
-			let end = Self::current_session_end();
+			let end = CurrentSessionEnd::<T>::get();
 			let progress =
-				sp_runtime::Permill::from_rational(end - now, Self::current_session_length())
+				sp_runtime::Permill::from_rational(end - now, CurrentSessionLength::<T>::get())
 					.left_from_one();
 
 			(Some(progress), T::DbWeight::get().reads(2))
@@ -362,7 +345,7 @@ pub mod pallet {
 		fn estimate_next_session_rotation(
 			_now: BlockNumberFor<T>,
 		) -> (Option<BlockNumberFor<T>>, Weight) {
-			(Some(Self::current_session_end()), T::DbWeight::get().reads(1))
+			(Some(CurrentSessionEnd::<T>::get()), T::DbWeight::get().reads(1))
 		}
 	}
 }

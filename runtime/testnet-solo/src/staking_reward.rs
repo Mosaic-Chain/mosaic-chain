@@ -1,6 +1,7 @@
 use sdk::{sp_core::Get, sp_runtime::helpers_128bit::sqrt};
 
-use super::{Balance, Balances, Currency, Runtime, Session, ValidatorSubsetSelection, MOSAIC};
+use super::{Balance, Balances, Currency, Runtime, Session, MOSAIC};
+use pallet_validator_subset_selection::CurrentSessionLength;
 
 pub struct SessionReward;
 
@@ -29,7 +30,7 @@ impl Get<Balance> for SessionReward {
 		let bound_validators =
 			pallet_nft_staking::Validators::<Runtime>::iter_keys().count() as u128;
 		let active_set_size = Session::validators().len() as u128;
-		let session_length = u128::from(ValidatorSubsetSelection::current_session_length());
+		let session_length = u128::from(CurrentSessionLength::<Runtime>::get());
 
 		Self::calculate(circulating, bound_validators, active_set_size, session_length)
 	}

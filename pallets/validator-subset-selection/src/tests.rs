@@ -7,7 +7,10 @@ use sdk::{
 	sp_runtime::{traits::Zero, FixedI64},
 };
 
-use crate::{mock::*, DoubleBucketMap, Event};
+use crate::{
+	mock::*, AvgSessionLength, CurrentSessionEnd, CurrentSessionLength, DoubleBucketMap, Event,
+	NextSessionEnd,
+};
 
 #[test]
 fn select_subset_statistics() {
@@ -53,7 +56,7 @@ fn select_subset_statistics() {
 				.get(&validator)
 				.expect("validator was not selected at all");
 			assert!(
-				(15..=20).contains(value), //Expected value is 17
+				(15..20).contains(value), //Expected value is 17
 				"validator selected count of {value} is out of expected range"
 			);
 		}
@@ -104,8 +107,8 @@ fn new_session_genesis_works() {
 		let result0 = ValidatorSubsetSelection::new_session_genesis(0).unwrap();
 
 		let len0 = ValidatorSubsetSelection::session_length(result0.len() as u64);
-		assert_eq!(ValidatorSubsetSelection::current_session_length(), len0 + 1);
-		assert_eq!(ValidatorSubsetSelection::current_session_end(), len0);
+		assert_eq!(CurrentSessionLength::<Test>::get(), len0 + 1);
+		assert_eq!(CurrentSessionEnd::<Test>::get(), len0);
 
 		System::assert_last_event(
 			Event::SubsetSelected {
@@ -120,8 +123,8 @@ fn new_session_genesis_works() {
 		let result1 = ValidatorSubsetSelection::new_session_genesis(1).unwrap();
 
 		// Rotation not yet happened as session 1 is planned immediately after session 0.
-		assert_eq!(ValidatorSubsetSelection::current_session_length(), len0 + 1);
-		assert_eq!(ValidatorSubsetSelection::current_session_end(), len0);
+		assert_eq!(CurrentSessionLength::<Test>::get(), len0 + 1);
+		assert_eq!(CurrentSessionEnd::<Test>::get(), len0);
 
 		let len1 = ValidatorSubsetSelection::session_length(result1.len() as u64);
 
@@ -141,14 +144,14 @@ fn new_session_genesis_works() {
 fn end_session_works() {
 	new_test_ext(15, 10).execute_with(|| {
 		let session_index = 1;
-		let next_session_end = ValidatorSubsetSelection::next_session_end();
-		let current_session_end = ValidatorSubsetSelection::current_session_end();
+		let next_session_end = NextSessionEnd::<Test>::get();
+		let current_session_end = CurrentSessionEnd::<Test>::get();
 		let expected = next_session_end - current_session_end;
 
 		ValidatorSubsetSelection::end_session(session_index);
 
-		assert_eq!(expected, ValidatorSubsetSelection::current_session_length());
-		assert_eq!(next_session_end, ValidatorSubsetSelection::current_session_end());
+		assert_eq!(expected, CurrentSessionLength::<Test>::get());
+		assert_eq!(next_session_end, CurrentSessionEnd::<Test>::get());
 	});
 }
 
@@ -156,9 +159,9 @@ fn end_session_works() {
 fn new_session_works() {
 	new_test_ext(15, 10).execute_with(|| {
 		let session_index = 2;
-		let current_session_length = ValidatorSubsetSelection::current_session_length();
-		let avg = ValidatorSubsetSelection::avg_session_length();
-		let current_session_end = ValidatorSubsetSelection::current_session_end();
+		let current_session_length = CurrentSessionLength::<Test>::get();
+		let avg = AvgSessionLength::<Test>::get();
+		let current_session_end = CurrentSessionEnd::<Test>::get();
 
 		let result = ValidatorSubsetSelection::new_session(session_index).unwrap();
 
@@ -171,10 +174,10 @@ fn new_session_works() {
 			avg,
 		);
 
-		let next_session_end = ValidatorSubsetSelection::next_session_end();
+		let next_session_end = NextSessionEnd::<Test>::get();
 		assert_eq!(new_session_end, next_session_end);
 
-		let avg_session_length = ValidatorSubsetSelection::avg_session_length();
+		let avg_session_length = AvgSessionLength::<Test>::get();
 		assert_eq!(expected_avg_session_length, avg_session_length);
 
 		System::assert_last_event(

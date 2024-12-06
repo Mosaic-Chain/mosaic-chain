@@ -505,12 +505,9 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
-impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
-
 impl pallet_validator_subset_selection::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	type Randomness = InsecureRandomnessCollectiveFlip;
 	type ValidatorSuperset = pallet_nft_staking::SelectableValidators<Self>;
 	type SubsetSize = params::dynamic::validator_subset_selection::SubsetSize;
 	type MinSessionLength = params::dynamic::validator_subset_selection::MinSessionLength;
@@ -986,7 +983,6 @@ construct_runtime!(
 		NftPermission: pallet_nft_permission,
 		NftStaking: pallet_nft_staking,
 		ValidatorSubsetSelection: pallet_validator_subset_selection,
-		InsecureRandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 		Session: pallet_session,
 		Offences: pallet_offences,
 		ImOnline: pallet_im_online,

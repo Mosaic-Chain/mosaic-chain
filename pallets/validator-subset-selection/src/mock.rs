@@ -1,17 +1,16 @@
 // construct_runtime! macro creates some non-camel-case type names.
 #![allow(non_camel_case_types)]
 
-use sdk::{frame_support, frame_system, pallet_session, sp_core, sp_io, sp_runtime};
+use sdk::{frame_support, frame_system, pallet_session, sp_io, sp_runtime};
 
 use frame_support::{
 	derive_impl,
 	pallet_prelude::ValueQuery,
 	storage::types::StorageValue,
-	traits::{ConstU64, Randomness, ValidatorSet},
+	traits::{ConstU64, ValidatorSet},
 };
-use sp_core::Hasher;
 use sp_runtime::{
-	traits::{BlakeTwo256, ConvertInto, Get, Zero},
+	traits::{ConvertInto, Get},
 	BuildStorage, RuntimeAppPublic,
 };
 
@@ -114,21 +113,12 @@ impl pallet_session::Config for Test {
 	type WeightInfo = ();
 }
 
-pub struct MockRandomGenerator;
-
-impl<BlockNumber: Zero> Randomness<sp_core::H256, BlockNumber> for MockRandomGenerator {
-	fn random(subject: &[u8]) -> (sp_core::H256, BlockNumber) {
-		(BlakeTwo256::hash(subject), Zero::zero())
-	}
-}
-
 impl pallet_validator_subset_selection::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorSuperset = Superset;
 	type SubsetSize = SubsetSize;
 	type SessionHook = ();
-	type Randomness = MockRandomGenerator;
 	type MinSessionLength = ConstU64<450>; // 45 minutes
 }
 
