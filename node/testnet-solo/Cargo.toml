@@ -16,7 +16,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "mosaic-testnet-solo"
 depends = "ca-certificates"
 suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
-assets = [ "chainspecs/testnet/*", "opt/mosaic/chainspec", "644" ]
+assets = [
+	{ source = "chainspecs/testnet/*", dest = "opt/mosaic/chainspec", mode = "644" }
+]
 
 [[bin]]
 name = "mosaic-testnet-solo"

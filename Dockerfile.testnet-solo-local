@@ -28,7 +28,7 @@ CMD bash -c 'ids=(alice bob charlie dave eve ferdie) && \
   for (( i=0; i < $max; i++ )); do \
     mosaic-testnet-solo \
     --base-path /data/${ids[i]} \
-    --dev-spec
+    --dev-spec \
     --${ids[i]} \
     --port $((30333 + i)) \
     --unsafe-rpc-external \
