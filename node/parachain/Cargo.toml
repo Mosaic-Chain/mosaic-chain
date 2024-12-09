@@ -15,15 +15,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 [package.metadata.deb]
 depends = "ca-certificates"
 
-[package.metadata.deb.variants.rc]
-name = "mosaic-chain-rc"
+[package.metadata.deb.variants.devnet]
+name = "mosaic-chain-devnet"
 conflicts = "mosaic-chain"
 suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
 features = [ "dev-spec" ]
 
-[package.metadata.deb.variants.release]
+[package.metadata.deb.variants.mainnet]
 name = "mosaic-chain"
-conflicts = "mosaic-chain-rc"
+conflicts = "mosaic-chain-devnet"
 suggests = "mosaic-explorer, mosaic-admin, mosaic-announcer"
 
 [[bin]]

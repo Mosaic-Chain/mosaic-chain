@@ -6420,7 +6420,7 @@ dependencies = [
 
 [[package]]
 name = "mosaic-chain-node"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "color-print",
@@ -6437,7 +6437,7 @@ dependencies = [
 
 [[package]]
 name = "mosaic-testnet-solo-node"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "futures",
@@ -6449,7 +6449,7 @@ dependencies = [
 
 [[package]]
 name = "mosaic-testnet-solo-runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "log",
  "pallet-airdrop",
@@ -7077,7 +7077,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "pallet-airdrop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -7735,7 +7735,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-doas"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -7797,7 +7797,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-extra-fungible-events"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "delegate",
  "parity-scale-codec",
@@ -8066,7 +8066,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-delegation"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -8092,7 +8092,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-permission"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "pallet-nft-staking",
  "parity-scale-codec",
@@ -8675,7 +8675,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-incentive"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -8928,7 +8928,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-validator-subset-selection"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -8952,7 +8952,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-vesting-to-freeze"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -12170,7 +12170,7 @@ checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 
 [[package]]
 name = "runtime-generator"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "cargo_metadata 0.18.1",
@@ -16728,7 +16728,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utils"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
