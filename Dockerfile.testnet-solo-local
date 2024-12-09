@@ -11,8 +11,7 @@ RUN rustup component add rust-src
 
 COPY . .
 
-RUN cargo build -r -p mosaic-testnet-solo-node
-RUN cargo run -r -p runtime-generator -- native build --raw solo-local > spec.json
+RUN cargo build -r -p mosaic-testnet-solo-node -F dev-spec
 
 FROM bitnami/minideb:bookworm AS runtime
 RUN apt update -y \
@@ -23,14 +22,13 @@ RUN apt update -y \
 EXPOSE 30333-30339 30333-30339/udp 9945-9951
 
 COPY --from=builder /app/target/release/mosaic-testnet-solo /usr/local/bin/
-COPY --from=builder /app/spec.json /opt/spec.json
 
 CMD bash -c 'ids=(alice bob charlie dave eve ferdie) && \
   max=6 && \
   for (( i=0; i < $max; i++ )); do \
     mosaic-testnet-solo \
     --base-path /data/${ids[i]} \
-    --chain /opt/spec.json \
+    --dev-spec
     --${ids[i]} \
     --port $((30333 + i)) \
     --unsafe-rpc-external \

@@ -40,36 +40,28 @@ test:
    - gcloud config set artifacts/location europe-west3
    - gcloud config set artifacts/repository deb-repo
 
-debian-solo-rc:
+debian-testnet:
   extends: .debian-repo-setup
   only:
-    - develop
+    - testnet
   script:
-    - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release --variant rc --deb-version $(git describe --tags --match "[0-9]*" --always --dirty | sed "s/-/+/g"))
+    - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release)
+    - gcloud artifacts apt upload deb-repo --source $PKG
+  
+debian-devnet:
+  extends: .debian-repo-setup
+  only:
+    - devnet
+  script:
+    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant devnet)
     - gcloud artifacts apt upload deb-repo --source $PKG
 
-debian-solo-release:
+debian-mainnet:
   extends: .debian-repo-setup
   only:
-    - main
+    - mainnet
   script:
-    - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release --variant release)
-    - gcloud artifacts apt upload deb-repo --source $PKG
-   
-debian-para-rc:
-  extends: .debian-repo-setup
-  only:
-    - develop
-  script:
-    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant rc --deb-version $(git describe --tags --match "[0-9]*" --always --dirty | sed "s/-/+/g"))
-    - gcloud artifacts apt upload deb-repo --source $PKG
-
-debian-para-release:
-  extends: .debian-repo-setup
-  only:
-    - main
-  script:
-    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant release)
+    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant mainnet)
     - gcloud artifacts apt upload deb-repo --source $PKG
 
 .docker:
@@ -96,18 +88,10 @@ debian-para-release:
     # Push GCP image
     - docker push $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
 
-solo-local-docker-rc:
+solo-local-docker:
   extends: .docker
   variables:
     IMAGE_NAME: mosaic-chain-solo-local
     IMAGE_TAG: rc
   only:
-    - develop
-
-solo-local-docker-latest:
-  extends: .docker
-  variables:
-    IMAGE_NAME: mosaic-chain-solo-local
-    IMAGE_TAG: latest
-  only:
-    - main
+    - testnet

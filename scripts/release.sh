@@ -55,6 +55,8 @@ while true; do
 
 done
 
+./scripts/check.sh
+
 git cliff --bump > CHANGELOG.md
 
 mv Cargo.toml Cargo.toml.old
@@ -75,6 +77,6 @@ echo "Pushing new tag..."
 git push --tags
 
 echo -e "\nAll is DONE\n"
-echo -e "- Create a merge request in GitLab from $develop to main."
+echo -e "- Create a merge request in GitLab from $develop to testnet/devnet/mainnet."
 echo -e "- Merge it."
 

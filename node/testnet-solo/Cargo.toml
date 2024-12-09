@@ -13,19 +13,10 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [package.metadata.deb]
-depends = "ca-certificates"
-
-[package.metadata.deb.variants.rc]
-name = "mosaic-testnet-solo-rc"
-conflicts = "mosaic-testnet-solo"
-suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
-features = [ "dev-spec" ]
-
-[package.metadata.deb.variants.release]
 name = "mosaic-testnet-solo"
-conflicts = "mosaic-testnet-solo-rc"
-suggests = "mosaic-explorer, mosaic-admin, mosaic-announcer"
-features = [ "dev-spec" ]
+depends = "ca-certificates"
+suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
+assets = [ "chainspecs/testnet/*", "opt/mosaic/chainspec", "644" ]
 
 [[bin]]
 name = "mosaic-testnet-solo"
