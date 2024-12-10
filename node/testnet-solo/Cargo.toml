@@ -17,7 +17,7 @@ name = "mosaic-testnet-solo"
 depends = "ca-certificates"
 suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
 assets = [
-	{ source = "chainspecs/testnet/*", dest = "opt/mosaic/chainspec", mode = "644" }
+	{ source = "../../chainspecs/testnet/*", dest = "opt/mosaic/chainspec", mode = "644" }
 ]
 
 [[bin]]
