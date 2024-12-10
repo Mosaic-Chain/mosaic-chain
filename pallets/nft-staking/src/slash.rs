@@ -45,8 +45,8 @@ impl<T: Config> Pallet<T> {
 
 			for (delegator, contract) in Contracts::<T>::iter_prefix(&validator) {
 				let Some(committed_contract) = contract.committed().cloned() else {
-					// We can only slash commited contracts
-					// There is a small chance the validators who just bound themselves this session are slashed (but their self-contract is not yet commited)
+					// We can only slash committed contracts
+					// There is a small chance the validators who just bound themselves this session are slashed (but their self-contract is not yet committed)
 					// But this slash can be forgiven as rewards are not received either (they can't yet be active)
 					return;
 				};

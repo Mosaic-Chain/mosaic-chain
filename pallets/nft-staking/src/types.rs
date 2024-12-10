@@ -87,7 +87,7 @@ impl<T: MaxEncodedLen> Staging<T> {
 }
 
 impl<T: Clone + MaxEncodedLen> Staging<T> {
-	/// Usueful when we wish to mutate an existing value and also stage it.
+	/// Useful when we wish to mutate an existing value and also stage it.
 	pub fn ensure_staging_mut(&mut self) -> Option<&mut T> {
 		if self.staged.is_none() {
 			self.staged = self.committed().cloned();

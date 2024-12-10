@@ -117,6 +117,16 @@ impl pallet_session::Config for Test {
 	type WeightInfo = ();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl super::BenchmarkHelper<Test> for BenchmarkHelper {
+	fn id_tuple_from_account(acc: AccountId) -> AccountId {
+		acc
+	}
+}
+
 impl pallet_nft_staking::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
@@ -138,6 +148,9 @@ impl pallet_nft_staking::Config for Test {
 	type ContributionPercentage = ContributionPercentage;
 	type ContributionDestination = ();
 	type WeightInfo = ();
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchmarkHelper;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

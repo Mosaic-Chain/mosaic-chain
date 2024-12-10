@@ -63,10 +63,10 @@ impl<T: Config> ValidatorSet<T::AccountId> for SlashableValidators<T> {
 
 				let drafted = drafted_validators.iter().any(|id| converted_id == *id);
 
-				let has_commited_self_contract =
+				let has_committed_self_contract =
 					Contracts::<T>::get(&validator_id, &validator_id).exists_committed();
 
-				if (drafted || !chilled) && has_commited_self_contract {
+				if (drafted || !chilled) && has_committed_self_contract {
 					Some(validator_id)
 				} else {
 					None
@@ -119,7 +119,7 @@ impl<T: Config>
 			if let Some(index) =
 				contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
 			{
-				contract.stake.delegated_nfts.remove(index);
+				contract.stake.delegated_nfts.swap_remove(index);
 
 				Self::shrink_total_validator_stake_by(&validator, *nominal_value);
 
@@ -155,7 +155,6 @@ where
 	}
 }
 
-// TODO: define weights
 impl<T: Config>
 	sp_staking::offence::OnOffenceHandler<
 		<T as frame_system::Config>::AccountId,
@@ -181,6 +180,11 @@ impl<T: Config>
 			);
 		}
 
-		frame_support::weights::Weight::default()
+		// NOTE: this ignores `ref_time` not directly associated with db operations
+		// and proof size altogether.
+		//
+		// The current `pallet_offences` implementation discards this weight.
+		let db_ops = offenders.len() as u64;
+		T::DbWeight::get().reads_writes(db_ops, db_ops)
 	}
 }

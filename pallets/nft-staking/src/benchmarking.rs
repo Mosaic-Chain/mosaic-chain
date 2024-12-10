@@ -1,8 +1,11 @@
 //! Benchmarking setup for the permission NFT pallet
 
 use super::*;
-use crate::{Config as NftStakingConfig, Pallet as NftStakingPallet, PermissionType, SessionIndex};
-use utils::traits::NftStaking;
+use crate::{
+	types::MAX_NFTS_PER_CONTRACT, Config as NftStakingConfig, Pallet as NftStakingPallet,
+	PermissionType, SessionIndex,
+};
+use utils::traits::{NftStaking, OnDelegationNftExpire};
 
 use core::fmt;
 use pallet_nft_delegation::Config as NftDelegationConfig;
@@ -12,8 +15,15 @@ use sdk::{
 	frame_system::{pallet_prelude::*, RawOrigin},
 	pallet_balances::{Config as BalancesConfig, Pallet as BalancesPallet},
 	pallet_session::Config as SessionConfig,
+	sp_staking::offence::{OffenceDetails, OnOffenceHandler},
 	sp_std::{vec, vec::Vec as SpVec},
 };
+
+pub trait BenchmarkHelper<T: Config> {
+	fn id_tuple_from_account(
+		acc: T::AccountId,
+	) -> <T as pallet_offences::Config>::IdentificationTuple;
+}
 
 const UNIT: u128 = 1_000_000_000_000_000_000; // 1 MOS = 10^18 tile
 
@@ -30,9 +40,17 @@ impl<T: NftStakingConfig> Default for Account<T> {
 }
 
 impl<T: NftStakingConfig> Account<T> {
-	fn index(i: u32) -> Self {
-		let id: T::AccountId = account("delegator", i, 0);
+	fn index(group: &'static str, i: u32) -> Self {
+		let id: T::AccountId = account(group, i, 0);
 		Self { id }
+	}
+
+	fn validator(i: u32) -> Self {
+		Self::index("validator", i)
+	}
+
+	fn delegator(i: u32) -> Self {
+		Self::index("delegator", i)
 	}
 
 	fn signed_origin(&self) -> RawOrigin<T::AccountId> {
@@ -149,6 +167,96 @@ impl<T: NftStakingConfig + SessionConfig> Fixture<T> {
 	}
 }
 
+// Setup a complex scenario for `*_complex` benchmarks.
+//
+// Scenario:
+//
+// We have 400 active validators.
+//   - 100 of them are very popular, so they have a 1000 contracts.
+//   - another 100 has 500 contracts
+//   - another 100 has 250 contracts
+//   - and the 100 least reliable validators have only 125 contracts.
+// Thus the pallet handles a total of 187,500 contracts.
+//
+// A contract contains some currency and multiple NFTs.
+//
+// 10 of each class of validators are getting slashed in the current session.
+// 200 delegators have decided to undelegate some currency and NFTs in this session.
+fn complex_setup<T>()
+where
+	T: SessionConfig + BalancesConfig,
+	T: NftStakingConfig<Balance = <T as BalancesConfig>::Balance>,
+	<T as BalancesConfig>::Balance: From<u128>,
+	T::AccountId: From<<T as SessionConfig>::ValidatorId>
+		+ codec::EncodeLike<<T as SessionConfig>::ValidatorId>,
+{
+	let validators = (0..400).map(|i| Account::<T>::validator(i)).collect::<SpVec<_>>();
+	let delegators = (0..999).map(|i| Account::<T>::delegator(i)).collect::<SpVec<_>>();
+
+	pallet_session::Validators::<T>::put(
+		validators.iter().map(|acc| acc.id.clone()).collect::<SpVec<_>>(),
+	);
+
+	for d in &delegators {
+		d.endow((5000 * UNIT).into());
+	}
+
+	for (i, v) in validators.iter().enumerate() {
+		let nft = PermissionNft::<T> { account: v.clone(), ..Default::default() };
+		v.endow((10 * UNIT).into());
+		nft.mint_and_bind();
+
+		// The validator already has a self-contract...
+		let delegator_count = [125, 250, 500, 1000][i / 100] - 1;
+
+		for (j, d) in delegators.iter().take(delegator_count).enumerate() {
+			let nft_id = DelegatorNft::<T> {
+				account: d.clone(),
+				// Too many NFTs can't expire in the same session
+				// so we spread it out.
+				expiration: (1000 * (i + 1) + j) as u32,
+				..Default::default()
+			}
+			.mint();
+			Pallet::<T>::delegate_currency(
+				d.signed_origin().into(),
+				(2 * UNIT).into(),
+				v.id.clone(),
+				T::MinimumStakingPeriod::get().into(),
+				T::MinimumCommissionRate::get(),
+			)
+			.unwrap();
+			Pallet::<T>::delegate_nft(
+				d.signed_origin().into(),
+				nft_id,
+				v.id.clone(),
+				T::MinimumStakingPeriod::get().into(),
+				T::MinimumCommissionRate::get(),
+			)
+			.unwrap();
+		}
+
+		// 10 of each group is slashed
+		if i % 100 < 10 {
+			InverseSlashes::<T>::insert(&v.id, Perbill::from_percent(98));
+		}
+	}
+
+	Pallet::<T>::commit_storage();
+
+	for (i, d) in delegators.iter().take(200).enumerate() {
+		Pallet::<T>::lock_currency(&d.id, (2 * UNIT).into(), Precision::Exact).unwrap();
+		UnlockingCurrency::<T>::insert(&d.id, <T as Config>::Balance::from(2 * UNIT));
+
+		let nft_id =
+			DelegatorNft::<T> { account: d.clone(), expiration: i as u32, ..Default::default() }
+				.mint();
+
+		T::NftDelegationHandler::bind(&d.id, &nft_id, Account::<T>::default().id).unwrap();
+		UnlockingDelegatorNfts::<T>::insert(nft_id, &d.id);
+	}
+}
+
 #[expect(
 	clippy::multiple_bound_locations,
 	reason = "The benchmarks attribute macro injects T: NftStakingConfig which conflicts with any T: .."
@@ -159,6 +267,7 @@ impl<T: NftStakingConfig + SessionConfig> Fixture<T> {
 		<T as NftStakingConfig>::ItemId: Incrementable,
 		BlockNumberFor<T>: From<u32> + fmt::Display,
 		<T as NftStakingConfig>::Balance: From<u32> + From<u128>,
+		T::AccountId: From<<T as SessionConfig>::ValidatorId> + codec::EncodeLike<<T as SessionConfig>::ValidatorId>,
 )]
 mod benchmarks {
 	use super::*;
@@ -190,7 +299,7 @@ mod benchmarks {
 			panic!("Should succeed");
 		};
 		for i in 1..c {
-			let delegator = Account::<T>::index(i);
+			let delegator = Account::<T>::delegator(i);
 			let nft = DelegatorNft::<T> {
 				account: delegator.clone(),
 				expiration: 24 /* hours */ * 30 /* days */ * 24u32 + i, // we need to spread out expiration to different sessions
@@ -341,7 +450,7 @@ mod benchmarks {
 		let fixture = Fixture::<T>::default();
 		let validator = &fixture.validator;
 		validator.mint_and_bind();
-		let delegator = Account::<T>::index(0);
+		let delegator = Account::<T>::delegator(0);
 		delegator.endow((2000 * UNIT).into());
 		let amount = (10 * UNIT).into();
 		let target = &validator.account.id;
@@ -364,7 +473,7 @@ mod benchmarks {
 		let fixture = Fixture::<T>::default();
 		let validator = &fixture.validator;
 		validator.mint_and_bind();
-		let nft = DelegatorNft::<T> { account: Account::<T>::index(0), ..Default::default() };
+		let nft = DelegatorNft::<T> { account: Account::<T>::delegator(0), ..Default::default() };
 		let item_id = nft.mint();
 		let target = &validator.account.id;
 		let Some(ValidatorDetails::DPoS {
@@ -386,7 +495,7 @@ mod benchmarks {
 		let fixture = Fixture::<T>::default();
 		let validator = &fixture.validator;
 		validator.mint_and_bind();
-		let delegator = Account::<T>::index(0);
+		let delegator = Account::<T>::delegator(0);
 		delegator.endow((2000 * UNIT).into());
 		let amount = (10 * UNIT).into();
 		let target = &validator.account.id;
@@ -419,7 +528,7 @@ mod benchmarks {
 		let fixture = Fixture::<T>::default();
 		let validator = &fixture.validator;
 		validator.mint_and_bind();
-		let nft = DelegatorNft::<T> { account: Account::<T>::index(0), ..Default::default() };
+		let nft = DelegatorNft::<T> { account: Account::<T>::delegator(0), ..Default::default() };
 		let item_id = nft.mint();
 		let target = &validator.account.id;
 		let Some(ValidatorDetails::DPoS {
@@ -484,7 +593,7 @@ mod benchmarks {
 		else {
 			panic!("Could not retrieve validator settings");
 		};
-		let delegator = Account::<T>::index(0);
+		let delegator = Account::<T>::delegator(0);
 		let origin = delegator.signed_origin();
 		for _ in 1..=crate::types::MAX_NFTS_PER_CONTRACT {
 			let nft = DelegatorNft::<T> { account: delegator.clone(), ..Default::default() };
@@ -529,5 +638,110 @@ mod benchmarks {
 		let origin = validator.account.signed_origin();
 		#[extrinsic_call]
 		_(origin, item_id, amount);
+	}
+
+	#[benchmark(extra)]
+	fn nft_expire(c: Linear<1, { MAX_NFTS_PER_CONTRACT }>) {
+		let fixture = Fixture::<T>::default();
+		let validator = &fixture.validator;
+		let _ = validator.mint_and_bind();
+
+		let delegator = Account::<T>::delegator(42);
+
+		let mut expiring_nft = (Incrementable::initial_value().unwrap(), Default::default());
+
+		for i in 0..c {
+			let nft = DelegatorNft::<T> { account: delegator.clone(), ..Default::default() };
+			let item_id = nft.mint();
+
+			NftStakingPallet::<T>::delegate_nft(
+				delegator.signed_origin().into(),
+				item_id.clone(),
+				validator.account.id.clone(),
+				T::MinimumStakingPeriod::get().into(),
+				T::MinimumCommissionRate::get(),
+			)
+			.expect("Should succeed");
+
+			if (c / 2 + 1) == i {
+				expiring_nft = (item_id, nft.nominal_value);
+			}
+		}
+
+		#[block]
+		{
+			Pallet::<T>::on_expire(
+				&delegator.id,
+				Some(validator.account.id.clone()),
+				&expiring_nft.0,
+				&expiring_nft.1,
+			);
+		}
+	}
+
+	#[benchmark(extra)]
+	fn on_offence(c: Linear<1, 2000>) {
+		let offenders = (0..c)
+			.map(|i| {
+				let offender =
+					T::BenchmarkHelper::id_tuple_from_account(Account::<T>::validator(i).id);
+				OffenceDetails { offender, reporters: vec![] }
+			})
+			.collect::<SpVec<_>>();
+		let slash_fraction = core::iter::repeat(Perbill::from_percent(1))
+			.take(c as usize)
+			.collect::<SpVec<_>>();
+
+		#[block]
+		{
+			Pallet::<T>::on_offence(offenders.as_slice(), &slash_fraction, 0);
+		}
+	}
+
+	#[benchmark(extra)]
+	fn session_ended_complex() {
+		complex_setup::<T>();
+
+		#[block]
+		{
+			<Pallet<T> as utils::traits::SessionHook>::session_ended(42).unwrap();
+		}
+	}
+	#[benchmark(extra)]
+	fn reward_complex() {
+		complex_setup::<T>();
+
+		#[block]
+		{
+			let active_validators = SessionPallet::<T>::validators();
+			let session_reward = T::SessionReward::get();
+
+			let rewarded = active_validators.into_iter().filter_map(|v| {
+				let v = T::AccountId::from(v);
+				(!InverseSlashes::<T>::contains_key(&v)).then_some(v)
+			});
+
+			Pallet::<T>::do_reward_participants(rewarded, session_reward);
+		}
+	}
+
+	#[benchmark(extra)]
+	fn slashing_complex() {
+		complex_setup::<T>();
+
+		#[block]
+		{
+			Pallet::<T>::do_slash_participants();
+		}
+	}
+
+	#[benchmark(extra)]
+	fn commit_storage_complex() {
+		complex_setup::<T>();
+
+		#[block]
+		{
+			Pallet::<T>::commit_storage();
+		}
 	}
 }

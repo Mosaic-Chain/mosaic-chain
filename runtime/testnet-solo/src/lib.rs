@@ -410,6 +410,16 @@ impl Convert<IdTuple, AccountId> for IdTupleToValidatorId {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct NftStakingBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_nft_staking::BenchmarkHelper<Runtime> for NftStakingBenchmarkHelper {
+	fn id_tuple_from_account(acc: AccountId) -> IdTuple {
+		(acc.clone(), acc)
+	}
+}
+
 impl pallet_nft_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
@@ -433,6 +443,9 @@ impl pallet_nft_staking::Config for Runtime {
 	type ContributionDestination = Treasury;
 	type Hooks = StakingIncentive;
 	type WeightInfo = pallet_nft_staking::weights::SubstrateWeight<Self>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = NftStakingBenchmarkHelper;
 }
 
 parameter_types! {

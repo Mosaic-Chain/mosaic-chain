@@ -57,6 +57,9 @@ pub use pallet::*;
 pub use types::PermissionType;
 pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use benchmarking::BenchmarkHelper;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -134,6 +137,9 @@ pub mod pallet {
 
 		/// Type representing the weights of calls in this pallet
 		type WeightInfo: WeightInfo;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<Self>;
 	}
 
 	#[pallet::composite_enum]
