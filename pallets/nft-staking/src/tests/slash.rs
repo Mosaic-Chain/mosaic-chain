@@ -54,19 +54,19 @@ fn slashing_works(mut ext: TestExternalities) {
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(&TotalValidatorStake { contract_count: 2, total_stake: 297 })
+			Some(TotalValidatorStake { contract_count: 2, total_stake: 297 })
 		);
 
 		assert_current_contract!(
 			&validator.account_id,
 			&validator.account_id,
-			Some(&Contract { stake: Stake { currency: 0, permission_nft: Some(99), .. }, .. })
+			Some(Contract { stake: Stake { currency: 0, permission_nft: Some(99), .. }, .. })
 		);
 
 		assert_current_contract!(
 			&validator.account_id,
 			&delegator.account_id,
-			Some(&Contract {
+			Some(Contract {
 				stake: Stake {
 					currency: 99,
 					ref delegated_nfts,
@@ -127,7 +127,7 @@ fn staged_assets_are_not_slashed(mut ext: TestExternalities) {
 				offender: validator.account_id,
 				staker: delegator.account_id,
 				currency: 1,            // 1% of the first batch
-				delegator_nfts: vec![], // the nft is not slashed yet as its not commited
+				delegator_nfts: vec![], // the nft is not slashed yet as its not committed
 				permission_nft: None,
 			}
 			.into(),

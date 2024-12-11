@@ -1,15 +1,12 @@
 use core::ops::Add;
 
-use sdk::{frame_support, frame_system, sp_runtime, sp_staking::SessionIndex};
+use sdk::{frame_support, sp_runtime, sp_staking::SessionIndex};
 
 use codec::{Codec, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::{Decode, Encode, TypeInfo},
 	sp_runtime::RuntimeDebug,
-	traits::{
-		fungible::{Credit, Debt},
-		Get,
-	},
+	traits::Get,
 };
 
 use sp_runtime::{
@@ -20,88 +17,6 @@ use sp_runtime::{
 use super::Config;
 
 pub const MAX_NFTS_PER_CONTRACT: u32 = 5;
-
-/// Adds a "staging" overlay to a value.
-/// Useful when managing the transition between a last "stable" or "active" state
-/// and a potential new state applied in the next period, providing incremental updates.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, Copy, Clone, MaxEncodedLen)]
-pub struct Staging<T: MaxEncodedLen> {
-	staged: Option<T>,
-	committed: Option<T>,
-}
-
-impl<T: MaxEncodedLen> Default for Staging<T> {
-	fn default() -> Self {
-		Self { staged: None, committed: None }
-	}
-}
-
-impl<T: MaxEncodedLen> Staging<T> {
-	/// Creates a new `Staging` instance with a committed value and no staged value.
-	pub fn new(value: T) -> Self {
-		Self { staged: None, committed: Some(value) }
-	}
-
-	/// Creates a new `Staging` instance with a staged value and no committed value.
-	pub fn new_staged(value: T) -> Self {
-		Self { staged: Some(value), committed: None }
-	}
-
-	/// Clears both staged and commited values
-	pub fn purge(&mut self) {
-		self.committed = None;
-		self.staged = None;
-	}
-
-	/// Returns the committed value, if present.
-	#[must_use]
-	pub fn committed(&self) -> Option<&T> {
-		self.committed.as_ref()
-	}
-
-	/// Returns the current value, preferring the staged value if present.
-	#[must_use]
-	pub fn current(&self) -> Option<&T> {
-		self.staged.as_ref().or(self.committed.as_ref())
-	}
-
-	/// Stages a new value, overwriting the previous staged value.
-	pub fn stage(&mut self, value: T) {
-		self.staged = Some(value);
-	}
-
-	/// Commits the staged value, updating the committed value.
-	pub fn commit(&mut self) {
-		self.committed = self.staged.take().or(self.committed.take());
-	}
-
-	/// Checks if a committed value exists.
-	pub fn exists_committed(&self) -> bool {
-		self.committed.is_some()
-	}
-
-	/// Checks if either a staged or committed value exists.
-	pub fn exists(&self) -> bool {
-		self.staged.is_some() || self.committed.is_some()
-	}
-}
-
-impl<T: Clone + MaxEncodedLen> Staging<T> {
-	/// Useful when we wish to mutate an existing value and also stage it.
-	pub fn ensure_staging_mut(&mut self) -> Option<&mut T> {
-		if self.staged.is_none() {
-			self.staged = self.committed().cloned();
-		}
-
-		self.staged.as_mut()
-	}
-}
-
-pub type PositiveImbalanceOf<T> =
-	Debt<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
-
-pub type NegativeImbalanceOf<T> =
-	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Fungible>;
 
 #[derive(
 	Copy,
@@ -135,7 +50,7 @@ where
 	Balance: Add<Balance, Output = Balance> + Copy + Zero,
 {
 	// An empty stake is a stake that can safely be removed from any context
-	// WRANING: empty => total() = 0, BUT total() = 0 !=> empty
+	// WARNING: empty => total() = 0, BUT total() = 0 !=> empty
 	// For example: total() = 0, but an nft with zero nominal value is still present
 	pub fn is_empty(&self) -> bool {
 		self.currency.is_zero() && self.permission_nft.is_none() && self.delegated_nfts.is_empty()
@@ -247,4 +162,28 @@ pub enum KickReason {
 	Manual,
 	/// The validator ceased to be active thus the contract must be terminated
 	Unbind,
+}
+
+#[derive(
+	Clone, Copy, Default, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo,
+)]
+pub enum StagingLayer {
+	#[default]
+	A,
+	B,
+}
+
+impl StagingLayer {
+	pub fn other(self) -> Self {
+		match self {
+			Self::A => Self::B,
+			Self::B => Self::A,
+		}
+	}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub enum StorageLayer {
+	Staged(StagingLayer),
+	Committed,
 }

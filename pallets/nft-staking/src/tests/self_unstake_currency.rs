@@ -16,7 +16,7 @@ fn dpos_self_unstake_currency_is_successful(mut ext: TestExternalities) {
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(TotalValidatorStake { total_stake, .. }) if *total_stake == 300
+			Some(TotalValidatorStake { total_stake, .. }) if total_stake == 300
 		);
 
 		assert_current_contract!(&validator.account_id, &validator.account_id,
@@ -27,7 +27,7 @@ fn dpos_self_unstake_currency_is_successful(mut ext: TestExternalities) {
 					..
 				},
 				..
-			}) if *currency == 200);
+			}) if currency == 200);
 
 		System::assert_last_event(
 			Event::<Test>::CurrencyUnstaked {
@@ -164,10 +164,10 @@ fn can_unstake_dusted_by_slash(mut ext: TestExternalities, permission: Permissio
 		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get())
 			.expect("could stake currency");
 
-		Contracts::<Test>::mutate(validator.account_id, validator.account_id, |contract| {
-			let contract = contract.ensure_staging_mut().unwrap();
-			contract.stake.currency = 2;
-		});
+		let mut contract =
+			Pallet::<Test>::current_contract(&validator.account_id, &validator.account_id).unwrap();
+		contract.stake.currency = 2;
+		Pallet::<Test>::stage_contract(&validator.account_id, &validator.account_id, contract);
 
 		skip_min_staking_period();
 

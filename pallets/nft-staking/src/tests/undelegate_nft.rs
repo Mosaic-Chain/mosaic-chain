@@ -26,7 +26,7 @@ fn undelegate_nft_is_successful(mut ext: TestExternalities) {
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(TotalValidatorStake { total_stake, .. }) if *total_stake == NOMINAL_VALUE
+			Some(TotalValidatorStake { total_stake, .. }) if total_stake == NOMINAL_VALUE
 		);
 
 		assert_current_contract!(&validator.account_id, &delegator.account_id,
@@ -49,7 +49,8 @@ fn undelegate_nft_is_successful(mut ext: TestExternalities) {
 
 		next_session();
 
-		assert!(!Contracts::<Test>::get(validator.account_id, delegator.account_id).exists());
+		assert!(Pallet::<Test>::current_contract(&validator.account_id, &delegator.account_id)
+			.is_none());
 		assert!(!NftDelegationHandler::is_bound(&delegator.delegator_nft));
 	});
 }

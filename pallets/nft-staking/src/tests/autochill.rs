@@ -27,7 +27,7 @@ fn auto_chill_works(mut ext: TestExternalities, #[case] active: bool) {
 		validator.offend();
 		next_session();
 
-		let chill_idx = Session::current_index() - 1;
+		let chill_idx = Session::current_index();
 		assert_validator_state!(&validator.account_id, Some(ValidatorState::Chilled(s)) if s == chill_idx);
 
 		System::assert_has_event(Event::<Test>::ValidatorChilled { validator: validator.account_id, reason: ChillReason::DoubleFault  }.into());

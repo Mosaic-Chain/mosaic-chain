@@ -21,7 +21,7 @@ fn expiry_works(mut ext: TestExternalities) {
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(TotalValidatorStake { total_stake, .. }) if *total_stake == NOMINAL_VALUE
+			Some(TotalValidatorStake { total_stake, .. }) if total_stake == NOMINAL_VALUE
 		);
 
 		assert_current_contract!(&validator.account_id, &delegator.account_id,

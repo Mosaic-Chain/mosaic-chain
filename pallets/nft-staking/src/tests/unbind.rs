@@ -16,8 +16,9 @@ fn unbind_is_successful(mut ext: TestExternalities, permission: PermissionType) 
 
 		assert!(Validators::<Test>::get(validator.account_id).is_none());
 		assert!(ValidatorStates::<Test>::get(validator.account_id).is_none());
-		assert!(!TotalValidatorStakes::<Test>::get(validator.account_id).exists());
-		assert!(!Contracts::<Test>::get(validator.account_id, validator.account_id).exists());
+		assert!(Staking::current_total_validator_stake(&validator.account_id).is_none());
+		assert!(Pallet::<Test>::current_contract(&validator.account_id, &validator.account_id)
+			.is_none());
 		assert!(!NftStakingHandler::get().bound_tokens.contains_key(&validator.account_id));
 
 		System::assert_last_event(Event::<Test>::ValidatorUnbound(validator.account_id).into());
@@ -57,9 +58,11 @@ fn not_binding_contracts_kicked(mut ext: TestExternalities) {
 		let res = Staking::unbind_validator(validator.origin, 2);
 		assert_ok!(res, ());
 
-		assert!(!TotalValidatorStakes::<Test>::get(validator.account_id).exists());
-		assert!(!Contracts::<Test>::get(validator.account_id, validator.account_id).exists());
-		assert!(!Contracts::<Test>::get(validator.account_id, delegator.account_id).exists());
+		assert!(Staking::current_total_validator_stake(&validator.account_id).is_none());
+		assert!(Pallet::<Test>::current_contract(&validator.account_id, &validator.account_id)
+			.is_none());
+		assert!(Pallet::<Test>::current_contract(&validator.account_id, &delegator.account_id)
+			.is_none());
 		assert!(!NftDelegationHandlerStore::get()
 			.bound_tokens
 			.contains_key(&delegator.delegator_nft));
@@ -114,6 +117,10 @@ fn self_contract_is_binding(mut ext: TestExternalities, permission: PermissionTy
 
 		let midpoint = u32::from(MinimumStakingPeriod::get()) / 2;
 		run_until::<AllPalletsWithoutSystem, _>(ToSession(midpoint));
+		<Staking as frame_support::traits::Hooks<_>>::on_idle(
+			0,
+			frame_support::weights::Weight::MAX,
+		);
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
@@ -128,7 +135,6 @@ fn binding_contract_exists(mut ext: TestExternalities) {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 
 		skip_min_staking_period();
-		next_session();
 
 		let delegator = EndowParams::default().endow();
 
@@ -141,10 +147,31 @@ fn binding_contract_exists(mut ext: TestExternalities) {
 		)
 		.expect("could delegate currency");
 
+		next_session();
+
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
 		let res = Staking::unbind_validator(validator.origin, 2);
 		assert_noop!(res, Error::<Test>::BindingContractExists);
+	});
+}
+
+#[rstest]
+fn uncommitted_state(mut ext: TestExternalities) {
+	ext.execute_with(|| {
+		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
+
+		skip_min_staking_period();
+		next_session();
+
+		// Re-stage committed value
+		let current = Staking::current_total_validator_stake(&validator.account_id).unwrap();
+		Staking::stage_total_validator_stake(&validator.account_id, current);
+
+		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
+
+		let res = Staking::unbind_validator(validator.origin, 2);
+		assert_noop!(res, Error::<Test>::UncommittedState);
 	});
 }
 

@@ -13,12 +13,16 @@ fn topup_is_successful(
 		// Simulate slash
 		NftStakingHandler::set_nominal_value_of_bound(&validator.account_id, slashed_to)
 			.expect("could set nominal value");
-		TotalValidatorStakes::<Test>::mutate(validator.account_id, |stake| {
-			stake.ensure_staging_mut().map(|s| s.total_stake = slashed_to)
-		});
-		Contracts::<Test>::mutate(validator.account_id, validator.account_id, |contract| {
-			contract.ensure_staging_mut().map(|c| c.stake.permission_nft = Some(slashed_to))
-		});
+
+		let mut total_stake =
+			Staking::current_total_validator_stake(&validator.account_id).unwrap();
+		total_stake.total_stake = slashed_to;
+		Staking::stage_total_validator_stake(&validator.account_id, total_stake);
+
+		let mut contract =
+			Staking::current_contract(&validator.account_id, &validator.account_id).unwrap();
+		contract.stake.permission_nft = Some(slashed_to);
+		Staking::stage_contract(&validator.account_id, &validator.account_id, contract);
 
 		let res =
 			Staking::topup(validator.origin, validator.permission_nft, NOMINAL_VALUE - slashed_to);
@@ -32,13 +36,13 @@ fn topup_is_successful(
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(&TotalValidatorStake { contract_count: 1, total_stake: NOMINAL_VALUE })
+			Some(TotalValidatorStake { contract_count: 1, total_stake: NOMINAL_VALUE })
 		);
 
 		assert_current_contract!(
 			&validator.account_id,
 			&validator.account_id,
-			Some(&Contract { stake: Stake { permission_nft: Some(NOMINAL_VALUE), .. }, .. })
+			Some(Contract { stake: Stake { permission_nft: Some(NOMINAL_VALUE), .. }, .. })
 		);
 
 		System::assert_last_event(

@@ -13,8 +13,10 @@ use sp_runtime::{
 use sp_staking::SessionIndex;
 use sp_std::{marker::PhantomData, vec::Vec as SpVec};
 
+use crate::{session_ending::SessionEnding, SessionEndings};
+
 use super::{
-	Config, Contracts, Event, InverseSlashes, Pallet, SessionPallet, ValidatorState,
+	Config, Contracts, Event, InverseSlashes, Pallet, SessionPallet, StorageLayer, ValidatorState,
 	ValidatorStates,
 };
 
@@ -29,10 +31,17 @@ impl<T: Config> ValidatorSet<T::AccountId> for SelectableValidators<T> {
 		SessionPallet::<T>::current_index()
 	}
 
+	// - has committed self-contract
+	// - not chilled
 	fn validators() -> SpVec<Self::ValidatorId> {
 		ValidatorStates::<T>::iter()
 			.filter_map(|(validator_id, vstate)| match vstate {
-				ValidatorState::Normal | ValidatorState::Faulted => Some(validator_id),
+				ValidatorState::Normal | ValidatorState::Faulted => Contracts::<T>::contains_key((
+					StorageLayer::Committed,
+					&validator_id,
+					&validator_id,
+				))
+				.then_some(validator_id),
 				ValidatorState::Chilled(_) => None,
 			})
 			.collect()
@@ -63,8 +72,11 @@ impl<T: Config> ValidatorSet<T::AccountId> for SlashableValidators<T> {
 
 				let drafted = drafted_validators.iter().any(|id| converted_id == *id);
 
-				let has_committed_self_contract =
-					Contracts::<T>::get(&validator_id, &validator_id).exists_committed();
+				let has_committed_self_contract = Contracts::<T>::contains_key((
+					StorageLayer::Committed,
+					&validator_id,
+					&validator_id,
+				));
 
 				if (drafted || !chilled) && has_committed_self_contract {
 					Some(validator_id)
@@ -109,27 +121,26 @@ impl<T: Config>
 
 		// Note: the nft is still considered in the session it expires, the delegator may still receive reward
 		// We have ensured that this nominal value was staked for at least the minimum staking period when staking.
-		Contracts::<T>::mutate(&validator, owner, |s| {
-			let Some(contract) = s.ensure_staging_mut() else {
-				return;
-			};
 
-			// If we don't find the index in the current contract, that means the delegator just manually undelegated the item in the current session.
-			// In which case the nominal value is already deducted from the total stake.
-			if let Some(index) =
-				contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
-			{
-				contract.stake.delegated_nfts.swap_remove(index);
+		let Some(mut contract) = Self::current_contract(&validator, owner) else {
+			return;
+		};
 
-				Self::shrink_total_validator_stake_by(&validator, *nominal_value);
+		// If we don't find the index in the current contract, that means the delegator just manually undelegated the item in the current session.
+		// In which case the nominal value is already deducted from the total stake.
+		if let Some(index) = contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id) {
+			contract.stake.delegated_nfts.swap_remove(index);
 
-				Self::deposit_event(Event::<T>::NftUndelegated {
-					validator: validator.clone(),
-					staker: owner.clone(),
-					item_id: item_id.clone(),
-				});
-			}
-		});
+			Self::shrink_total_validator_stake_by(&validator, *nominal_value);
+
+			Self::deposit_event(Event::<T>::NftUndelegated {
+				validator: validator.clone(),
+				staker: owner.clone(),
+				item_id: item_id.clone(),
+			});
+		}
+
+		Self::stage_contract(&validator, owner, contract);
 	}
 }
 
@@ -137,19 +148,26 @@ impl<T: Config> utils::traits::SessionHook for Pallet<T>
 where
 	T::AccountId: From<<T as pallet_session::Config>::ValidatorId>,
 {
-	fn session_ended(_: u32) -> DispatchResult {
+	fn session_ended(session_index: u32) -> DispatchResult {
 		let active_validators = SessionPallet::<T>::validators();
 		let session_reward = T::SessionReward::get();
 
-		let rewarded = active_validators.into_iter().filter_map(|v| {
-			let v = T::AccountId::from(v);
-			(!InverseSlashes::<T>::contains_key(&v)).then_some(v)
+		let rewarded = active_validators
+			.into_iter()
+			.filter_map(|v| {
+				let v = T::AccountId::from(v);
+				(!InverseSlashes::<T>::contains_key(&v)).then_some(v)
+			})
+			.collect();
+
+		let slashes = InverseSlashes::<T>::drain()
+			.map(|(offender, inverse_slash)| (offender, inverse_slash.left_from_one()))
+			.collect();
+
+		SessionEndings::<T>::mutate(|endings| {
+			let ending = SessionEnding::new(session_index, session_reward, rewarded, slashes);
+			endings.push(ending);
 		});
-
-		Self::do_reward_participants(rewarded, session_reward);
-		Self::do_slash_participants();
-
-		Self::commit_storage();
 
 		Ok(())
 	}

@@ -99,13 +99,13 @@ pub trait StakingHooks<AccountId, Balance, ItemId> {
 	/// A delegator nft has been slashed
 	fn on_nft_slash(_account_id: &AccountId, _item_id: &ItemId, _amount: Balance) {}
 	/// A validator's permission nft has been slashed
-	fn on_permission_nft_slash(_validator: &AccountId, _amountt: Balance) {}
+	fn on_permission_nft_slash(_validator: &AccountId, _amount: Balance) {}
 	/// A validator got chilled
 	fn on_chill(_validator: &AccountId) {}
 	/// A validator got unchilled
 	fn on_unchill(_validator: &AccountId) {}
 	/// Account has been rewarded with the given amount
-	fn on_reward(_account_id: &AccountId, _amountt: Balance) {}
+	fn on_reward(_account_id: &AccountId, _amount: Balance) {}
 	/// A delegator has been kicked by the validator
 	fn on_kick(_delegator: &AccountId, _validator: &AccountId) {}
 }

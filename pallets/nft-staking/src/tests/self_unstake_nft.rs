@@ -16,7 +16,7 @@ fn self_unstake_nft_is_successful(mut ext: TestExternalities, permission: Permis
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(TotalValidatorStake { total_stake, .. }) if *total_stake == NOMINAL_VALUE
+			Some(TotalValidatorStake { total_stake, .. }) if total_stake == NOMINAL_VALUE
 		);
 
 		assert_current_contract!(&validator.account_id, &validator.account_id,

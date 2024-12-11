@@ -29,9 +29,7 @@ fn kick_is_successful(mut ext: TestExternalities) {
 		let res = Staking::kick(validator.origin, delegator.account_id);
 		assert_ok!(res, ());
 
-		let validator_stake = TotalValidatorStakes::<Test>::get(validator.account_id)
-			.current()
-			.cloned()
+		let validator_stake = Staking::current_total_validator_stake(&validator.account_id)
 			.expect("validator has stake");
 
 		// total_stake is modified, but the contract is not yet relinquished
@@ -42,8 +40,7 @@ fn kick_is_successful(mut ext: TestExternalities) {
 		);
 
 		assert!(validator_stake.contract_count == 2);
-		assert!(Contracts::<Test>::get(validator.account_id, delegator.account_id)
-			.current()
+		assert!(Pallet::<Test>::current_contract(&validator.account_id, &delegator.account_id)
 			.is_some_and(|c| c.stake.is_empty()));
 
 		System::assert_has_event(
@@ -62,7 +59,8 @@ fn kick_is_successful(mut ext: TestExternalities) {
 
 		next_session();
 
-		assert!(!Contracts::<Test>::contains_key(validator.account_id, delegator.account_id)); // now the contract is removed
+		assert!(Pallet::<Test>::current_contract(&validator.account_id, &delegator.account_id)
+			.is_none()); // now the contract is removed
 
 		assert_current_validator_stake!(
 			&validator.account_id,

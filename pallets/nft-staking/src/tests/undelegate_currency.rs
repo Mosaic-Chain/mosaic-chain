@@ -26,7 +26,7 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(TotalValidatorStake { total_stake, .. }) if *total_stake == NOMINAL_VALUE
+			Some(TotalValidatorStake { total_stake, .. }) if total_stake == NOMINAL_VALUE
 		);
 
 		assert_current_contract!(&validator.account_id, &delegator.account_id,
@@ -36,7 +36,7 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 					..
 				},
 				..
-			}) if *currency == 0);
+			}) if currency == 0);
 
 		System::assert_last_event(
 			Event::<Test>::CurrencyUnstaked {
@@ -49,8 +49,7 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 
 		next_session();
 
-		assert!(Contracts::<Test>::get(validator.account_id, delegator.account_id)
-			.current()
+		assert!(Pallet::<Test>::current_contract(&validator.account_id, &delegator.account_id)
 			.is_none());
 
 		// pallet_balances does not have a Unhold event.

@@ -29,7 +29,7 @@ fn delegate_nft_is_successful(mut ext: TestExternalities) {
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(TotalValidatorStake { total_stake, .. }) if *total_stake == NOMINAL_VALUE + NOMINAL_VALUE
+			Some(TotalValidatorStake { total_stake, .. }) if total_stake == NOMINAL_VALUE + NOMINAL_VALUE
 		);
 
 		assert_current_contract!(&validator.account_id, &delegator.account_id,
@@ -64,7 +64,7 @@ fn staking_period_resets(mut ext: TestExternalities) {
 		let new_period_end = u32::from(MinimumStakingPeriod::get()) + Session::current_index();
 
 		assert_current_contract!(&validator.account_id, &delegator.account_id,
-			Some(Contract { min_staking_period_end, .. } ) if *min_staking_period_end == new_period_end);
+			Some(Contract { min_staking_period_end, .. } ) if min_staking_period_end == new_period_end);
 	});
 }
 
@@ -85,7 +85,7 @@ fn new_commission_applies(mut ext: TestExternalities) {
 		.expect("could delegate nft");
 
 		assert_current_contract!(&validator.account_id, &delegator.account_id,
-			Some(Contract { commission, .. } ) if *commission == MinimumCommission::get());
+			Some(Contract { commission, .. } ) if commission == MinimumCommission::get());
 
 		let new_commission = Perbill::from_percent(42);
 
@@ -101,7 +101,7 @@ fn new_commission_applies(mut ext: TestExternalities) {
 		.expect("could delegate nft");
 
 		assert_current_contract!(&validator.account_id, &delegator.account_id,
-			Some(Contract { commission, .. } ) if *commission == new_commission);
+			Some(Contract { commission, .. } ) if commission == new_commission);
 	});
 }
 

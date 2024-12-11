@@ -30,7 +30,7 @@ fn self_stake_currency_is_successful(mut ext: TestExternalities, permission: Per
 
 		assert_current_validator_stake!(
 			&validator.account_id,
-			Some(TotalValidatorStake { total_stake, .. }) if *total_stake == NOMINAL_VALUE + MinimumStakingAmount::get()
+			Some(TotalValidatorStake { total_stake, .. }) if total_stake == NOMINAL_VALUE + MinimumStakingAmount::get()
 		);
 
 		assert_current_contract!(&validator.account_id, &validator.account_id,
@@ -41,7 +41,7 @@ fn self_stake_currency_is_successful(mut ext: TestExternalities, permission: Per
 					..
 				},
 				..
-			}) if *currency == MinimumStakingAmount::get());
+			}) if currency == MinimumStakingAmount::get());
 	});
 }
 
@@ -77,7 +77,7 @@ fn minimum_staking_period_resets(
 		let new_period_end = u32::from(MinimumStakingPeriod::get()) + Session::current_index();
 
 		assert_current_contract!(&validator.account_id, &validator.account_id,
-			Some(Contract { min_staking_period_end, .. }) if *min_staking_period_end == new_period_end
+			Some(Contract { min_staking_period_end, .. }) if min_staking_period_end == new_period_end
 		);
 	});
 }

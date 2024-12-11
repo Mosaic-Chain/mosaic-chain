@@ -20,9 +20,9 @@ use rstest_reuse::{apply, template};
 
 use crate::{
 	assert_current_contract, assert_current_validator_stake, assert_validator_state, mock::*,
-	ChillReason, Contract, Contracts, Error, Event, KickReason, PermissionType,
-	SelectableValidators, SlashableValidators, Stake, TotalValidatorStake, TotalValidatorStakes,
-	ValidatorDetails, ValidatorState, ValidatorStates, Validators,
+	ChillReason, Contract, Error, Event, KickReason, Pallet, PermissionType, SelectableValidators,
+	SlashableValidators, Stake, TotalValidatorStake, ValidatorDetails, ValidatorState,
+	ValidatorStates, Validators,
 };
 
 mod test_bases;
@@ -33,7 +33,7 @@ mod chill;
 mod delegate_currency;
 mod delegate_nft;
 mod disable_delegations;
-mod enable_delgations;
+mod enable_delegations;
 mod kick;
 mod self_stake_currency;
 mod self_stake_nft;
@@ -203,11 +203,13 @@ fn origin(account: AccountId) -> RuntimeOrigin {
 fn skip_min_staking_period() {
 	let until = ToSession::current_plus(MinimumStakingPeriod::get().get());
 	run_until::<AllPalletsWithoutSystem, _>(until);
+	<Staking as frame_support::traits::Hooks<_>>::on_idle(0, frame_support::weights::Weight::MAX);
 }
 
 /// Skip to the next session
 fn next_session() {
 	run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(1));
+	<Staking as frame_support::traits::Hooks<_>>::on_idle(0, frame_support::weights::Weight::MAX);
 }
 
 #[macro_export]
@@ -220,13 +222,13 @@ macro_rules! assert_validator_state {
 #[macro_export]
 macro_rules! assert_current_contract {
 	($validator:expr, $delegator:expr, $pattern:pat $(if $guard:expr)?) => {{
-				assert!(matches!(Contracts::<Test>::get($validator, $delegator).current(), $pattern $(if $guard)?))
+				assert!(matches!(Staking::current_contract($validator, $delegator), $pattern $(if $guard)?))
 	}};
 }
 
 #[macro_export]
 macro_rules! assert_current_validator_stake {
 	($validator:expr, $pattern:pat $(if $guard:expr)?) => {{
-				assert!(matches!(TotalValidatorStakes::<Test>::get($validator).current(), $pattern $(if $guard)?))
+				assert!(matches!(Staking::current_total_validator_stake($validator), $pattern $(if $guard)?))
 	}};
 }

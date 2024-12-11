@@ -13,13 +13,10 @@ mod benchmarking;
 pub mod weights;
 
 mod impls;
-mod reward;
-mod slash;
+mod session_ending;
 mod types;
 
-use sdk::{
-	frame_support, frame_system, pallet_offences, pallet_session, sp_runtime, sp_staking, sp_std,
-};
+use sdk::{frame_support, frame_system, pallet_offences, pallet_session, sp_runtime, sp_std};
 
 use core::num::NonZeroU32;
 
@@ -31,24 +28,28 @@ use frame_support::{
 		tokens::{Fortitude, Precision, Preservation},
 		OnUnbalanced,
 	},
+	weights::WeightMeter,
 	Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
 use pallet_session::{Config as SessionConfig, Pallet as SessionPallet};
-use sp_std::vec::Vec as SpVec;
+use sp_std::{vec, vec::Vec as SpVec};
 
 use sp_runtime::{
 	traits::{Convert, Zero},
 	FixedPointOperand, Perbill, Saturating,
 };
 
-use sp_staking::SessionIndex;
-
+use session_ending::{Progress, SessionEnding};
 use types::{
-	ChillReason, Contract, KickReason, NegativeImbalanceOf, PositiveImbalanceOf, Staging, Stake,
-	TotalValidatorStake, ValidatorDetails, ValidatorState,
+	ChillReason, Contract, KickReason, StagingLayer, Stake, StorageLayer, TotalValidatorStake,
+	ValidatorDetails, ValidatorState,
 };
-use utils::traits::{NftDelegation, NftStaking, StakingHooks};
+
+use utils::{
+	traits::{NftDelegation, NftStaking, StakingHooks},
+	SessionIndex,
+};
 
 pub use impls::{SelectableValidators, SlashableValidators};
 /// Mosaic's very own staking pallet
@@ -148,27 +149,25 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type TotalValidatorStakes<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		Staging<TotalValidatorStake<T::Balance>>,
-		ValueQuery,
+	pub type TotalValidatorStakes<T: Config> = StorageNMap<
+		Key = (NMapKey<Identity, StorageLayer>, NMapKey<Twox64Concat, T::AccountId>),
+		Value = TotalValidatorStake<T::Balance>,
+		QueryKind = OptionQuery,
 	>;
 
 	#[pallet::storage]
 	pub type Validators<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, ValidatorDetails, OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorDetails, OptionQuery>;
 
 	#[pallet::storage]
-	pub type Contracts<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		Twox64Concat,
-		T::AccountId,
-		Staging<Contract<T::Balance, T::ItemId>>,
-		ValueQuery,
+	pub type Contracts<T: Config> = StorageNMap<
+		Key = (
+			NMapKey<Identity, StorageLayer>,
+			NMapKey<Twox64Concat, T::AccountId>,
+			NMapKey<Twox64Concat, T::AccountId>,
+		),
+		Value = Contract<T::Balance, T::ItemId>,
+		QueryKind = OptionQuery,
 	>;
 
 	#[pallet::storage]
@@ -187,6 +186,50 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ValidatorStates<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ValidatorState>;
 
+	#[pallet::storage]
+	pub type CurrentStagingLayer<T: Config> = StorageValue<_, StagingLayer, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type SessionEndings<T: Config> = StorageValue<_, SpVec<SessionEnding<T>>, ValueQuery>;
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_idle(_block_number: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			// TODO: consume some base value
+			let mut meter = WeightMeter::with_limit(remaining_weight);
+
+			SessionEndings::<T>::mutate(|endings| {
+				loop {
+					if endings.is_empty() {
+						break;
+					}
+
+					// `SessionEnding` is not `Clone` and must be consumed.
+					let SessionEnding { state, mut context } = endings.remove(0);
+
+					match state.try_complete(&mut context, &mut meter) {
+						// `SessionEnding` completed, try progressing the next one
+						Ok(()) => {
+							Self::deposit_event(Event::<T>::SessionEndingCompleted {
+								session: context.session_index,
+							});
+						},
+
+						// `SessionEnding` made progress, continue next time
+						Err(state) => {
+							// Place new state into the previous's place
+							endings.insert(0, SessionEnding { state, context });
+							break;
+						},
+					}
+				}
+			});
+
+			meter.consumed()
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -203,6 +246,10 @@ pub mod pallet {
 			currency: T::Balance,
 			delegator_nfts: SpVec<(T::ItemId, T::Balance)>,
 			permission_nft: Option<T::Balance>,
+		},
+
+		SessionEndingCompleted {
+			session: SessionIndex,
 		},
 
 		ValidatorChilled {
@@ -275,6 +322,7 @@ pub mod pallet {
 		ValidatorAlreadySelected,
 		BindingContractExists,
 		MoreContractsExist,
+		UncommittedState,
 		TargetNotDPoS,
 		CallerNotDPoS,
 		InvalidCaller,
@@ -346,20 +394,84 @@ pub mod pallet {
 					min_staking_period_end: T::MinimumStakingPeriod::get().into(),
 				};
 
-				Contracts::<T>::insert(validator_id, validator_id, Staging::new(self_contract));
+				Contracts::<T>::insert(
+					(StorageLayer::Committed, validator_id, validator_id),
+					self_contract,
+				);
 
 				TotalValidatorStakes::<T>::insert(
-					validator_id,
-					Staging::new(TotalValidatorStake {
-						total_stake: *nominal_value,
-						contract_count: 1,
-					}),
+					(StorageLayer::Committed, validator_id),
+					TotalValidatorStake { total_stake: *nominal_value, contract_count: 1 },
 				);
 			}
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn current_staging_layer() -> StagingLayer {
+			CurrentStagingLayer::<T>::get()
+		}
+
+		pub fn rotate_staging_layer() {
+			CurrentStagingLayer::<T>::mutate(|current| *current = current.other());
+		}
+
+		fn get_current<V>(f: impl Fn(StorageLayer) -> Option<V>) -> Option<V> {
+			Self::get_current_staged(&f).or_else(|| f(StorageLayer::Committed))
+		}
+
+		fn get_current_staged<V>(f: impl Fn(StorageLayer) -> Option<V>) -> Option<V> {
+			let staging = Self::current_staging_layer();
+			f(StorageLayer::Staged(staging)).or_else(|| f(StorageLayer::Staged(staging.other())))
+		}
+
+		pub fn current_contract(
+			validator: &T::AccountId,
+			staker: &T::AccountId,
+		) -> Option<Contract<T::Balance, T::ItemId>> {
+			Self::get_current(|layer| Contracts::<T>::get((layer, validator, staker)))
+		}
+
+		pub fn current_staged_contract(
+			validator: &T::AccountId,
+			staker: &T::AccountId,
+		) -> Option<Contract<T::Balance, T::ItemId>> {
+			Self::get_current_staged(|layer| Contracts::<T>::get((layer, validator, staker)))
+		}
+
+		pub fn stage_contract(
+			validator: &T::AccountId,
+			staker: &T::AccountId,
+			contract: Contract<T::Balance, T::ItemId>,
+		) {
+			Contracts::<T>::insert(
+				(StorageLayer::Staged(Self::current_staging_layer()), validator, staker),
+				contract,
+			);
+		}
+
+		pub fn current_total_validator_stake(
+			validator: &T::AccountId,
+		) -> Option<TotalValidatorStake<T::Balance>> {
+			Self::get_current(|layer| TotalValidatorStakes::<T>::get((layer, validator)))
+		}
+
+		pub fn current_staged_total_validator_stake(
+			validator: &T::AccountId,
+		) -> Option<TotalValidatorStake<T::Balance>> {
+			Self::get_current_staged(|layer| TotalValidatorStakes::<T>::get((layer, validator)))
+		}
+
+		pub fn stage_total_validator_stake(
+			validator: &T::AccountId,
+			stake: TotalValidatorStake<T::Balance>,
+		) {
+			TotalValidatorStakes::<T>::insert(
+				(StorageLayer::Staged(Self::current_staging_layer()), validator),
+				stake,
+			);
+		}
+
 		pub(crate) fn drafted_validators() -> impl Iterator<Item = <T as SessionConfig>::ValidatorId>
 		{
 			// Currently active + queued validators
@@ -370,8 +482,7 @@ pub mod pallet {
 		}
 
 		fn ensure_not_overdominant(validator: &T::AccountId) -> DispatchResult {
-			let total_stake = TotalValidatorStakes::<T>::get(validator)
-				.current()
+			let total_stake = Self::current_total_validator_stake(validator)
 				.ok_or(Error::<T>::NotBound)?
 				.total_stake;
 
@@ -409,46 +520,6 @@ pub mod pallet {
 			ValidatorState::Chilled(SessionPallet::<T>::current_index())
 		}
 
-		/// Commits all storage values. Removes values where there is neither a staged nor a committed value.
-		/// We also remove empty contracts
-		pub(crate) fn commit_storage() {
-			Contracts::<T>::translate(
-				|validator, _, mut s: Staging<Contract<T::Balance, T::ItemId>>| {
-					if let Some(contract) = s.current() {
-						if contract.stake.is_empty() {
-							Self::relinquish_contract(&validator);
-							None
-						} else {
-							s.commit();
-							Some(s)
-						}
-					} else {
-						None
-					}
-				},
-			);
-
-			// Must be after relinquish_contract calls
-			TotalValidatorStakes::<T>::translate_values(
-				|mut s: Staging<TotalValidatorStake<_>>| {
-					s.exists().then(|| {
-						s.commit();
-						s
-					})
-				},
-			);
-
-			for (staker, amount) in UnlockingCurrency::<T>::drain() {
-				Self::unlock_currency(&staker, amount);
-			}
-
-			for (item_id, staker) in UnlockingDelegatorNfts::<T>::drain() {
-				if let Err(e) = T::NftDelegationHandler::unbind(&staker, &item_id) {
-					log::error!("failed to unbind delegator nft({item_id:?}) of {staker:?}: {e:?}");
-				}
-			}
-		}
-
 		/// Grows total stake by amount
 		/// (staged)
 		pub(crate) fn grow_total_validator_stake_by(validator: &T::AccountId, value: T::Balance) {
@@ -456,15 +527,14 @@ pub mod pallet {
 				return;
 			}
 
-			TotalValidatorStakes::<T>::mutate(validator, |s| {
-				if let Some(TotalValidatorStake { total_stake: current, .. }) =
-					s.ensure_staging_mut()
-				{
-					*current = current.saturating_add(value);
-				} else {
-					s.stage(TotalValidatorStake { total_stake: value, ..Default::default() });
-				}
-			});
+			let stake = if let Some(mut stake) = Self::current_total_validator_stake(validator) {
+				stake.total_stake.saturating_accrue(value);
+				stake
+			} else {
+				TotalValidatorStake { total_stake: value, ..Default::default() }
+			};
+
+			Self::stage_total_validator_stake(validator, stake);
 		}
 
 		/// Shrinks total stake by amount
@@ -474,45 +544,44 @@ pub mod pallet {
 				return;
 			}
 
-			TotalValidatorStakes::<T>::mutate(validator, |s| {
-				if let Some(TotalValidatorStake { total_stake: current, .. }) =
-					s.ensure_staging_mut()
-				{
-					*current = current.saturating_sub(value);
-				}
-			});
+			let Some(mut stake) = Self::current_total_validator_stake(validator) else {
+				return;
+			};
+
+			stake.total_stake.saturating_reduce(value);
+
+			Self::stage_total_validator_stake(validator, stake);
 		}
 
 		// Requests the creation of a new contract for a given validator
 		// Fails if contract limit is already reached for the validator
 		fn request_new_contract(validator: &T::AccountId) -> DispatchResult {
-			TotalValidatorStakes::<T>::mutate(validator, |s| {
-				if let Some(TotalValidatorStake { contract_count: current, .. }) =
-					s.ensure_staging_mut()
-				{
-					if *current < T::MaximumContractsPerValidator::get() {
-						*current += 1;
-					} else {
-						return Err(Error::<T>::ContractLimitReached.into());
-					}
+			let stake = if let Some(mut stake) = Self::current_total_validator_stake(validator) {
+				if stake.contract_count < T::MaximumContractsPerValidator::get() {
+					stake.contract_count.saturating_inc();
+					stake
 				} else {
-					s.stage(TotalValidatorStake { contract_count: 1, ..Default::default() });
+					return Err(Error::<T>::ContractLimitReached.into());
 				}
+			} else {
+				TotalValidatorStake { contract_count: 1, ..Default::default() }
+			};
 
-				Ok(())
-			})
+			Self::stage_total_validator_stake(validator, stake);
+			Ok(())
 		}
 
 		// Make a promise to destroy a contract for the given validator
 		// This decreases the number of contracts associated with the validator
-		fn relinquish_contract(validator: &T::AccountId) {
-			TotalValidatorStakes::<T>::mutate(validator, |s| {
-				if let Some(TotalValidatorStake { contract_count: current, .. }) =
-					s.ensure_staging_mut()
-				{
-					*current = current.saturating_sub(1);
-				}
-			});
+		pub(crate) fn relinquish_contract(validator: &T::AccountId) {
+			let Some(mut stake) = Self::current_total_validator_stake(validator) else {
+				// A bound validator always has at least a self-contract and nonzero stake,
+				// so this branch should not be possible.
+				return;
+			};
+
+			stake.contract_count.saturating_dec();
+			Self::stage_total_validator_stake(validator, stake);
 		}
 
 		/// Adds the provided amount to the account's lock.
@@ -587,28 +656,23 @@ pub mod pallet {
 			let min_staking_period_end =
 				SessionPallet::<T>::current_index() + validator_details.min_staking_period::<T>();
 
-			Contracts::<T>::mutate(validator, staker, |s| -> DispatchResult {
-				let stake = match s.current() {
-					Some(Contract { stake: old, .. }) => {
-						Stake { currency: old.currency.saturating_add(amount), ..old.clone() }
-					},
+			let stake = match Self::current_contract(validator, staker) {
+				Some(Contract { stake: old, .. }) => {
+					Stake { currency: old.currency.saturating_add(amount), ..old }
+				},
+				None => {
+					Self::request_new_contract(validator)?;
+					Stake { currency: amount, ..Default::default() }
+				},
+			};
 
-					None => {
-						Self::request_new_contract(validator)?;
-						Stake { currency: amount, ..Default::default() }
-					},
-				};
+			let contract = Contract {
+				stake,
+				commission: validator_details.commission(),
+				min_staking_period_end,
+			};
 
-				let contract = Contract {
-					stake,
-					commission: validator_details.commission(),
-					min_staking_period_end,
-				};
-
-				s.stage(contract);
-
-				Ok(())
-			})?;
+			Self::stage_contract(validator, staker, contract);
 
 			T::Hooks::on_currency_stake(staker, validator, amount);
 
@@ -637,36 +701,34 @@ pub mod pallet {
 			Self::grow_total_validator_stake_by(validator, nominal_value);
 			Self::ensure_not_overdominant(validator)?;
 
-			Contracts::<T>::mutate(validator, staker, |s| -> DispatchResult {
-				let stake = match s.current() {
-					Some(Contract { stake: old, .. }) => {
-						let mut new = old.clone();
-						new.delegated_nfts
-							.try_push((item_id.clone(), nominal_value))
-							.map(|()| new)
-							.map_err(|_| Error::<T>::TooManyNftDelegatedToContract)
-					},
+			let stake = match Self::current_contract(validator, staker) {
+				Some(Contract { mut stake, .. }) => {
+					stake
+						.delegated_nfts
+						.try_push((item_id.clone(), nominal_value))
+						.map_err(|_| Error::<T>::TooManyNftDelegatedToContract)?;
 
-					None => {
-						Self::request_new_contract(validator)?;
-						let mut delegated_nfts = BoundedVec::new();
-						// Force push is safe, as (1) its truncating and does not panic,
-						// (2) we just created the vec and the bound is non-zero
-						delegated_nfts.force_push((item_id.clone(), nominal_value));
+					stake
+				},
 
-						Ok(Stake { delegated_nfts, ..Default::default() })
-					},
-				}?;
+				None => {
+					Self::request_new_contract(validator)?;
+					// `truncate_from` is safe, as (1) does not panic,
+					// (2) we know the bound is non-zero
+					let delegated_nfts =
+						BoundedVec::truncate_from(vec![(item_id.clone(), nominal_value)]);
 
-				let contract = Contract {
-					stake,
-					commission: validator_details.commission(),
-					min_staking_period_end,
-				};
+					Stake { delegated_nfts, ..Default::default() }
+				},
+			};
 
-				s.stage(contract);
-				Ok(())
-			})?;
+			let contract = Contract {
+				stake,
+				commission: validator_details.commission(),
+				min_staking_period_end,
+			};
+
+			Self::stage_contract(validator, staker, contract);
 
 			T::Hooks::on_nft_stake(staker, validator, item_id);
 
@@ -678,36 +740,34 @@ pub mod pallet {
 			staker: &T::AccountId,
 			amount: T::Balance,
 		) -> DispatchResult {
-			Contracts::<T>::mutate(validator, staker, |s| -> DispatchResult {
-				let Some(contract) = s.ensure_staging_mut() else {
-					return Err(Error::<T>::NoContract.into());
-				};
+			let Some(mut contract) = Self::current_contract(validator, staker) else {
+				return Err(Error::<T>::NoContract.into());
+			};
 
-				let session = SessionPallet::<T>::current_index();
-				ensure!(
-					session >= contract.min_staking_period_end
-						|| (validator != staker && Self::is_slacking(validator)),
-					Error::<T>::EarlyUnstake
-				);
+			let session = SessionPallet::<T>::current_index();
+			ensure!(
+				session >= contract.min_staking_period_end
+					|| (validator != staker && Self::is_slacking(validator)),
+				Error::<T>::EarlyUnstake
+			);
 
-				let minimum_staking_amount = T::MinimumStakingAmount::get();
+			let minimum_staking_amount = T::MinimumStakingAmount::get();
+			ensure!(
+				amount >= contract.stake.currency.min(minimum_staking_amount),
+				Error::<T>::TooSmallUnstake
+			);
 
-				ensure!(
-					amount >= contract.stake.currency.min(minimum_staking_amount),
-					Error::<T>::TooSmallUnstake
-				);
-				ensure!(amount <= contract.stake.currency, Error::<T>::InsufficientFunds);
+			ensure!(amount <= contract.stake.currency, Error::<T>::InsufficientFunds);
 
-				contract.stake.currency = contract.stake.currency.saturating_sub(amount);
+			contract.stake.currency.saturating_reduce(amount);
 
-				ensure!(
-					contract.stake.currency >= T::MinimumStakingAmount::get()
-						|| contract.stake.currency.is_zero(),
-					Error::<T>::WouldDust
-				);
+			ensure!(
+				contract.stake.currency >= T::MinimumStakingAmount::get()
+					|| contract.stake.currency.is_zero(),
+				Error::<T>::WouldDust
+			);
 
-				Ok(())
-			})?;
+			Self::stage_contract(validator, staker, contract);
 
 			Self::shrink_total_validator_stake_by(validator, amount);
 			Self::stage_unlock_currency(staker, amount);
@@ -722,33 +782,31 @@ pub mod pallet {
 			staker: &T::AccountId,
 			item_id: &T::ItemId,
 		) -> DispatchResult {
-			Contracts::<T>::mutate(validator, staker, |s| -> DispatchResult {
-				let Some(contract) = s.ensure_staging_mut() else {
-					return Err(Error::<T>::NoContract.into());
-				};
+			let Some(mut contract) = Self::current_contract(validator, staker) else {
+				return Err(Error::<T>::NoContract.into());
+			};
 
-				if let Some(index) =
-					contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
-				{
-					contract.stake.delegated_nfts.remove(index);
-				} else {
-					return Err(Error::<T>::NftNotBound.into());
-				}
+			if let Some(index) =
+				contract.stake.delegated_nfts.iter().position(|(x, _)| x == item_id)
+			{
+				contract.stake.delegated_nfts.swap_remove(index);
+			} else {
+				return Err(Error::<T>::NftNotBound.into());
+			}
 
-				let session = SessionPallet::<T>::current_index();
-				ensure!(
-					session >= contract.min_staking_period_end
-						|| (validator != staker && Self::is_slacking(validator)),
-					Error::<T>::EarlyUnstake
-				);
+			let session = SessionPallet::<T>::current_index();
+			ensure!(
+				session >= contract.min_staking_period_end
+					|| (validator != staker && Self::is_slacking(validator)),
+				Error::<T>::EarlyUnstake
+			);
 
-				let nominal_value = T::NftDelegationHandler::nominal_value(item_id)?;
-				UnlockingDelegatorNfts::<T>::insert(item_id.clone(), staker.clone());
+			Self::stage_contract(validator, staker, contract);
 
-				Self::shrink_total_validator_stake_by(validator, nominal_value);
+			let nominal_value = T::NftDelegationHandler::nominal_value(item_id)?;
+			UnlockingDelegatorNfts::<T>::insert(item_id.clone(), staker.clone());
 
-				Ok(())
-			})?;
+			Self::shrink_total_validator_stake_by(validator, nominal_value);
 
 			T::Hooks::on_nft_unstake(staker, validator, item_id);
 
@@ -793,7 +851,7 @@ pub mod pallet {
 					+ u32::from(T::MinimumStakingPeriod::get()),
 			};
 
-			Contracts::<T>::insert(&caller, &caller, Staging::new_staged(self_contract));
+			Self::stage_contract(&caller, &caller, self_contract);
 
 			T::Hooks::on_bound(&caller);
 			Self::deposit_event(Event::<T>::ValidatorBound(caller));
@@ -808,6 +866,28 @@ pub mod pallet {
 			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
 			ensure!(Self::is_chilled(&caller), Error::<T>::CallerIsNotChilled);
 
+			// NOTE: we use this as a proxy for all staged storages related to the caller (eg.: contracts)
+			// match Self::current_staged_total_validator_stake(&caller) {
+			// 	Some(_) => {
+			// 		let current_layer = CurrentStagingLayer::<T>::get();
+			// 		let write_layer = TotalValidatorStakes::<T>::get((
+			// 			StorageLayer::Staged(current_layer),
+			// 			&caller,
+			// 		));
+			// 		let drain_layer = TotalValidatorStakes::<T>::get((
+			// 			StorageLayer::Staged(current_layer.other()),
+			// 			&caller,
+			// 		));
+			// 		panic!("{current_layer:?} {write_layer:?} {drain_layer:?}");
+			// 	},
+			// 	None => (),
+			// };
+
+			ensure!(
+				Self::current_staged_total_validator_stake(&caller).is_none(),
+				Error::<T>::UncommittedState
+			);
+
 			let _ = T::NftStakingHandler::unbind(&caller)?;
 
 			let validator_id = T::ValidatorIdOf::convert(caller.clone())
@@ -818,13 +898,9 @@ pub mod pallet {
 				Error::<T>::ValidatorAlreadySelected
 			);
 
-			let session = SessionPallet::<T>::current_index();
-
-			let contracts = Contracts::<T>::drain_prefix(&caller)
-				.filter_map(|(contractee, contract)| {
-					contract.current().map(|c| (contractee, c.clone()))
-				})
+			let contracts = Contracts::<T>::drain_prefix((StorageLayer::Committed, &caller))
 				.collect::<SpVec<_>>();
+
 			ensure!(
 				contracts.len()
 					<= contract_count
@@ -832,6 +908,8 @@ pub mod pallet {
 						.expect("Number of contracts always fits into a usize"),
 				Error::<T>::MoreContractsExist
 			);
+
+			let session = SessionPallet::<T>::current_index();
 
 			// Note: this includes the self-contract as well
 			for (contractee, contract) in contracts {
@@ -856,11 +934,12 @@ pub mod pallet {
 				});
 			}
 
+			// FIXME: make sure this still holds in new setup
 			// Note: we can remove immediately as no reward would be given.
 			// Caveat: slashes in current session? We can forgive them, right?
 			Validators::<T>::remove(&caller);
 			ValidatorStates::<T>::remove(&caller);
-			TotalValidatorStakes::<T>::remove(&caller);
+			TotalValidatorStakes::<T>::remove((StorageLayer::Committed, &caller));
 			InverseSlashes::<T>::remove(&caller);
 
 			T::Hooks::on_unbound(&caller);
@@ -1230,36 +1309,38 @@ pub mod pallet {
 
 			ensure!(!Self::is_chilled(&caller), Error::<T>::CallerIsChilled);
 
-			Contracts::<T>::mutate(&caller, &target, |s| {
-				let contract = s.ensure_staging_mut().ok_or(Error::<T>::NoContract)?;
+			let Some(mut contract) = Self::current_contract(&caller, &target) else {
+				return Err(Error::<T>::NoContract.into());
+			};
 
-				if contract.min_staking_period_end > SessionPallet::<T>::current_index() {
-					return Err(Error::<T>::EarlyKick.into());
-				}
+			if contract.min_staking_period_end > SessionPallet::<T>::current_index() {
+				return Err(Error::<T>::EarlyKick.into());
+			}
 
-				// TODO: there might be events missing for the indexer
-				Self::stage_unlock_currency(&target, contract.stake.currency);
-				for (item_id, _) in &contract.stake.delegated_nfts {
-					UnlockingDelegatorNfts::<T>::insert(item_id.clone(), target.clone());
-				}
+			// TODO: there might be events missing for the indexer
+			Self::stage_unlock_currency(&target, contract.stake.currency);
+			for (item_id, _) in &contract.stake.delegated_nfts {
+				UnlockingDelegatorNfts::<T>::insert(item_id.clone(), target.clone());
+			}
 
-				// this is a staged action, so in the current session this delegator's stake is still included.
-				Self::shrink_total_validator_stake_by(&caller, contract.stake.total());
+			// this is a staged action, so in the current session this delegator's stake is still included.
+			Self::shrink_total_validator_stake_by(&caller, contract.stake.total());
 
-				// Note: contracts with empty stake are removed in next session,
-				// but the delegator can always just restake even in this session
-				contract.stake = Stake::default();
+			// Note: contracts with empty stake are removed in next session,
+			// but the delegator can always just restake even in this session
+			contract.stake = Stake::default();
 
-				T::Hooks::on_kick(&target, &caller);
+			T::Hooks::on_kick(&target, &caller);
 
-				Self::deposit_event(Event::<T>::StakerKicked {
-					validator: caller.clone(),
-					staker: target.clone(),
-					reason: KickReason::Manual,
-				});
+			Self::deposit_event(Event::<T>::StakerKicked {
+				validator: caller.clone(),
+				staker: target.clone(),
+				reason: KickReason::Manual,
+			});
 
-				Ok(())
-			})
+			Self::stage_contract(&caller, &target, contract);
+
+			Ok(())
 		}
 
 		#[pallet::call_index(17)]
@@ -1278,12 +1359,7 @@ pub mod pallet {
 
 			ensure!(imbalance <= allowed_amount, Error::<T>::SlippageExceeded);
 
-			Contracts::<T>::mutate(&caller, &caller, |s| {
-				let Some(contract) = s.ensure_staging_mut() else {
-					// No self-contract -> Not bound
-					return;
-				};
-
+			if let Some(mut contract) = Self::current_contract(&caller, &caller) {
 				contract.stake.permission_nft = Some(issued_nominal_value);
 
 				Self::grow_total_validator_stake_by(&caller, imbalance);
@@ -1293,7 +1369,9 @@ pub mod pallet {
 						*vstate = ValidatorState::Normal;
 					}
 				});
-			});
+
+				Self::stage_contract(&caller, &caller, contract);
+			}
 
 			let withdrawn = <T as pallet::Config>::Fungible::withdraw(
 				&caller,

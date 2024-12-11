@@ -15,10 +15,15 @@ fn selectable_validators(mut ext: TestExternalities) {
 			*state = ValidatorState::Chilled(0);
 		});
 
+		next_session();
+
+		let not_committed = BindParams::default().account_index(3).mint().bind();
+
 		let selectable = SelectableValidators::<Test>::validators();
 		assert!(selectable.contains(&normal.account_id));
 		assert!(selectable.contains(&faulted.account_id));
 		assert!(!selectable.contains(&chilled.account_id));
+		assert!(!selectable.contains(&not_committed.account_id));
 	});
 }
 

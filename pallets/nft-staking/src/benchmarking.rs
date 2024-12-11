@@ -5,7 +5,7 @@ use crate::{
 	types::MAX_NFTS_PER_CONTRACT, Config as NftStakingConfig, Pallet as NftStakingPallet,
 	PermissionType, SessionIndex,
 };
-use utils::traits::{NftStaking, OnDelegationNftExpire};
+use utils::traits::{NftStaking, OnDelegationNftExpire, SessionHook};
 
 use core::fmt;
 use pallet_nft_delegation::Config as NftDelegationConfig;
@@ -167,6 +167,16 @@ impl<T: NftStakingConfig + SessionConfig> Fixture<T> {
 	}
 }
 
+fn commit<T>() -> Weight
+where
+	T: NftStakingConfig,
+	T::AccountId: From<<T as SessionConfig>::ValidatorId>,
+{
+	// we need to commit all staged data
+	<Pallet<T> as SessionHook>::session_ended(0u32).expect("Should succeed");
+	Pallet::<T>::on_idle(0u32.into(), Weight::MAX)
+}
+
 // Setup a complex scenario for `*_complex` benchmarks.
 //
 // Scenario:
@@ -242,7 +252,7 @@ where
 		}
 	}
 
-	Pallet::<T>::commit_storage();
+	commit::<T>();
 
 	for (i, d) in delegators.iter().take(200).enumerate() {
 		Pallet::<T>::lock_currency(&d.id, (2 * UNIT).into(), Precision::Exact).unwrap();
@@ -332,6 +342,7 @@ mod benchmarks {
 		fixture.period_passed();
 		// An extra session is needed for unbinding
 		fixture.session_passed();
+		commit::<T>();
 		let origin = validator.signed_origin();
 
 		#[extrinsic_call]
@@ -640,6 +651,32 @@ mod benchmarks {
 		_(origin, item_id, amount);
 	}
 
+	// session_ended
+	// on_idle
+	//
+	// total_committed_stake
+	// maybe_reset_validator_state
+	// reward_contract(delegated_nft_count)
+	// deposit_validator_reward
+	// deposit_contribution
+	//
+	// chill_if_faulted
+	// slash_contract(is_disqualified, delegated_nft_count)
+	//
+	// rotate_staging_layer
+	// commit_contract
+	// commit_total_validator_stakes
+	// unlock_currency
+	// unlock_delegator_nft
+
+	#[benchmark]
+	fn rotate_staging_layer() {
+		#[block]
+		{
+			Pallet::<T>::rotate_staging_layer()
+		}
+	}
+
 	#[benchmark(extra)]
 	fn nft_expire(c: Linear<1, { MAX_NFTS_PER_CONTRACT }>) {
 		let fixture = Fixture::<T>::default();
@@ -707,41 +744,88 @@ mod benchmarks {
 			<Pallet<T> as utils::traits::SessionHook>::session_ended(42).unwrap();
 		}
 	}
-	#[benchmark(extra)]
-	fn reward_complex() {
-		complex_setup::<T>();
 
-		#[block]
-		{
-			let active_validators = SessionPallet::<T>::validators();
-			let session_reward = T::SessionReward::get();
+	// #[benchmark(extra)]
+	// fn reward_complex() {
+	// 	complex_setup::<T>();
 
-			let rewarded = active_validators.into_iter().filter_map(|v| {
-				let v = T::AccountId::from(v);
-				(!InverseSlashes::<T>::contains_key(&v)).then_some(v)
-			});
+	// 	#[block]
+	// 	{
+	// 		let active_validators = SessionPallet::<T>::validators();
+	// 		let session_reward = T::SessionReward::get();
 
-			Pallet::<T>::do_reward_participants(rewarded, session_reward);
-		}
-	}
+	// 		let rewarded = active_validators.into_iter().filter_map(|v| {
+	// 			let v = T::AccountId::from(v);
+	// 			(!InverseSlashes::<T>::contains_key(&v)).then_some(v)
+	// 		});
 
-	#[benchmark(extra)]
-	fn slashing_complex() {
-		complex_setup::<T>();
+	// 		Pallet::<T>::do_reward_participants(rewarded, session_reward);
+	// 	}
+	// }
 
-		#[block]
-		{
-			Pallet::<T>::do_slash_participants();
-		}
-	}
+	// #[benchmark(extra)]
+	// fn slashing_complex() {
+	// 	complex_setup::<T>();
 
-	#[benchmark(extra)]
-	fn commit_storage_complex() {
-		complex_setup::<T>();
+	// 	#[block]
+	// 	{
+	// 		Pallet::<T>::do_slash_participants();
+	// 	}
+	// }
 
-		#[block]
-		{
-			Pallet::<T>::commit_storage();
-		}
-	}
+	// #[benchmark(extra)]
+	// fn commit_storage_complex() {
+	// 	complex_setup::<T>();
+
+	// 	#[block]
+	// 	{
+	// 		Pallet::<T>::commit_storage();
+	// 	}
+	// }
+
+	// Scenario:
+	//
+	// At least `n` transactions modified `n` contracts, validator stakes and unlocking assets,
+	// and now we are committing the changes.
+	// #[benchmark(extra)]
+	// fn commit_storage_n_staged(n: Linear<1, 1000>) {
+	// 	for i in 1..=n {
+	// 		let validator = Account::<T>::validator(i);
+	// 		let delegator = Account::<T>::delegator(i);
+
+	// 		Pallet::<T>::stage_contract(
+	// 			&validator.id,
+	// 			&delegator.id,
+	// 			Contract {
+	// 				stake: Stake { currency: 100u32.into(), ..Default::default() },
+	// 				..Default::default()
+	// 			},
+	// 		);
+
+	// 		Pallet::<T>::stage_total_validator_stake(
+	// 			&validator.id,
+	// 			TotalValidatorStake { total_stake: 100u32.into(), ..Default::default() },
+	// 		);
+
+	// 		delegator.endow((3 * UNIT).into());
+	// 		Pallet::<T>::lock_currency(&delegator.id, (2 * UNIT).into(), Precision::Exact).unwrap();
+	// 		UnlockingCurrency::<T>::insert(&delegator.id, <T as Config>::Balance::from(2 * UNIT));
+
+	// 		let nft_id = DelegatorNft::<T> {
+	// 			account: delegator.clone(),
+	// 			expiration: i,
+	// 			..Default::default()
+	// 		}
+	// 		.mint();
+
+	// 		T::NftDelegationHandler::bind(&delegator.id, &nft_id, Account::<T>::default().id)
+	// 			.unwrap();
+	// 		UnlockingDelegatorNfts::<T>::insert(nft_id, &delegator.id);
+	// 	}
+
+	// 	#[block]
+	// 	{
+	// 		Pallet::<T>::commit_storage();
+	// 	}
+	// }
 }

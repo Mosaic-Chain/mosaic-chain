@@ -233,19 +233,19 @@ fn reward_empty_account(mut ext: TestExternalities) {
 			Some(TotalValidatorStake {
 				total_stake ,
 				..
-			}) if *total_stake == (550 - ed) + (450 - ed) + NOMINAL_VALUE + NOMINAL_VALUE
+			}) if total_stake == (550 - ed) + (450 - ed) + NOMINAL_VALUE + NOMINAL_VALUE
 		);
 
 		assert_current_contract!(
 			&validator.account_id,
 			&validator.account_id,
-			Some(Contract { stake: Stake { currency, .. }, .. }) if *currency == 550 - ed
+			Some(Contract { stake: Stake { currency, .. }, .. }) if currency == 550 - ed
 		);
 
 		assert_current_contract!(
 			&validator.account_id,
 			&delegator.account_id,
-			Some(Contract { stake: Stake { currency, .. }, .. }) if *currency == 450 - ed
+			Some(Contract { stake: Stake { currency, .. }, .. }) if currency == 450 - ed
 		);
 	});
 }
