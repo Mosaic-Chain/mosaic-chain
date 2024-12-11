@@ -2,6 +2,10 @@
 // Expect lints caused by procmacros
 #![expect(clippy::manual_inspect)]
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+pub mod weights;
+
 use sdk::{frame_support, frame_system, sp_arithmetic};
 
 use frame_support::{
@@ -28,9 +32,9 @@ use utils::{
 };
 
 pub use pallet::*;
+pub use weights::WeightInfo;
 
-// TODO: Once the pallet is ready turn off dev_mode
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -43,7 +47,8 @@ pub mod pallet {
 			+ Parameter
 			+ AtLeast32BitUnsigned
 			+ MaybeSerializeDeserialize
-			+ Default;
+			+ Default
+			+ MaxEncodedLen;
 
 		type Fungible: Inspect<Self::AccountId, Balance = Self::Balance> + Mutate<Self::AccountId>;
 
@@ -69,6 +74,8 @@ pub mod pallet {
 
 		#[pallet::constant]
 		type MaxPayouts: Get<u32>;
+
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -91,7 +98,7 @@ pub mod pallet {
 		FuseIsTripped,
 	}
 
-	#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
+	#[derive(Debug, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	pub struct Payout<BlockNumber, Balance> {
 		pub block: BlockNumber,
 		pub amount: Balance,
@@ -101,7 +108,7 @@ pub mod pallet {
 
 	pub type PayoutFor<T> = Payout<BlockNumberFor<T>, <T as Config>::Balance>;
 
-	#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo)]
+	#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	pub struct Score<BlockNumber> {
 		pub active: FixedU128,
 		pub passive: FixedU128,
@@ -192,7 +199,7 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo)]
+	#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	pub struct AccountData<BlockNumber> {
 		/// Account's base, active and passive score
 		pub score: Score<BlockNumber>,
@@ -205,7 +212,7 @@ pub mod pallet {
 
 	pub type AccountDataFor<T> = AccountData<BlockNumberFor<T>>;
 
-	#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo)]
+	#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	pub struct GlobalData<BlockNumber, Balance> {
 		/// The global base, active and passive score
 		pub score: Score<BlockNumber>,
@@ -279,6 +286,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::new_payout())]
 		pub fn new_payout(
 			origin: OriginFor<T>,
 			amount: T::Balance,
@@ -326,6 +334,8 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::reset_fuse())]
+
 		pub fn reset_fuse(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Fuse::<T>::put(false);
@@ -334,6 +344,8 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
+		#[pallet::weight(<T as Config>::WeightInfo::update_and_claim(4))]
+
 		pub fn update_and_claim(origin: OriginFor<T>) -> DispatchResult {
 			ensure_fuse!();
 			let who = ensure_signed(origin)?;
@@ -345,7 +357,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn pool_account() -> T::AccountId {
+		pub fn pool_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
 
@@ -445,7 +457,7 @@ pub mod pallet {
 			});
 		}
 
-		fn stake_action(account_id: &T::AccountId, amount: T::Balance) {
+		pub(super) fn stake_action(account_id: &T::AccountId, amount: T::Balance) {
 			let amount = T::BalanceToScore::convert(amount);
 			Self::on_action(account_id, |global, account, now| {
 				let activate_amount = if let Some(first_action) = account.first_action {
@@ -469,7 +481,7 @@ pub mod pallet {
 			});
 		}
 
-		fn unstake_action(account_id: &T::AccountId, amount: T::Balance) {
+		pub(super) fn unstake_action(account_id: &T::AccountId, amount: T::Balance) {
 			let amount = T::BalanceToScore::convert(amount);
 			Self::on_action(account_id, |global, account, now| {
 				// The first action must be a stake so we disregard this event and refrain from

@@ -30,12 +30,11 @@ use frame_support::{
 	BoundedVec, Parameter, Twox64Concat,
 };
 use frame_system::pallet_prelude::*;
-use sp_core::Get;
+use sp_core::{Get, MaxEncodedLen};
 
 use utils::traits::HoldVestingSchedule;
 
-// TODO: Once the pallet is ready turn off dev_mode
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -44,7 +43,11 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 		type RuntimeFreezeReason: From<FreezeReason> + VariantCount;
-		type Balance: Parameter + Copy + AtLeast32BitUnsigned + TryInto<BlockNumberFor<Self>>;
+		type Balance: Parameter
+			+ Copy
+			+ AtLeast32BitUnsigned
+			+ TryInto<BlockNumberFor<Self>>
+			+ MaxEncodedLen;
 
 		type Fungible: Inspect<Self::AccountId, Balance = Self::Balance>
 			+ InspectFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>

@@ -978,6 +978,7 @@ impl pallet_staking_incentive::Config for Runtime {
 	type BalanceToScore = BalanceToScore;
 	type PalletId = IncentivePalletId;
 	type MaxPayouts = ConstU32<16>;
+	type WeightInfo = pallet_staking_incentive::weights::SubstrateWeight<Self>;
 }
 
 // this is needed, otherwise fmt will remove the :: from ::<Instance1>
@@ -1118,6 +1119,7 @@ mod benches {
 		[pallet_airdrop, Airdrop]
 		[pallet_hold_vesting, HoldVesting]
 		[pallet_vesting_to_freeze, VestingToFreeze]
+		[pallet_staking_incentive, StakingIncentive]
 	);
 }
 
