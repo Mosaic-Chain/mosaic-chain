@@ -16,8 +16,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "mosaic-testnet-solo"
 depends = "ca-certificates"
 suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
+conflicts = "mosaic-testnet-solo-rc"
 assets = [
-	{ source = "../../chainspecs/testnet/*", dest = "opt/mosaic/chainspec", mode = "644" }
+  ["target/release/mosaic-testnet-solo", "usr/bin/", "755" ],
+	["../../chainspecs/testnet/*", "usr/share/mosaic-testnet-solo/chainspec", "644" ],
 ]
 
 [[bin]]
