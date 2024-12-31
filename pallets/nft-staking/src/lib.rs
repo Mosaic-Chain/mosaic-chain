@@ -125,6 +125,8 @@ pub mod pallet {
 		type MinimumStakingAmount: Get<Self::Balance>;
 		type MaximumStakePercentage: Get<Perbill>;
 		type MaximumContractsPerValidator: Get<u32>;
+		/// Not an enforced maximum, but we use it for weight estimation at the end of session
+		type MaximumBoundValidators: Get<u32>;
 
 		// Amount of **Tiles** to be rewarded in a given session.
 		type SessionReward: Get<u128>;
@@ -196,8 +198,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(_block_number: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			// TODO: consume some base value
-			let mut meter = WeightMeter::with_limit(remaining_weight);
+			let mut meter = WeightMeter::with_limit(
+				remaining_weight.saturating_sub(<T as Config>::WeightInfo::on_idle()),
+			);
 
 			SessionEndings::<T>::mutate(|endings| {
 				loop {

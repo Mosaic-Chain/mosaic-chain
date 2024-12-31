@@ -9,13 +9,12 @@ use scale_info::TypeInfo;
 use utils::traits::NftDelegation;
 
 use crate::{
-	types::{Contract, StorageLayer},
+	types::{Contract, StorageLayer, TotalValidatorStake},
+	weights::WeightInfo,
 	Config, Contracts, Pallet, TotalValidatorStakes, UnlockingCurrency, UnlockingDelegatorNfts,
 };
 
 use super::{Progress, Status};
-
-const DUMMY_WEIGHT: Weight = Weight::from_all(1);
 
 #[derive(TypeInfo, MaxEncodedLen, Encode, Decode)]
 #[scale_info(skip_type_params(T))]
@@ -42,6 +41,16 @@ impl<T: Config> Sweep<T> {
 		};
 
 		Contracts::<T>::set((StorageLayer::Committed, validator, delegator), maybe_contract);
+	}
+
+	pub(crate) fn commit_total_validator_stakes(
+		validator: &T::AccountId,
+		total_validator_stake: TotalValidatorStake<T::Balance>,
+	) {
+		TotalValidatorStakes::<T>::insert(
+			(StorageLayer::Committed, &validator),
+			total_validator_stake,
+		);
 	}
 
 	#[inline]
@@ -90,7 +99,10 @@ impl<T: Config> Progress for Sweep<T> {
 	) -> Status<Self> {
 		match self {
 			Self::RotateStagingLayers => {
-				if weight_meter.try_consume(DUMMY_WEIGHT).is_err() {
+				if weight_meter
+					.try_consume(<T as Config>::WeightInfo::rotate_staging_layer())
+					.is_err()
+				{
 					return Status::Stalled(Self::RotateStagingLayers);
 				}
 
@@ -102,7 +114,8 @@ impl<T: Config> Progress for Sweep<T> {
 				|l| Contracts::<T>::drain_prefix((l,)),
 				Status::Stalled(Self::CommitContracts),
 				Status::Resumable(Self::CommitTotalValidatorStakes),
-				DUMMY_WEIGHT,
+				<T as Config>::WeightInfo::commit_empty_contract()
+					.max(<T as Config>::WeightInfo::commit_full_contract()),
 				|((validator, delegator), contract)| {
 					Self::commit_contract(validator, delegator, contract)
 				},
@@ -112,12 +125,9 @@ impl<T: Config> Progress for Sweep<T> {
 				|l| TotalValidatorStakes::<T>::drain_prefix((l,)),
 				Status::Stalled(Self::CommitTotalValidatorStakes),
 				Status::Resumable(Self::UnlockCurrency),
-				DUMMY_WEIGHT,
+				<T as Config>::WeightInfo::commit_total_validator_stakes(),
 				|(validator, total_validator_stake)| {
-					TotalValidatorStakes::<T>::insert(
-						(StorageLayer::Committed, &validator),
-						total_validator_stake,
-					);
+					Self::commit_total_validator_stakes(&validator, total_validator_stake);
 				},
 			),
 			Self::UnlockCurrency => Self::drain_template(
@@ -125,7 +135,7 @@ impl<T: Config> Progress for Sweep<T> {
 				|_l| UnlockingCurrency::<T>::drain(),
 				Status::Stalled(Self::UnlockCurrency),
 				Status::Resumable(Self::UnlockDelegatorNfts),
-				DUMMY_WEIGHT,
+				<T as Config>::WeightInfo::unlock_currency(),
 				|(delegator, amount)| {
 					Pallet::<T>::unlock_currency(&delegator, amount);
 				},
@@ -135,7 +145,7 @@ impl<T: Config> Progress for Sweep<T> {
 				|_l| UnlockingDelegatorNfts::<T>::drain(),
 				Status::Stalled(Self::UnlockDelegatorNfts),
 				Status::Completed,
-				DUMMY_WEIGHT,
+				<T as Config>::WeightInfo::unlock_delegator_nft(),
 				|(item_id, delegator)| {
 					if let Err(e) = T::NftDelegationHandler::unbind(&delegator, &item_id) {
 						log::error!(

@@ -2,7 +2,7 @@ use sdk::{frame_support, sp_runtime, sp_std};
 
 use frame_support::{
 	traits::{fungible::BalancedHold, Imbalance},
-	weights::{Weight, WeightMeter},
+	weights::WeightMeter,
 };
 use sp_runtime::{
 	traits::{Get, Saturating, Zero},
@@ -16,13 +16,12 @@ use scale_info::TypeInfo;
 use utils::traits::{NftDelegation, NftStaking, StakingHooks};
 
 use crate::{
-	types::{ChillReason, Contract, StorageLayer, ValidatorState},
+	types::{ChillReason, Contract, StorageLayer, ValidatorState, MAX_NFTS_PER_CONTRACT},
+	weights::WeightInfo,
 	Config, Contracts, Event, HoldReason, Pallet, UnlockingCurrency, ValidatorStates,
 };
 
 use super::{Progress, Status};
-
-const DUMMY_WEIGHT: Weight = Weight::from_all(1);
 
 #[derive(TypeInfo, MaxEncodedLen, Encode, Decode)]
 #[scale_info(skip_type_params(T))]
@@ -40,8 +39,8 @@ pub enum Sweep<T: Config> {
 #[derive(TypeInfo, MaxEncodedLen, Encode, Decode)]
 #[scale_info(skip_type_params(T))]
 pub struct OffenderContext<T: Config> {
-	offender: T::AccountId,
-	slash: Perbill,
+	pub offender: T::AccountId,
+	pub slash: Perbill,
 }
 
 #[derive(TypeInfo, MaxEncodedLen, Encode, Decode)]
@@ -92,7 +91,6 @@ impl<T: Config> Progress for Sweep<T> {
 	}
 }
 
-// TODO: benchmark these
 impl<T: Config> SlashOffender<T> {
 	pub(crate) fn chill_if_faulted(offender: &T::AccountId) {
 		// Autochill after two consecutive slashes
@@ -109,7 +107,7 @@ impl<T: Config> SlashOffender<T> {
 
 	pub(crate) fn slash_contract(
 		delegator: T::AccountId,
-		committed_contract: Contract<T::Balance, T::ItemId>,
+		committed_contract: &Contract<T::Balance, T::ItemId>,
 		context: &mut <Self as Progress>::Context,
 	) {
 		let mut new_contract = Pallet::<T>::current_staged_contract(&context.offender, &delegator)
@@ -218,7 +216,7 @@ impl<T: Config> SlashOffender<T> {
 		Pallet::<T>::shrink_total_validator_stake_by(&context.offender, total_stake_slash);
 	}
 
-	fn chill_if_disqualified(validator: &T::AccountId) {
+	pub(crate) fn chill_if_disqualified(validator: &T::AccountId) {
 		// If slashed below some% autochill
 		if T::NftStakingHandler::nominal_factor_of_bound(validator)
 			.expect("could get nominal factor")
@@ -241,7 +239,8 @@ impl<T: Config> Progress for SlashOffender<T> {
 	) -> Status<Self> {
 		match self {
 			Self::MaybeChill => {
-				if weight_meter.try_consume(DUMMY_WEIGHT).is_err() {
+				if weight_meter.try_consume(<T as Config>::WeightInfo::chill_if_faulted()).is_err()
+				{
 					return Status::Stalled(Self::MaybeChill);
 				}
 
@@ -273,11 +272,17 @@ impl<T: Config> Progress for SlashOffender<T> {
 						return Status::Completed;
 					};
 
-					if weight_meter.try_consume(DUMMY_WEIGHT).is_err() {
+					if weight_meter
+						.try_consume(
+							<T as Config>::WeightInfo::slash_contract(MAX_NFTS_PER_CONTRACT)
+								+ <T as Config>::WeightInfo::chill_if_disqualified(),
+						)
+						.is_err()
+					{
 						return Status::Stalled(Self::IterContracts { prev_delegator });
 					}
 
-					Self::slash_contract(delegator.clone(), contract, context);
+					Self::slash_contract(delegator.clone(), &contract, context);
 
 					prev_delegator = Some(delegator);
 				}

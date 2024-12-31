@@ -136,7 +136,20 @@ impl<Balance: Default + Codec, ItemId: Codec> Default for Contract<Balance, Item
 	}
 }
 
-#[derive(Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+)]
 pub enum ValidatorState {
 	/// No issue with the validator
 	Normal,

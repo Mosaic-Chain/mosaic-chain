@@ -94,6 +94,7 @@ parameter_types! {
 	pub const NominalValueThreshold: Perbill = Perbill::from_percent(80);
 	pub const MaximumStakePercentage: Perbill = Perbill::from_percent(15);
 	pub const MaximumContractsPerValidator: u32 = 1000;
+	pub const MaximumBoundValidators: u32 = 4000;
 	pub const SlackingPeriod: u32 = 5;
 	pub const ContributionPercentage: Perbill = Perbill::from_percent(20);
 }
@@ -142,6 +143,7 @@ impl pallet_nft_staking::Config for Test {
 	type MinimumStakingAmount = MinimumStakingAmount;
 	type MaximumStakePercentage = MaximumStakePercentage;
 	type MaximumContractsPerValidator = MaximumContractsPerValidator;
+	type MaximumBoundValidators = MaximumBoundValidators;
 	type SessionReward = SessionRewardInstance;
 	type Hooks = ();
 	type OffenderToValidatorId = ConvertInto;

@@ -2,7 +2,7 @@ use sdk::{frame_support, sp_runtime, sp_std};
 
 use frame_support::{
 	traits::{fungible::Balanced, tokens::Precision, Imbalance, OnUnbalanced},
-	weights::{Weight, WeightMeter},
+	weights::WeightMeter,
 };
 use sp_runtime::{
 	helpers_128bit::multiply_by_rational_with_rounding,
@@ -17,13 +17,12 @@ use scale_info::TypeInfo;
 use utils::traits::StakingHooks;
 
 use crate::{
-	types::{Contract, StorageLayer, ValidatorState},
+	types::{Contract, StorageLayer, ValidatorState, MAX_NFTS_PER_CONTRACT},
+	weights::WeightInfo,
 	Config, Contracts, Event, Pallet, TotalValidatorStakes, ValidatorStates,
 };
 
 use super::{Progress, Status};
-
-const DUMMY_WEIGHT: Weight = Weight::from_all(1);
 
 #[derive(TypeInfo, MaxEncodedLen, Encode, Decode)]
 #[scale_info(skip_type_params(T))]
@@ -43,10 +42,10 @@ pub enum Sweep<T: Config> {
 #[derive(TypeInfo, MaxEncodedLen, Encode, Decode)]
 #[scale_info(skip_type_params(T))]
 pub struct ValidatorContext<T: Config> {
-	validator: T::AccountId,
-	total_committed_stake: u128,
-	session_reward: u128,
-	total_contribution: T::Balance,
+	pub validator: T::AccountId,
+	pub total_committed_stake: u128,
+	pub session_reward: u128,
+	pub total_contribution: T::Balance,
 }
 
 #[derive(TypeInfo, MaxEncodedLen, Encode, Decode)]
@@ -58,7 +57,6 @@ pub enum RewardValidator<T: Config> {
 	DepositValidatorReward { total_v_imbalance: T::Balance },
 }
 
-// TODO: benchmark these
 impl<T: Config> Sweep<T> {
 	pub(crate) fn total_committed_stake() -> T::Balance {
 		TotalValidatorStakes::<T>::iter_prefix((StorageLayer::Committed,))
@@ -82,7 +80,10 @@ impl<T: Config> Progress for Sweep<T> {
 	) -> Status<Self> {
 		match self {
 			Self::CalculateTotalStake => {
-				if !weight_meter.can_consume(DUMMY_WEIGHT) {
+				let weight = <T as Config>::WeightInfo::total_committed_stake(
+					T::MaximumBoundValidators::get(),
+				);
+				if !weight_meter.can_consume(weight) {
 					return Status::Stalled(Self::CalculateTotalStake);
 				};
 
@@ -90,7 +91,7 @@ impl<T: Config> Progress for Sweep<T> {
 					return Status::Completed;
 				};
 
-				weight_meter.consume(DUMMY_WEIGHT);
+				weight_meter.consume(weight);
 
 				let total_committed_stake = Self::total_committed_stake().into();
 
@@ -129,7 +130,10 @@ impl<T: Config> Progress for Sweep<T> {
 				}
 			},
 			Self::DepositContribution { total_contribution } => {
-				if weight_meter.try_consume(DUMMY_WEIGHT).is_err() {
+				if weight_meter
+					.try_consume(<T as Config>::WeightInfo::deposit_contribution())
+					.is_err()
+				{
 					return Status::Stalled(Self::DepositContribution { total_contribution });
 				};
 
@@ -147,7 +151,6 @@ struct ContractReward<Balance> {
 	pub contribution: Balance,
 }
 
-// TODO: benchmark these
 impl<T: Config> RewardValidator<T> {
 	/// Set validator state to `Normal` if it's now `Faulted`
 	pub(crate) fn maybe_reset_validator_state(validator: &T::AccountId) {
@@ -189,14 +192,14 @@ impl<T: Config> RewardValidator<T> {
 	/// Returns the new validator imbalance.
 	pub(crate) fn reward_contract(
 		delegator: T::AccountId,
-		contract: Contract<T::Balance, T::ItemId>,
+		contract: &Contract<T::Balance, T::ItemId>,
 		mut total_v_imbalance: T::Balance,
 		context: &mut <Self as Progress>::Context,
 	) -> T::Balance {
 		let reward = Self::calculate_contract_reward(
 			context.total_committed_stake,
 			context.session_reward,
-			&contract,
+			contract,
 		);
 
 		context.total_contribution.saturating_accrue(reward.contribution);
@@ -280,7 +283,10 @@ impl<T: Config> Progress for RewardValidator<T> {
 	) -> Status<Self> {
 		match self {
 			Self::MaybeResetValidatorState => {
-				if weight_meter.try_consume(DUMMY_WEIGHT).is_err() {
+				if weight_meter
+					.try_consume(<T as Config>::WeightInfo::maybe_reset_validator_state())
+					.is_err()
+				{
 					return Status::Stalled(Self::MaybeResetValidatorState);
 				}
 
@@ -320,7 +326,12 @@ impl<T: Config> Progress for RewardValidator<T> {
 						});
 					};
 
-					if weight_meter.try_consume(DUMMY_WEIGHT).is_err() {
+					if weight_meter
+						.try_consume(<T as Config>::WeightInfo::reward_contract(
+							MAX_NFTS_PER_CONTRACT,
+						))
+						.is_err()
+					{
 						return Status::Stalled(Self::IterContracts {
 							prev_delegator,
 							total_v_imbalance,
@@ -329,7 +340,7 @@ impl<T: Config> Progress for RewardValidator<T> {
 
 					total_v_imbalance = Self::reward_contract(
 						delegator.clone(),
-						contract,
+						&contract,
 						total_v_imbalance,
 						context,
 					);
@@ -338,7 +349,10 @@ impl<T: Config> Progress for RewardValidator<T> {
 				}
 			},
 			Self::DepositValidatorReward { total_v_imbalance } => {
-				if weight_meter.try_consume(DUMMY_WEIGHT).is_err() {
+				if weight_meter
+					.try_consume(<T as Config>::WeightInfo::deposit_validator_reward())
+					.is_err()
+				{
 					return Status::Stalled(Self::DepositValidatorReward { total_v_imbalance });
 				}
 

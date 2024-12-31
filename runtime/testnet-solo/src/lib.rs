@@ -439,6 +439,7 @@ impl pallet_nft_staking::Config for Runtime {
 
 	type SessionReward = staking_reward::SessionReward;
 	type MaximumContractsPerValidator = ConstU32<1000>;
+	type MaximumBoundValidators = ConstU32<4000>;
 	type ContributionPercentage = params::dynamic::nft_staking::ContributionPercentage;
 	type ContributionDestination = Treasury;
 	type Hooks = StakingIncentive;
