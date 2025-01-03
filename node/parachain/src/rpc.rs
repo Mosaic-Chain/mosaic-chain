@@ -12,7 +12,7 @@ use sdk::{
 	sp_blockchain, substrate_frame_rpc_system,
 };
 
-use parachain_template_runtime::{opaque::Block, AccountId, Balance, Nonce};
+use mosaic_chain_runtime::{opaque::Block, AccountId, Balance, Nonce};
 
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;

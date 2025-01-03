@@ -63,7 +63,7 @@ delegate = { version = "0.13.1" }
 
 # Local
 mosaic-testnet-solo-runtime = { default-features = false, path = "runtime/testnet-solo" }
-parachain-template-runtime = { default-features = false, path = "runtime/parachain" }
+mosaic-chain-runtime = { default-features = false, path = "runtime/parachain" }
 pallet-doas = { default-features = false, path = "pallets/doas" }
 pallet-nft-staking = { default-features = false, path = "pallets/nft-staking" }
 pallet-nft-delegation = { default-features = false, path = "pallets/nft-delegation" }

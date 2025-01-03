@@ -1,4 +1,4 @@
-//! Substrate Node Template CLI library.
+//! Mosaic Testnet Node CLI.
 #![warn(missing_docs)]
 
 #[macro_use]

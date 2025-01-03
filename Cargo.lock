@@ -6427,12 +6427,26 @@ dependencies = [
  "futures",
  "jsonrpsee",
  "log",
- "parachain-template-runtime",
+ "mosaic-chain-runtime",
  "polkadot-sdk",
  "runtime-generator",
  "sc-tracing",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "mosaic-chain-runtime"
+version = "0.2.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "log",
+ "pallet-doas",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "smallvec",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -9055,20 +9069,6 @@ dependencies = [
  "sp-std",
  "staging-xcm",
  "staging-xcm-builder",
-]
-
-[[package]]
-name = "parachain-template-runtime"
-version = "0.1.0"
-dependencies = [
- "cumulus-pallet-parachain-system",
- "log",
- "pallet-doas",
- "parity-scale-codec",
- "polkadot-sdk",
- "scale-info",
- "smallvec",
- "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -12181,13 +12181,13 @@ dependencies = [
  "hex-literal",
  "inventory",
  "log",
+ "mosaic-chain-runtime",
  "mosaic-testnet-solo-runtime",
  "pallet-airdrop",
  "pallet-im-online 27.0.0",
  "pallet-nft-permission",
  "pallet-nft-staking",
  "pallet-staking-incentive",
- "parachain-template-runtime",
  "polkadot-sdk",
  "serde",
  "serde_json",

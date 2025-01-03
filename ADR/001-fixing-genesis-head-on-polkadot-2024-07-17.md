@@ -85,13 +85,13 @@ cargo b -r
 Now generate a test chainspec:
 
 ```sh
-./target/release/parachain-template-node build-spec --chain live > plain.json  
+./target/release/mosaic-chain-node build-spec --chain live > plain.json  
 ```
 
 Generate control raw spec:
 
 ```sh
-./target/release/parachain-template-node build-spec --chain plain.json --raw > control.json
+./target/release/mosaic-chain-node build-spec --chain plain.json --raw > control.json
 ```
 
 Now change `plain.json`:
@@ -117,7 +117,7 @@ to
 Now generate new raw chainspec:
 
 ```sh
-./target/release/parachain-template-node build-spec --chain plain.json --raw > modified.json  
+./target/release/mosaic-chain-node build-spec --chain plain.json --raw > modified.json  
 ```
 
 Comparing two raw chainspecs:
@@ -157,7 +157,7 @@ In the genesis section:
 Now a new genesis-state can be built using the modified raw chainspec:
 
 ```sh
-./target/release/parachain-template-node export-genesis-head --chain live-raw.json > genesis-state
+./target/release/mosaic-chain-node export-genesis-head --chain live-raw.json > genesis-state
 ```
 
 _NOTE: this chainspec is the one that nodes must use on our mainnet._
@@ -184,21 +184,21 @@ chainspec start producing blocks and these blocks are finalized.
 
 1. **checkout the `mosaic-mainnet-runtime-v100` tag of mosaic-chain**
   - `git checkout tags/mosaic-mainnet-runtime-v100`
-2. compile `parachain-template-node` in release mode
-  - `cargo b -r -p parachain-template-node`
+2. compile `mosaic-chain-node` in release mode
+  - `cargo b -r -p mosaic-chain-node`
 3. **produce local plain chainspec**
-  - `./target/release/parachain-template-node build-spec --chain local > test-plain.json`
+  - `./target/release/mosaic-chain-node build-spec --chain local > test-plain.json`
 4. **produce correct raw chainspec and genesis state**
-  - `./target/release/parachain-template-node build-spec --chain test-plain.json --raw > test-correct.json`
-  - `./target/release/parachain-template-node export-genesis-head --chain test-correct.json > test-correct-head`
+  - `./target/release/mosaic-chain-node build-spec --chain test-plain.json --raw > test-correct.json`
+  - `./target/release/mosaic-chain-node export-genesis-head --chain test-correct.json > test-correct-head`
 5. **produce incorrect raw chainspec and genesis state**
   - edit `test-plain.json` "parachainInfo": { "parachainId": 2001 }
   - (client options can be edited too, but not necessary)
-  - `./target/release/parachain-template-node build-spec --chain test-plain.json --raw > test-incorrect.json`
-  - `./target/release/parachain-template-node export-genesis-head --chain test-incorrect.json > test-incorrect-head`
+  - `./target/release/mosaic-chain-node build-spec --chain test-plain.json --raw > test-incorrect.json`
+  - `./target/release/mosaic-chain-node export-genesis-head --chain test-incorrect.json > test-incorrect-head`
   - (notice that the only difference between `test-correct-head` and `test-incorrect-head` is one storage entry)
 6. **generate genesis-wasm**
-  - `./target/release/parachain-template-node export-genesis-wasm --chain test-correct.json > test-wasm`
+  - `./target/release/mosaic-chain-node export-genesis-wasm --chain test-correct.json > test-wasm`
 7. **compile `paseo-runtimes` in release mode with the `fast-runtime` feature turned on.**
   - `cargo b -r -F fast-runtime`
 8. **generate relay chainspec**

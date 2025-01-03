@@ -17,9 +17,7 @@ use crate::{
 use anyhow::Context;
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use parachain_template_runtime::{
-	RuntimeGenesisConfig, SS58Prefix, SessionKeys, EXISTENTIAL_DEPOSIT,
-};
+use mosaic_chain_runtime::{RuntimeGenesisConfig, SS58Prefix, SessionKeys, EXISTENTIAL_DEPOSIT};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -49,7 +47,7 @@ fn build_runtime(
 	extra_opts: Option<&str>,
 ) -> anyhow::Result<Vec<u8>> {
 	let opts = format!("-F build-wasm {}", extra_opts.unwrap_or_default());
-	builder.build("parachain-template-runtime", Some(&opts))
+	builder.build("mosaic-chain-runtime", Some(&opts))
 }
 
 pub fn local_config(

@@ -40,7 +40,7 @@ serde_json = { workspace = true }
 color-print = { workspace = true }
 
 # Local
-parachain-template-runtime = { workspace = true }
+mosaic-chain-runtime = { workspace = true }
 
 # TODO: once procmacros are compatible with umbrella crate remove this
 sc-tracing = { workspace = true }
@@ -97,15 +97,15 @@ runtime-generator = { workspace = true, features = ["para-chain"], optional = tr
 default = [ "std" ]
 dev-spec = [ "dep:runtime-generator" ]
 
-std = [ "parachain-template-runtime/std", "runtime-generator?/std", "sdk/std" ]
+std = [ "mosaic-chain-runtime/std", "runtime-generator?/std", "sdk/std" ]
 
 runtime-benchmarks = [
-	"parachain-template-runtime/runtime-benchmarks",
+	"mosaic-chain-runtime/runtime-benchmarks",
 	"runtime-generator?/runtime-benchmarks",
 	"sdk/runtime-benchmarks",
 ]
 try-runtime = [
-	"parachain-template-runtime/try-runtime",
+	"mosaic-chain-runtime/try-runtime",
 	"runtime-generator?/try-runtime",
 	"sdk/try-runtime",
 ]

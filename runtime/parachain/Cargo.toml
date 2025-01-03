@@ -1,7 +1,7 @@
 [package]
-name = "parachain-template-runtime"
-version = "0.1.0"
-description = "Parachain runtime template"
+name = "mosaic-chain-runtime"
+version.workspace = true
+description = "Mosaic Chain runtime"
 repository.workspace = true
 edition.workspace = true
 publish = false

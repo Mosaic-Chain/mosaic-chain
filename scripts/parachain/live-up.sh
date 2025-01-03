@@ -7,7 +7,7 @@ if [[ $# -eq 0 ]]; then
 fi
 
 RELAY_SPEC="$1"
-NODE="./target/release/parachain-template-node"
+NODE="./target/release/mosaic-chain-node"
 
 
 if [ ! -f $RELAY_SPEC ]; then
