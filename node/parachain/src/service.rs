@@ -8,10 +8,7 @@ use std::{sync::Arc, time::Duration};
 
 use cumulus_client_cli::CollatorOptions;
 // Local Runtime Types
-use mosaic_chain_runtime::{
-	opaque::{Block, Hash},
-	RuntimeApi,
-};
+use mosaic_chain_runtime::{opaque::Block, Hash, RuntimeApi};
 
 // Cumulus Imports
 use cumulus_client_collator::service::CollatorService;

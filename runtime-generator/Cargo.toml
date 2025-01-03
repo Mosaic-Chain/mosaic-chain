@@ -54,6 +54,7 @@ solo-chain = [
 ]
 para-chain = [
 	"dep:mosaic-chain-runtime",
+	"dep:pallet-im-online",
 	"sdk/cumulus-primitives-core",
 	"sdk/pallet-collator-selection",
 	"sdk/pallet-xcm",

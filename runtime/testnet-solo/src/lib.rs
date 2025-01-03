@@ -77,16 +77,26 @@ pub use params::{
 use utils::SessionIndex;
 
 #[cfg(test)]
+#[path = "../../parachain/src/mock.rs"]
 mod mock;
 
 #[cfg(test)]
+#[path = "../../parachain/src/tests.rs"]
 mod tests;
 
+#[path = "../../parachain/src/charge_transaction.rs"]
 mod charge_transaction;
+
+#[path = "../../parachain/src/params.rs"]
 mod params;
 
+#[path = "../../parachain/src/collectives.rs"]
 pub mod collectives;
+
+#[path = "../../parachain/src/funds.rs"]
 pub mod funds;
+
+#[path = "../../parachain/src/staking_reward.rs"]
 pub mod staking_reward;
 
 /// An index to a block.

@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use sdk::{
-	cumulus_primitives_core, pallet_balances, pallet_collator_selection, pallet_membership,
-	pallet_session, pallet_xcm, sc_chain_spec, sc_service, sp_consensus_aura, sp_core,
+	cumulus_primitives_core, pallet_balances, pallet_membership, pallet_session, pallet_xcm,
+	sc_chain_spec, sc_service, sp_consensus_aura, sp_core,
 	staging_parachain_info as parachain_info, staging_xcm,
 };
 
@@ -17,7 +17,8 @@ use crate::{
 use anyhow::Context;
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use mosaic_chain_runtime::{RuntimeGenesisConfig, SS58Prefix, SessionKeys, EXISTENTIAL_DEPOSIT};
+use mosaic_chain_runtime::{opaque::SessionKeys, RuntimeGenesisConfig, SS58Prefix};
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -62,8 +63,13 @@ pub fn local_config(
 			(
 				public_from_seed::<sr25519::Public>("Alice").into(),
 				public_from_seed::<AuraId>("Alice"),
+				public_from_seed::<ImOnlineId>("Alice"),
 			),
-			(public_from_seed::<sr25519::Public>("Bob").into(), public_from_seed::<AuraId>("Bob")),
+			(
+				public_from_seed::<sr25519::Public>("Bob").into(),
+				public_from_seed::<AuraId>("Bob"),
+				public_from_seed::<ImOnlineId>("Bob"),
+			),
 		],
 		testnet_accounts(),
 		para_id.into(),
@@ -96,11 +102,19 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 					"c09b26e7a448f367fe51012fb697ee1a7d3735b1915ba2b3e3c1371686bd797d"
 				))
 				.expect("Constant value is correct"),
+				ImOnlineId::from_slice(&hex!(
+					"c09b26e7a448f367fe51012fb697ee1a7d3735b1915ba2b3e3c1371686bd797d" // FIXME: generate different key
+				))
+				.expect("Constant value is correct"),
 			),
 			(
 				accounts[1].clone(),
 				AuraId::from_slice(&hex!(
 					"e28984679daf4acb81cf7d5f6f18e6742beb94ae4535e80450a2db9ecfde2243"
+				))
+				.expect("Constant value is correct"),
+				ImOnlineId::from_slice(&hex!(
+					"e28984679daf4acb81cf7d5f6f18e6742beb94ae4535e80450a2db9ecfde2243" // FIXME: generate different key
 				))
 				.expect("Constant value is correct"),
 			),
@@ -122,7 +136,7 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 }
 
 fn genesis(
-	invulnerables: Vec<(AccountId, AuraId)>,
+	invulnerables: Vec<(AccountId, AuraId, ImOnlineId)>,
 	endowed_accounts: Vec<AccountId>,
 	para_id: ParaId,
 ) -> anyhow::Result<serde_json::Value> {
@@ -136,27 +150,21 @@ fn genesis(
 			.collect(),
 	};
 
-	let council_collective_membership = pallet_membership::GenesisConfig {
+	let council_membership = pallet_membership::GenesisConfig {
 		members: invulnerables
 			.iter()
 			.cloned()
-			.map(|(acc, _)| acc)
+			.map(|(acc, _, _)| acc)
 			.collect::<Vec<_>>()
 			.try_into()
 			.expect("members are fewer than MaxMembers"),
 		phantom: PhantomData,
 	};
 
-	let collator_selection = pallet_collator_selection::GenesisConfig {
-		invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-		candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
-		desired_candidates: 0,
-	};
-
 	let session = pallet_session::GenesisConfig {
 		keys: invulnerables
 			.into_iter()
-			.map(|(acc, aura)| (acc.clone(), acc, SessionKeys { aura }))
+			.map(|(acc, aura, im_online)| (acc.clone(), acc, SessionKeys { aura, im_online }))
 			.collect(),
 		..Default::default()
 	};
@@ -169,8 +177,7 @@ fn genesis(
 	let genesis_config = RuntimeGenesisConfig {
 		parachain_info,
 		balances,
-		council_collective_membership,
-		collator_selection,
+		council_membership,
 		session,
 		polkadot_xcm,
 		..Default::default()

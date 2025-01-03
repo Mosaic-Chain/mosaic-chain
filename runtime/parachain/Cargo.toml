@@ -13,43 +13,54 @@ log = { workspace = true, default-features = false }
 scale-info = { workspace = true, features = ["derive"] }
 
 sdk = { workspace = true, features = [
-	"frame-benchmarking",
 	"frame-executive",
 	"frame-support",
 	"frame-system",
+	"frame-try-runtime",
+	"frame-benchmarking",
 	"frame-system-benchmarking",
 	"frame-system-rpc-runtime-api",
-	"frame-try-runtime",
+	"pallet-collective",
+	"pallet-membership",
+	"pallet-preimage",
+	"pallet-scheduler",
+	"pallet-assets",
 	"pallet-aura",
 	"pallet-authorship",
 	"pallet-balances",
-	"pallet-message-queue",
+	"pallet-identity",
+	"pallet-multisig",
+	"pallet-nfts",
+	"pallet-offences",
+	"pallet-proxy",
+	"pallet-recovery",
 	"pallet-session",
 	"pallet-timestamp",
 	"pallet-transaction-payment",
-	"pallet-transaction-payment-rpc-runtime-api",
-	"pallet-proxy",
-	"pallet-multisig",
-	"pallet-membership",
-	"pallet-collective",
+	"pallet-utility",
+	"pallet-parameters",
+	"pallet-message-queue",
+	"pallet-xcm",
+	"pallet-collator-selection",
 	"sp-api",
 	"sp-block-builder",
 	"sp-consensus-aura",
 	"sp-core",
-	"sp-genesis-builder",
 	"sp-inherents",
 	"sp-offchain",
 	"sp-runtime",
 	"sp-session",
+	"sp-staking",
 	"sp-std",
+	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
-	"pallet-xcm",
-	"polkadot-parachain-primitives",
+	"sp-genesis-builder",
+	"pallet-transaction-payment-rpc-runtime-api",
 	"staging-xcm",
-	"polkadot-runtime-common",
 	"staging-xcm-builder",
 	"staging-xcm-executor",
+	"staging-parachain-info",
 	"cumulus-pallet-session-benchmarking",
 	"cumulus-pallet-xcm",
 	"cumulus-pallet-xcmp-queue",
@@ -58,19 +69,34 @@ sdk = { workspace = true, features = [
 	"cumulus-primitives-utility",
 	"cumulus-pallet-aura-ext",
 	"cumulus-primitives-storage-weight-reclaim",
-	"pallet-collator-selection",
+	"polkadot-parachain-primitives",
+	"polkadot-runtime-common",
 	"parachains-common",
-	"staging-parachain-info"
 ]}
 
 # TODO: once procmacros are compatible with umbrella crate remove this
 cumulus-pallet-parachain-system = { workspace = true }
 
 # Local
-pallet-doas = { workspace = true, default-features = false }
+pallet-doas = { workspace = true }
+pallet-nft-delegation = { workspace = true }
+pallet-nft-permission = { workspace = true }
+pallet-nft-staking = { workspace = true }
+pallet-validator-subset-selection = { workspace = true }
+pallet-im-online = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-hold-vesting = { workspace = true }
+pallet-airdrop = { workspace = true }
+pallet-vesting-to-freeze = { workspace = true }
+pallet-staking-incentive = { workspace = true }
+pallet-extra-fungible-events = { workspace = true }
+utils = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
+
+[dev-dependencies]
+sdk = { workspace = true, features = ["sp-io"] }
 
 [features]
 default = [ "std" ]
@@ -83,19 +109,54 @@ std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"log/std",
+	"pallet-airdrop/std",
 	"pallet-doas/std",
+	"pallet-extra-fungible-events/std",
+	"pallet-hold-vesting/std",
+	"pallet-im-online/std",
+	"pallet-nft-delegation/std",
+	"pallet-nft-permission/std",
+	"pallet-nft-staking/std",
+	"pallet-staking-incentive/std",
+	"pallet-treasury/std",
+	"pallet-validator-subset-selection/std",
+	"pallet-vesting-to-freeze/std",
 	"scale-info/std",
 	"sdk/std",
+	"utils/std",
 ]
 
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"pallet-airdrop/runtime-benchmarks",
 	"pallet-doas/runtime-benchmarks",
+	"pallet-extra-fungible-events/runtime-benchmarks",
+	"pallet-hold-vesting/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-nft-delegation/runtime-benchmarks",
+	"pallet-nft-permission/runtime-benchmarks",
+	"pallet-nft-staking/runtime-benchmarks",
+	"pallet-staking-incentive/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"pallet-validator-subset-selection/runtime-benchmarks",
+	"pallet-vesting-to-freeze/runtime-benchmarks",
 	"sdk/runtime-benchmarks",
+	"utils/runtime-benchmarks",
 ]
 
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",
+	"pallet-airdrop/try-runtime",
 	"pallet-doas/try-runtime",
+	"pallet-extra-fungible-events/try-runtime",
+	"pallet-hold-vesting/try-runtime",
+	"pallet-im-online/try-runtime",
+	"pallet-nft-delegation/try-runtime",
+	"pallet-nft-permission/try-runtime",
+	"pallet-nft-staking/try-runtime",
+	"pallet-staking-incentive/try-runtime",
+	"pallet-treasury/try-runtime",
+	"pallet-validator-subset-selection/try-runtime",
+	"pallet-vesting-to-freeze/try-runtime",
 	"sdk/try-runtime",
 ]

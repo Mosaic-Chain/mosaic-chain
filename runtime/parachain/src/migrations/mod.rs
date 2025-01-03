@@ -3,7 +3,7 @@ pub mod v101 {
 
 	use sdk::{frame_support, pallet_balances, pallet_membership, sp_core, sp_runtime, sp_std};
 
-	use crate::{AccountId, CouncilMembership, Runtime};
+	use crate::{AccountId, Runtime};
 
 	use frame_support::{
 		pallet_prelude::BuildGenesisConfig, traits::OnRuntimeUpgrade, weights::Weight,
@@ -23,6 +23,7 @@ pub mod v101 {
 		AccountId::from(data)
 	}
 
+	// FIXME: add other pallets as well
 	pub struct MigrateV100ToV101<Runtime>(PhantomData<Runtime>);
 
 	impl MigrateV100ToV101<Runtime> {
@@ -88,7 +89,10 @@ pub mod v101 {
 
 	impl OnRuntimeUpgrade for MigrateV100ToV101<Runtime> {
 		fn on_runtime_upgrade() -> Weight {
-			pallet_membership::GenesisConfig::<Runtime, CouncilMembership> {
+			pallet_membership::GenesisConfig::<
+				Runtime,
+				crate::collectives::council::MembershipInstance,
+			> {
 				members: Self::council_members(),
 				..Default::default()
 			}

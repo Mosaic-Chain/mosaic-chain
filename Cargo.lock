@@ -6441,12 +6441,24 @@ version = "0.2.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "log",
+ "pallet-airdrop",
  "pallet-doas",
+ "pallet-extra-fungible-events",
+ "pallet-hold-vesting",
+ "pallet-im-online 27.0.0",
+ "pallet-nft-delegation",
+ "pallet-nft-permission",
+ "pallet-nft-staking",
+ "pallet-staking-incentive",
+ "pallet-treasury 27.0.0",
+ "pallet-validator-subset-selection",
+ "pallet-vesting-to-freeze",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
  "smallvec",
  "substrate-wasm-builder",
+ "utils",
 ]
 
 [[package]]
