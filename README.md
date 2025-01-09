@@ -36,6 +36,8 @@ For compilation / testing:
 - `librocksdb`
 - `cargo-nextest`
 - `zepter` (<https://github.com/ggwpez/zepter>)
+- `zombienet` (<https://github.com/paritytech/zombienet>)
+- `polkadot` (<https://github.com/paritytech/polkadot-sdk>)
 
 For packaging:
 
@@ -46,8 +48,8 @@ For packaging:
 NOTE: cargo-deb, cargo-nextest and zepter can be installed with `cargo install` if
 they are not available in your package manager.
 
-A `shell.nix` file is also included using which a complete development environment can be spawned.
-It also serves as a complete list of dependencies together with `toolchain.toml`
+A `flake.nix` file is also included using which a complete development environment can be spawned.
+It also serves as a complete list of dependencies together with `toolchain.toml`.
 
 ### Setup git hooks
 
