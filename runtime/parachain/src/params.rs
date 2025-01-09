@@ -240,7 +240,8 @@ pub mod dynamic {
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
-		pub static Burn: Permill = Permill::from_percent(1);
+		pub static Burn: Permill =
+			prod_or_fast!(Permill::from_percent(1), Permill::from_perthousand(1));
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
@@ -269,7 +270,8 @@ pub mod dynamic {
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
-		pub static Burn: Permill = Permill::from_percent(1);
+		pub static Burn: Permill =
+			prod_or_fast!(Permill::from_percent(1), Permill::from_perthousand(1));
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
@@ -298,7 +300,8 @@ pub mod dynamic {
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
-		pub static Burn: Permill = Permill::from_percent(1);
+		pub static Burn: Permill =
+			prod_or_fast!(Permill::from_percent(1), Permill::from_perthousand(1));
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
@@ -327,7 +330,8 @@ pub mod dynamic {
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
-		pub static Burn: Permill = Permill::from_percent(1);
+		pub static Burn: Permill =
+			prod_or_fast!(Permill::from_percent(1), Permill::from_perthousand(1));
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
@@ -356,7 +360,8 @@ pub mod dynamic {
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
-		pub static Burn: Permill = Permill::from_percent(1);
+		pub static Burn: Permill =
+			prod_or_fast!(Permill::from_percent(1), Permill::from_perthousand(1));
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
@@ -385,7 +390,8 @@ pub mod dynamic {
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
-		pub static Burn: Permill = Permill::from_percent(1);
+		pub static Burn: Permill =
+			prod_or_fast!(Permill::from_percent(1), Permill::from_perthousand(1));
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]
@@ -414,7 +420,8 @@ pub mod dynamic {
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[codec(index = 4)]
-		pub static Burn: Permill = Permill::from_percent(1);
+		pub static Burn: Permill =
+			prod_or_fast!(Permill::from_percent(1), Permill::from_perthousand(1));
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[codec(index = 5)]

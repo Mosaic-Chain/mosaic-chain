@@ -5,7 +5,7 @@ set -e
 if [ -z "$1" ]; then echo "Please provide a chainspec file" && exit 1; fi
 
 CHAIN="$1"
-NODE="./target/release/mosaic-chain-node"
+NODE="./target/release/mosaic-chain"
 
 if [ ! -f $NODE ]; then
   >&2 echo "Please compile parachain node in release mode!"
