@@ -832,7 +832,7 @@ impl Offence<IdTuple> for ImOnlineOffenceAdapter {
 	}
 
 	fn slash_fraction(&self, _offenders: u32) -> Perbill {
-		Perbill::from_percent(1)
+		params::dynamic::token_generation::SlashFraction::get()
 	}
 }
 

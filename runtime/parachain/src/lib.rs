@@ -180,7 +180,8 @@ parameter_types! {
 		);
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
 		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
-	pub const SS58Prefix: u16 = 14998;
+
+	pub const SS58Prefix: u16 = if cfg!(feature = "local") || cfg!(feature = "devnet") { 42 } else { 14998 };
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -821,7 +822,7 @@ impl Offence<IdTuple> for ImOnlineOffenceAdapter {
 	}
 
 	fn slash_fraction(&self, _offenders: u32) -> Perbill {
-		Perbill::from_percent(1)
+		params::dynamic::token_generation::SlashFraction::get()
 	}
 }
 

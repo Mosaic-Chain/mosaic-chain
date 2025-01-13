@@ -450,6 +450,21 @@ pub mod dynamic {
 		#[codec(index = 1)]
 		pub static MinSessionLength: BlockNumber = prod_or_fast!(45 * MINUTES, MINUTES);
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 22)]
+	/// Token generation constants.
+	/// In production mode they are set to zero before the Token Generation Event.
+	pub mod token_generation {
+		/// The desired slash percentage.
+		#[codec(index = 0)]
+		pub static SlashFraction: Perbill =
+			prod_or_fast!(Perbill::zero(), Perbill::from_perthousand(1));
+
+		/// Multiplier use in reward calculation algorithm.
+		#[codec(index = 1)]
+		pub static TokenGenerationFactor: u64 = prod_or_fast!(0, 125 * (MOSAIC / 10) as u64);
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
