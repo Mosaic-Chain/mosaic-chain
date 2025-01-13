@@ -1,12 +1,13 @@
 use sdk::{
-	pallet_balances, pallet_membership, pallet_session, sc_service, sp_consensus_aura,
-	sp_consensus_grandpa, sp_core,
+	pallet_balances, pallet_session, sc_service, sp_consensus_aura, sp_consensus_grandpa, sp_core,
 };
 
 use crate::{
 	runtime_builder::RuntimeBuilder,
 	spec::{
-		common::{mainnet_accounts, properties, public_from_seed, testnet_accounts, AccountId},
+		common::{
+			funds, membership_config, properties, public_from_seed, testnet_accounts, AccountId,
+		},
 		Profile,
 	},
 };
@@ -14,9 +15,7 @@ use crate::{
 use anyhow::Context;
 
 use hex_literal::hex;
-use mosaic_testnet_solo_runtime::{
-	funds, opaque::SessionKeys, Balance, Runtime, RuntimeGenesisConfig, SS58Prefix, MOSAIC,
-};
+use mosaic_testnet_solo_runtime::{opaque::SessionKeys, Balance, RuntimeGenesisConfig, MOSAIC};
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nft_staking::PermissionType;
@@ -30,10 +29,6 @@ pub type ChainSpec = sc_service::GenericChainSpec;
 
 inventory::submit! {
 	Profile::new("solo-local", local_config)
-}
-
-inventory::submit! {
-	Profile::new("solo-local-fast", fast_local_config)
 }
 
 inventory::submit! {
@@ -57,21 +52,10 @@ fn build_runtime(
 	builder.build("mosaic-testnet-solo-runtime", Some(&opts))
 }
 
-pub fn fast_local_config(
-	builder: &dyn RuntimeBuilder,
-) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
-	let code = build_runtime(builder, Some("-F fast-runtime"))?;
-	base_local_config(&code)
-}
-
 pub fn local_config(
 	builder: &dyn RuntimeBuilder,
 ) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
-	let code = build_runtime(builder, None)?;
-	base_local_config(&code)
-}
-
-fn base_local_config(code: &[u8]) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
+	let code = build_runtime(builder, Some("-F fast-runtime"))?;
 	let genesis_config = genesis(
 		vec![
 			authority_keys_from_seed("Alice"),
@@ -97,8 +81,8 @@ fn base_local_config(code: &[u8]) -> anyhow::Result<Box<dyn sc_service::ChainSpe
 	)?;
 
 	Ok(Box::new(
-		ChainSpec::builder(code, None)
-			.with_properties(properties(SS58Prefix::get().into()))
+		ChainSpec::builder(&code, None)
+			.with_properties(properties(42, "TMOS"))
 			.with_name("Mosaic Local Solo Testnet")
 			.with_id("mosaic-solo-local")
 			.with_protocol_id("mosaic-solo-local")
@@ -109,6 +93,7 @@ fn base_local_config(code: &[u8]) -> anyhow::Result<Box<dyn sc_service::ChainSpe
 }
 
 pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
+	// TODO: when we have a usecase for the live profile insert proper keys
 	let genesis_config = genesis(
 		vec![
 			authority_keys_from_seed("Alice"),
@@ -118,19 +103,19 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 			authority_keys_from_seed("Eve"),
 			authority_keys_from_seed("Ferdie"),
 		],
-		mainnet_accounts()
+		testnet_accounts() // TODO: when we have a usecase for the live profile use proper accounts
 			.into_iter()
 			// TODO: revise our accounts' permission and nominal value
 			.map(|acc| (acc, PermissionType::DPoS, true, 100))
 			.collect(),
-		mainnet_accounts(), // TODO: this will need to be changed to our accounts
-		mainnet_accounts(),
+		testnet_accounts(),
+		testnet_accounts(),
 		hex!("46316f768cadc4c82d2e4fefe240dad63ccc6a9267eb5669ce85907742c3cf35").into(),
 	)?;
 
 	Ok(Box::new(
 		ChainSpec::builder(&build_runtime(builder, None)?, None)
-			.with_properties(properties(SS58Prefix::get().into()))
+			.with_properties(properties(42, "MOS"))
 			.with_name("Mosaic Solo Testnet")
 			.with_id("mosaic-solo-live")
 			.with_protocol_id("mosaic-solo-live")
@@ -138,16 +123,6 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 			.with_genesis_config(genesis_config)
 			.build(),
 	))
-}
-
-fn membership_config<I>(members: &[AccountId]) -> pallet_membership::GenesisConfig<Runtime, I>
-where
-	Runtime: pallet_membership::Config<I>,
-{
-	pallet_membership::GenesisConfig {
-		members: members.to_vec().try_into().expect("members are fewer than MaxMembers"),
-		phantom: PhantomData,
-	}
 }
 
 fn genesis(
@@ -159,18 +134,7 @@ fn genesis(
 ) -> anyhow::Result<serde_json::Value> {
 	let endowed = endowed_accounts.into_iter().map(|k| (k, 100 * MOSAIC));
 
-	let funds = [
-		(funds::treasury::Account::get(), 10_000_000 * MOSAIC),
-		(funds::development_fund::Account::get(), 24_000_000 * MOSAIC),
-		(funds::financial_fund::Account::get(), 20_000_000 * MOSAIC),
-		(funds::community_fund::Account::get(), 20_000_000 * MOSAIC),
-		(funds::team_and_advisors_fund::Account::get(), 8_000_000 * MOSAIC),
-		(funds::security_fund::Account::get(), 4_000_000 * MOSAIC),
-		(funds::education_fund::Account::get(), 2_400_000 * MOSAIC),
-	]
-	.into_iter();
-
-	let balances = pallet_balances::GenesisConfig { balances: endowed.chain(funds).collect() };
+	let balances = pallet_balances::GenesisConfig { balances: endowed.chain(funds()).collect() };
 
 	let staking_incentive =
 		pallet_staking_incentive::GenesisConfig { incentive_pool: 500_000_000 * MOSAIC };

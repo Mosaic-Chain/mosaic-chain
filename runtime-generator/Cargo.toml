@@ -54,9 +54,14 @@ solo-chain = [
 ]
 para-chain = [
 	"dep:mosaic-chain-runtime",
+	"dep:pallet-airdrop",
 	"dep:pallet-im-online",
+	"dep:pallet-nft-permission",
+	"dep:pallet-nft-staking",
+	"dep:pallet-staking-incentive",
 	"sdk/cumulus-primitives-core",
 	"sdk/pallet-collator-selection",
+	"sdk/pallet-membership",
 	"sdk/pallet-xcm",
 	"sdk/staging-parachain-info",
 	"sdk/staging-xcm",

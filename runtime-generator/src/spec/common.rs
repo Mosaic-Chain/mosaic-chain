@@ -1,17 +1,20 @@
-use sdk::{sc_service, sp_core};
+use sdk::{pallet_membership, sc_service, sp_core};
+
+use std::marker::PhantomData;
 
 use sc_service::Properties;
 use sp_core::{sr25519, Pair, Public};
 
-use hex_literal::hex;
+use mosaic_chain_runtime::{funds, Balance, MOSAIC};
 
 pub type AccountId = sp_core::crypto::AccountId32;
 
 /// Chain properties
-pub fn properties(ss58prefix: u16) -> Properties {
+#[must_use]
+pub fn properties(ss58prefix: u16, token_symbol: &str) -> Properties {
 	let mut properties = Properties::new();
 
-	properties.insert("tokenSymbol".into(), "MOS".into());
+	properties.insert("tokenSymbol".into(), token_symbol.into());
 	properties.insert("tokenDecimals".into(), 18.into());
 	properties.insert("ss58Format".into(), ss58prefix.into());
 	properties.insert("color".into(), "#5f32ff".into());
@@ -20,6 +23,7 @@ pub fn properties(ss58prefix: u16) -> Properties {
 }
 
 /// Helper function to generate a crypto pair from seed
+#[must_use]
 pub fn public_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{seed}"), None)
 		.expect("static values are valid; qed")
@@ -49,11 +53,25 @@ pub fn testnet_accounts() -> Vec<AccountId> {
 		.collect()
 }
 
-pub fn mainnet_accounts() -> Vec<AccountId> {
-	vec![
-		hex!("1ee256f0b5b975c51b62e199ae1796b342d9337aa2b1dbc9777d44107446ae1d").into(),
-		hex!("5e4c345149989cfdba0f452e5e2e132901d85ad513269fdc06a77bf205d0cf67").into(),
-		hex!("dc6b9379f2f366ea7a60dae93db47b479dfa4def30962c40428167b225e9285c").into(),
-		hex!("6ebbc72a185b1b4ebc38ca63ce142a667b816a54dcc94ed25dcdb022cecce13a").into(),
+pub fn funds() -> impl Iterator<Item = (AccountId, Balance)> {
+	[
+		(funds::treasury::Account::get(), 10_000_000 * MOSAIC),
+		(funds::development_fund::Account::get(), 24_000_000 * MOSAIC),
+		(funds::financial_fund::Account::get(), 20_000_000 * MOSAIC),
+		(funds::community_fund::Account::get(), 20_000_000 * MOSAIC),
+		(funds::team_and_advisors_fund::Account::get(), 8_000_000 * MOSAIC),
+		(funds::security_fund::Account::get(), 4_000_000 * MOSAIC),
+		(funds::education_fund::Account::get(), 2_400_000 * MOSAIC),
 	]
+	.into_iter()
+}
+
+pub fn membership_config<T, I>(members: &[T::AccountId]) -> pallet_membership::GenesisConfig<T, I>
+where
+	T: pallet_membership::Config<I>,
+{
+	pallet_membership::GenesisConfig {
+		members: members.to_vec().try_into().expect("members are fewer than MaxMembers"),
+		phantom: PhantomData,
+	}
 }

@@ -1,10 +1,10 @@
 {
-  "name": "Mosaic Local Para Testnet",
-  "id": "mosaic-para-local",
+  "name": "Mosaic Chain Local Testnet",
+  "id": "mosaic-local",
   "chainType": "Local",
   "bootNodes": [],
   "telemetryEndpoints": null,
-  "protocolId": "mosaic-para-local",
+  "protocolId": "mosaic-local",
   "properties": {
     "color": "#5f32ff",
     "ss58Format": 42,

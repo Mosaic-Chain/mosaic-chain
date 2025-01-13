@@ -1,7 +1,7 @@
 use sdk::substrate_build_script_utils::{generate_cargo_keys, rerun_if_git_head_changed};
 
 #[cfg(feature = "dev-spec")]
-use runtime_generator::{runtime_builder::NativeBuilder, spec::solo_chain::fast_local_config};
+use runtime_generator::{runtime_builder::NativeBuilder, spec::solo_chain::local_config};
 
 fn main() {
 	generate_cargo_keys();
@@ -27,7 +27,7 @@ fn main() {
 			override_build_opts: None,
 		};
 
-		let chain_spec = fast_local_config(&builder)
+		let chain_spec = local_config(&builder)
 			.expect("could build wasm")
 			.as_json(true)
 			.expect("could create json");
