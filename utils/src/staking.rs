@@ -26,7 +26,7 @@ impl<AccountId, ItemId, Balance, BindMetadata>
 	}
 }
 
-pub trait NftStaking<AccountId, Balance, Variant, ItemId> {
+pub trait NftPermission<AccountId, Balance, Variant, ItemId> {
 	fn mint(
 		account_id: &AccountId,
 		permission: &Variant,

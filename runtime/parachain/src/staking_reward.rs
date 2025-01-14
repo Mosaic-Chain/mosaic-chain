@@ -1,8 +1,8 @@
 use sdk::{sp_core::Get, sp_runtime::helpers_128bit::sqrt};
 
 use super::{
-	params::dynamic::token_generation::TokenGenerationFactor, Balance, Balances, Currency, Runtime,
-	Session, MOSAIC,
+	params::currency::MOSAIC, params::dynamic::tokenomics::TokenGenerationFactor, Balance,
+	Balances, Currency, Runtime, Session,
 };
 use pallet_validator_subset_selection::CurrentSessionLength;
 

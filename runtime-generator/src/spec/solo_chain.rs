@@ -15,7 +15,11 @@ use crate::{
 use anyhow::Context;
 
 use hex_literal::hex;
-use mosaic_testnet_solo_runtime::{opaque::SessionKeys, Balance, RuntimeGenesisConfig, MOSAIC};
+use mosaic_testnet_solo_runtime::{
+	opaque::SessionKeys,
+	params::currency::{Balance, MOSAIC},
+	RuntimeGenesisConfig,
+};
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nft_staking::PermissionType;
@@ -48,7 +52,7 @@ fn build_runtime(
 	builder: &dyn RuntimeBuilder,
 	extra_opts: Option<&str>,
 ) -> anyhow::Result<Vec<u8>> {
-	let opts = format!("-F build-wasm {}", extra_opts.unwrap_or_default());
+	let opts = format!("-F build-wasm -F local {}", extra_opts.unwrap_or_default());
 	builder.build("mosaic-testnet-solo-runtime", Some(&opts))
 }
 

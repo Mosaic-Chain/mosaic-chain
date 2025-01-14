@@ -41,6 +41,8 @@ default = [ "std" ]
 build-wasm = [ "dep:substrate-wasm-builder" ]
 
 fast-runtime = []
+local = []
+mainnet = []
 
 std = [
 	"codec/std",

@@ -1,17 +1,14 @@
-use sdk::{frame_system, pallet_collective, pallet_membership, sp_runtime};
+use sdk::{frame_system, pallet_collective, pallet_membership};
 
 use super::{
-	parameter_types, params, AccountId, BlockWeights, EitherOfDiverse, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, Weight,
+	params, AccountId, EitherOfDiverse, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 };
 
-// Shared values
-parameter_types! {
-	pub const MaxProposals: u32 = 10;
-	pub const MaxMembers: u32 = 100;
-	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
-}
-
+// NOTE: changing this to a type which won't check if a vote happened is a risk, because
+// pallet_collective::Call::propose{} with < 2 threshold will result in an immediate pallet_collective::Call::execute{}
+// basically turning all of the council members into a "dictator" account.
+//
+// This ensures that a vote with 2/3 aye ratio is needed for a doas proposal to be accepted.
 pub type CouncilOrigin = EitherOfDiverse<
 	frame_system::EnsureRoot<AccountId>,
 	pallet_collective::EnsureProportionAtLeast<AccountId, council::CollectiveInstance, 2, 3>,
@@ -22,6 +19,7 @@ macro_rules! impl_collective {
 		pub mod $collective {
 			use super::*;
 
+			pub use params::constant::collective::*;
 			pub use params::dynamic::$collective::*;
 
 			pub type MembershipInstance = pallet_membership::$instance;
@@ -39,7 +37,7 @@ macro_rules! impl_collective {
 				pallet_collective::Pallet<Runtime, $collective::CollectiveInstance>;
 			type MembershipChanged =
 				pallet_collective::Pallet<Runtime, $collective::CollectiveInstance>;
-			type MaxMembers = MaxMembers;
+			type MaxMembers = params::constant::membership::MaxMembers;
 			type WeightInfo = pallet_membership::weights::SubstrateWeight<Self>;
 		}
 
@@ -49,13 +47,13 @@ macro_rules! impl_collective {
 			type RuntimeEvent = RuntimeEvent;
 
 			type MotionDuration = $collective::MotionDuration;
-			type MaxProposals = MaxProposals;
-			type MaxMembers = MaxMembers;
+			type MaxProposals = params::constant::collective::MaxProposals;
+			type MaxMembers = params::constant::collective::MaxMembers;
 
 			type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
 			type WeightInfo = pallet_collective::weights::SubstrateWeight<Self>;
-			type SetMembersOrigin = frame_system::EnsureRoot<AccountId>;
-			type MaxProposalWeight = MaxProposalWeight;
+			type SetMembersOrigin = CouncilOrigin;
+			type MaxProposalWeight = params::constant::collective::MaxProposalWeight;
 		}
 	};
 }

@@ -278,9 +278,6 @@ pub mod pallet {
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
 
-		/// The maximum number of peers to be stored in `ReceivedHeartbeats`
-		type MaxPeerInHeartbeats: Get<u32>;
-
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;

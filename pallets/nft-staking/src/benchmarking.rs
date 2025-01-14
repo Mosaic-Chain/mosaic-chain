@@ -10,7 +10,7 @@ use crate::{
 	types::MAX_NFTS_PER_CONTRACT,
 	Config as NftStakingConfig, Pallet as NftStakingPallet, PermissionType, SessionIndex,
 };
-use utils::traits::{NftStaking, OnDelegationNftExpire, SessionHook};
+use utils::traits::{NftPermission as NftPermissionT, OnDelegationNftExpire, SessionHook};
 
 use core::{fmt, iter::IntoIterator};
 use pallet_nft_delegation::Config as NftDelegationConfig;

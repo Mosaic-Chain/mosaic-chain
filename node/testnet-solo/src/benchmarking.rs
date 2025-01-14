@@ -10,7 +10,7 @@ use sdk::{
 };
 
 use mosaic_testnet_solo_runtime as runtime;
-use runtime::{AccountId, Balance, BalancesCall, SystemCall};
+use runtime::{params::currency::Balance, AccountId, BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
 use sp_core::{Encode, Pair};

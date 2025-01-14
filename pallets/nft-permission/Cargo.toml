@@ -13,6 +13,7 @@ codec = { workspace = true, features = ["derive"] }
 pallet-nft-staking = { workspace = true, optional = true }
 scale-info = { workspace = true, features = ["derive"] }
 utils = { workspace = true }
+enumflags2 = { workspace = true }
 
 [dev-dependencies]
 sdk = { workspace = true, features = ["sp-core", "sp-io", "pallet-balances"] }

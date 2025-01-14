@@ -22,8 +22,10 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nft_staking::PermissionType;
 
 use crate::{
-	collectives, funds, opaque::SessionKeys, AccountId, Aura, Balances, Runtime, System, MINUTES,
-	MOSAIC, VERSION,
+	collectives, funds,
+	opaque::SessionKeys,
+	params::{currency::MOSAIC, time::MINUTES},
+	AccountId, Aura, Balances, Runtime, System, VERSION,
 };
 
 pub fn public_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -64,7 +66,6 @@ impl MigrateV100ToV101<Runtime> {
 		} else {
 			// NOTE: these are the addresses collected from the members of the polkadot
 			// admin multisig.
-			// TODO: maybe have different addresses for devnet
 			[
 				"0x56635c6ed226344060eae9313b47472ef7bdc4ca9e4d3eb8ccee73badfe1ec42",
 				"0xa04ed7f7003af5b1f2cdc596c58ef31a58d2a12899f8e2b0ebe0ea10b5dcfa72",
@@ -87,22 +88,22 @@ impl MigrateV100ToV101<Runtime> {
 				.into_iter()
 				.map(account_from_seed)
 				.collect()
-		} else if cfg!(feature = "devnet") {
+		} else if cfg!(feature = "mainnet") {
 			[
-				"0x40dfa76970d4764caf433a9fab6d182e1e4d930e708e1c4f2037745126f4c368",
-				"0xecf63d434c813fead2bd9f609505a4f4c2458353038b1c207d71ef4247457316",
-				"0x94ceb7088b35c85435a29912a8a5e6245fe3b8b8dd448f2fefcdd3688f86f55a",
-				"0x720122b86ea8eded8598ed8daf51ccd02bfd437cc5a521d9fa54f4e21e38ea39",
+				"0x1ee256f0b5b975c51b62e199ae1796b342d9337aa2b1dbc9777d44107446ae1d",
+				"0x5e4c345149989cfdba0f452e5e2e132901d85ad513269fdc06a77bf205d0cf67",
+				"0xdc6b9379f2f366ea7a60dae93db47b479dfa4def30962c40428167b225e9285c",
+				"0x6ebbc72a185b1b4ebc38ca63ce142a667b816a54dcc94ed25dcdb022cecce13a",
 			]
 			.into_iter()
 			.map(account_from_hex)
 			.collect()
 		} else {
 			[
-				"0x1ee256f0b5b975c51b62e199ae1796b342d9337aa2b1dbc9777d44107446ae1d",
-				"0x5e4c345149989cfdba0f452e5e2e132901d85ad513269fdc06a77bf205d0cf67",
-				"0xdc6b9379f2f366ea7a60dae93db47b479dfa4def30962c40428167b225e9285c",
-				"0x6ebbc72a185b1b4ebc38ca63ce142a667b816a54dcc94ed25dcdb022cecce13a",
+				"0x40dfa76970d4764caf433a9fab6d182e1e4d930e708e1c4f2037745126f4c368",
+				"0xecf63d434c813fead2bd9f609505a4f4c2458353038b1c207d71ef4247457316",
+				"0x94ceb7088b35c85435a29912a8a5e6245fe3b8b8dd448f2fefcdd3688f86f55a",
+				"0x720122b86ea8eded8598ed8daf51ccd02bfd437cc5a521d9fa54f4e21e38ea39",
 			]
 			.into_iter()
 			.map(account_from_hex)
@@ -113,13 +114,13 @@ impl MigrateV100ToV101<Runtime> {
 	fn minting_authority() -> sp_core::sr25519::Public {
 		if cfg!(feature = "local") {
 			public_from_seed::<sp_core::sr25519::Public>("//MintingAuthority")
-		} else if cfg!(feature = "devnet") {
+		} else if cfg!(feature = "mainnet") {
 			public_from_hex::<sp_core::sr25519::Public>(
-				"0x724057d84b455a2fef18d9d1ddf6a0b524d69954a0bf997a902a64dce6d22d35",
+				"0xca494ec6c3f000a1ad37c0fd8ef176007a54480c5328cdd1003f4ec1324d1927",
 			)
 		} else {
 			public_from_hex::<sp_core::sr25519::Public>(
-				"0xca494ec6c3f000a1ad37c0fd8ef176007a54480c5328cdd1003f4ec1324d1927",
+				"0x724057d84b455a2fef18d9d1ddf6a0b524d69954a0bf997a902a64dce6d22d35",
 			)
 		}
 	}

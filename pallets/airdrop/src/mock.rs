@@ -47,7 +47,7 @@ impl airdrop::Config for Test {
 	type PermissionType = Permission;
 	type ItemId = ItemId;
 	type DelegatorNftBindMetadata = AccountId;
-	type NftStaking = MintLog;
+	type NftPermission = MintLog;
 	type NftDelegation = MintLog;
 	type VestingSchedule = MintLog;
 	type Fungible = MintLog;

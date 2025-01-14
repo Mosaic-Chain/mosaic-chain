@@ -8095,6 +8095,7 @@ dependencies = [
 name = "pallet-nft-delegation"
 version = "0.2.0"
 dependencies = [
+ "enumflags2",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
@@ -8121,6 +8122,7 @@ dependencies = [
 name = "pallet-nft-permission"
 version = "0.2.0"
 dependencies = [
+ "enumflags2",
  "pallet-nft-staking",
  "parity-scale-codec",
  "polkadot-sdk",

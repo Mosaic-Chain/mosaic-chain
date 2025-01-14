@@ -12,6 +12,7 @@ sdk = { workspace = true, features = ["frame-support", "frame-system", "sp-runti
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 utils = { workspace = true }
+enumflags2 = { workspace = true }
 
 [dev-dependencies]
 sdk = { workspace = true, features = ["sp-session", "sp-core", "sp-io", "pallet-balances", "pallet-session"] }

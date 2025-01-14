@@ -5,7 +5,17 @@ use std::marker::PhantomData;
 use sc_service::Properties;
 use sp_core::{sr25519, Pair, Public};
 
-use mosaic_chain_runtime::{funds, Balance, MOSAIC};
+#[cfg(feature = "para-chain")]
+use mosaic_chain_runtime::{
+	funds,
+	params::currency::{Balance, MOSAIC},
+};
+
+#[cfg(all(feature = "solo-chain", not(feature = "para-chain")))]
+use mosaic_testnet_solo_runtime::{
+	funds,
+	params::currency::{Balance, MOSAIC},
+};
 
 pub type AccountId = sp_core::crypto::AccountId32;
 

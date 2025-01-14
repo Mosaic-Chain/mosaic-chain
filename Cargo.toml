@@ -60,6 +60,7 @@ inventory = { version = "0.3.15" }
 rstest = { version = "0.22.0" }
 rstest_reuse = { version = "0.7.0" }
 delegate = { version = "0.13.1" }
+enumflags2 = { version = "0.7.10" }
 
 # Local
 mosaic-testnet-solo-runtime = { default-features = false, path = "runtime/testnet-solo" }

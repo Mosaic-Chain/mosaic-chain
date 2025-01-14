@@ -19,6 +19,7 @@ use frame_support::{
 		AsEnsureOriginWithArg, Currency, EitherOfDiverse, EqualPrivilegeOnly, Imbalance,
 		InstanceFilter, LinearStoragePrice, VariantCountOf, WithdrawReasons,
 	},
+	weights::ConstantMultiplier,
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureWithSuccess};
@@ -32,7 +33,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentifyAccount,
-		IdentityLookup, NumberFor, One, OpaqueKeys, Verify, Zero,
+		IdentityLookup, NumberFor, OpaqueKeys, Verify, Zero,
 	},
 	transaction_validity::InvalidTransaction,
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
@@ -60,7 +61,7 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier, OnChargeTransaction};
+use pallet_transaction_payment::{OnChargeTransaction, TargetedFeeAdjustment};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -70,9 +71,9 @@ pub use pallet_validator_subset_selection;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
-pub use params::{
-	currency::{deposit, Balance, CENTS, MOSAIC},
-	time::{DAYS, HOURS, MINUTES, SLOT_DURATION, YEARS},
+use params::{
+	currency::{Balance, MOSAIC},
+	time::{DAYS, SLOT_DURATION, YEARS},
 };
 use utils::SessionIndex;
 
@@ -87,8 +88,7 @@ mod tests;
 #[path = "../../parachain/src/charge_transaction.rs"]
 mod charge_transaction;
 
-#[path = "../../parachain/src/params.rs"]
-mod params;
+pub mod params;
 
 #[path = "../../parachain/src/collectives.rs"]
 pub mod collectives;
@@ -357,17 +357,33 @@ impl pallet_extra_fungible_events::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
-parameter_types! {
-	pub FeeMultiplier: Multiplier = Multiplier::one();
+pub struct WeightToFee;
+impl frame_support::weights::WeightToFee for WeightToFee {
+	type Balance = Balance;
+
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		let time_fee = weight.ref_time() as u128 * params::currency::CENTS
+			/ (200 * Balance::from(ExtrinsicBaseWeight::get().ref_time()));
+		let pov_fee = weight.proof_size() as u128 * params::currency::CENTS / 20_000;
+
+		time_fee.max(pov_fee)
+	}
 }
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = charge_transaction::ChargeTransaction;
-	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightToFee = IdentityFee<Balance>;
-	type LengthToFee = IdentityFee<Balance>;
-	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+	type OperationalFeeMultiplier = params::constant::transaction_payment::OperationalFeeMultiplier;
+	type WeightToFee = WeightToFee;
+	type LengthToFee =
+		ConstantMultiplier<Balance, ConstU128<{ params::currency::message_fee(0, 1) }>>;
+	type FeeMultiplierUpdate = TargetedFeeAdjustment<
+		Self,
+		params::constant::transaction_payment::TargetBlockFullness,
+		params::constant::transaction_payment::AdjustmentVariable,
+		params::constant::transaction_payment::MinimumMultiplier,
+		params::constant::transaction_payment::MaximumMultiplier,
+	>;
 }
 
 impl pallet_nfts::Config for Runtime {
@@ -747,8 +763,6 @@ impl pallet_doas::Config for Runtime {
 
 parameter_types! {
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
-	pub const MaxAuthorities: u32 = 350;
-	pub const MaxPeerInHeartbeats: u32 = 32;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -832,7 +846,7 @@ impl Offence<IdTuple> for ImOnlineOffenceAdapter {
 	}
 
 	fn slash_fraction(&self, _offenders: u32) -> Perbill {
-		params::dynamic::token_generation::SlashFraction::get()
+		params::dynamic::tokenomics::SlashFraction::get()
 	}
 }
 
@@ -860,7 +874,6 @@ impl pallet_im_online::Config for Runtime {
 	type ValidatorSet = pallet_nft_staking::SlashableValidators<Self>;
 	type ReportUnresponsiveness = ImOnlineReporter;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
-	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Self>;
 }
 
@@ -901,14 +914,14 @@ impl pallet_airdrop::Config for Runtime {
 	type Balance = Balance;
 	type PermissionType = pallet_nft_staking::PermissionType;
 	type ItemId = <Self as pallet_nfts::Config>::ItemId;
-	type NftStaking = NftPermission;
+	type NftPermission = NftPermission;
 	type Fungible = FungibleWrapper;
 	type DelegatorNftBindMetadata = AccountId;
 	type NftDelegation = NftDelegation;
 	type VestingSchedule = HoldVesting;
 	type BaseTransactionPriority = ConstU64<{ TransactionPriority::MAX / 2 }>;
 	type MaxAirdropsInPool = ConstU64<12>;
-	const MAX_DELEGATOR_NFTS: u32 = 16;
+	const MAX_DELEGATOR_NFTS: u32 = params::constant::airdrop::MAX_DELEGATOR_NFTS;
 	type WeightInfo = pallet_airdrop::weights::SubstrateWeight<Self>;
 }
 

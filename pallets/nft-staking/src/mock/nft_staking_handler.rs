@@ -51,7 +51,7 @@ impl From<Error> for DispatchError {
 
 pub type NftStakingHandler = StorageValue<Instance, State, ValueQuery>;
 
-impl utils::traits::NftStaking<AccountId, Balance, pallet_nft_staking::PermissionType, ItemId>
+impl utils::traits::NftPermission<AccountId, Balance, pallet_nft_staking::PermissionType, ItemId>
 	for NftStakingHandler
 {
 	fn mint(

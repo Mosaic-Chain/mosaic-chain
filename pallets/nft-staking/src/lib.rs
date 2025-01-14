@@ -47,7 +47,7 @@ use types::{
 };
 
 use utils::{
-	traits::{NftDelegation, NftStaking, StakingHooks},
+	traits::{NftDelegation, NftPermission, StakingHooks},
 	SessionIndex,
 };
 
@@ -100,7 +100,7 @@ pub mod pallet {
 			+ MutateHold<Self::AccountId>
 			+ BalancedHold<Self::AccountId>;
 
-		type NftStakingHandler: NftStaking<
+		type NftStakingHandler: NftPermission<
 			Self::AccountId,
 			Self::Balance,
 			PermissionType,

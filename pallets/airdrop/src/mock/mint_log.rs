@@ -162,7 +162,7 @@ impl frame_support::traits::fungible::Mutate<AccountId> for MintLog {
 	}
 }
 
-impl utils::traits::NftStaking<AccountId, Balance, Permission, ItemId> for MintLog {
+impl utils::traits::NftPermission<AccountId, Balance, Permission, ItemId> for MintLog {
 	fn mint(
 		account_id: &AccountId,
 		permission: &Permission,

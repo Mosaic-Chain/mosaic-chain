@@ -54,18 +54,18 @@ use codec::Codec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		tokens::nonfungibles_v2::{Create, Inspect, Mutate, Transfer},
-		BuildGenesisConfig, Incrementable,
+		tokens::nonfungibles_v2::{Inspect, Mutate, Transfer},
+		BuildGenesisConfig, Incrementable, OriginTrait,
 	},
 	PalletError, PalletId,
 };
 use frame_system::pallet_prelude::OriginFor;
 use pallet_nfts::{
-	CollectionConfig, CollectionSettings, Config as NftsConfig, ItemConfig, ItemSettings,
-	MintSettings, MintType, Pallet as NftsPallet,
+	CollectionConfig, CollectionSetting, CollectionSettings, Config as NftsConfig, ItemConfig,
+	ItemSettings, MintSettings, MintType, Pallet as NftsPallet,
 };
 use sp_runtime::{
-	traits::{AccountIdConversion, AtLeast32BitUnsigned},
+	traits::{AccountIdConversion, AtLeast32BitUnsigned, StaticLookup},
 	DispatchError, FixedPointOperand, Perbill,
 };
 use sp_std::vec::Vec as SpVec;
@@ -196,14 +196,21 @@ pub mod pallet {
 	{
 		fn build(&self) {
 			let admin: T::AccountId = <T as Config>::PalletId::get().into_account_truncating();
-
 			PalletAccountId::<T>::put(admin.clone());
 
-			let collection_id = NftsPallet::<T>::create_collection(
-				&admin,
-				&admin,
-				&CollectionConfig {
-					settings: CollectionSettings::default(),
+			let collection_id = pallet_nfts::NextCollectionId::<T>::get()
+				.or(<T as NftsConfig>::CollectionId::initial_value())
+				.expect("id is obtainable");
+
+			NftsPallet::<T>::force_create(
+				T::RuntimeOrigin::root(),
+				<T::Lookup as StaticLookup>::unlookup(admin),
+				CollectionConfig {
+					settings: {
+						let mut cs: enumflags2::BitFlags<CollectionSetting> = Default::default();
+						cs.set(CollectionSetting::DepositRequired, true); // Setting this disables item deposits
+						CollectionSettings::from_disabled(cs)
+					},
 					max_supply: None,
 					mint_settings: MintSettings {
 						mint_type: MintType::Issuer,
@@ -481,7 +488,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config>
-		utils::traits::NftStaking<
+		utils::traits::NftPermission<
 			T::AccountId,
 			T::Balance,
 			T::Permission,

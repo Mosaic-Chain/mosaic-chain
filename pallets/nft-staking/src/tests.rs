@@ -11,7 +11,7 @@ use sp_staking::offence::ReportOffence;
 
 use utils::{
 	run_until::run_until,
-	traits::{NftDelegation, NftStaking},
+	traits::{NftDelegation, NftPermission},
 	SessionIndex,
 };
 

@@ -19,7 +19,11 @@ use crate::{
 use anyhow::Context;
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use mosaic_chain_runtime::{opaque::SessionKeys, Balance, RuntimeGenesisConfig, MOSAIC};
+use mosaic_chain_runtime::{
+	opaque::SessionKeys,
+	params::currency::{Balance, MOSAIC},
+	RuntimeGenesisConfig,
+};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -139,7 +143,7 @@ pub fn local_config(
 pub fn devnet_config(
 	builder: &dyn RuntimeBuilder,
 ) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
-	let wasm = build_runtime(builder, Some("-F devnet"))?;
+	let wasm = build_runtime(builder, None)?;
 	let relay_chain = "paseo";
 	let para_id = 3377;
 
@@ -191,7 +195,7 @@ pub fn devnet_config(
 pub fn mainnet_config(
 	builder: &dyn RuntimeBuilder,
 ) -> anyhow::Result<Box<dyn sc_service::ChainSpec>> {
-	let wasm = build_runtime(builder, None)?;
+	let wasm = build_runtime(builder, Some("-F mainnet"))?;
 	let relay_chain = "polkadot";
 	let para_id = 3377;
 

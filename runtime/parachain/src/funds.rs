@@ -1,22 +1,16 @@
 use super::{
-	parameter_types, params, AccountId, Balance, Balances, EnsureWithSuccess, IdentityLookup,
-	PalletId, PayFromAccount, Runtime, RuntimeEvent, RuntimeHoldReason,
-	UnityAssetBalanceConversion,
+	parameter_types, params, AccountId, Balances, EnsureWithSuccess, IdentityLookup, PalletId,
+	PayFromAccount, Runtime, RuntimeEvent, RuntimeHoldReason, UnityAssetBalanceConversion,
 };
 
 use sdk::pallet_collective;
-
-// Shared values
-parameter_types! {
-	pub MaxApprovals: u32 = 250;
-	pub MaxBalance: Balance = Balance::MAX;
-}
 
 macro_rules! impl_fund {
 	($fund:ident, $instance:ident, $pallet_id:expr) => {
 		pub mod $fund {
 			use super::*;
 
+			pub use params::constant::treasury::*;
 			pub use params::dynamic::$fund::*;
 			pub type Instance = pallet_treasury::$instance;
 
@@ -49,8 +43,12 @@ macro_rules! impl_fund {
 			type BurnDestination = ();
 			type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
 			type SpendFunds = ();
-			type MaxApprovals = MaxApprovals;
-			type SpendOrigin = EnsureWithSuccess<$fund::FundOrigin, AccountId, MaxBalance>;
+			type MaxApprovals = params::constant::treasury::MaxApprovals;
+			type SpendOrigin = EnsureWithSuccess<
+				$fund::FundOrigin,
+				AccountId,
+				params::constant::treasury::MaxBalance,
+			>;
 			type AssetKind = ();
 			type Beneficiary = AccountId;
 			type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;

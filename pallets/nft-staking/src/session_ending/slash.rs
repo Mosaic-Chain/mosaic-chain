@@ -13,7 +13,7 @@ use sp_std::vec::Vec as SpVec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use utils::traits::{NftDelegation, NftStaking, StakingHooks};
+use utils::traits::{NftDelegation, NftPermission, StakingHooks};
 
 use crate::{
 	types::{ChillReason, Contract, StorageLayer, ValidatorState, MAX_NFTS_PER_CONTRACT},

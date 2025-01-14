@@ -13,7 +13,7 @@ use sdk::{
 };
 
 use jsonrpsee::RpcModule;
-use mosaic_testnet_solo_runtime::{opaque::Block, AccountId, Balance, Nonce};
+use mosaic_testnet_solo_runtime::{opaque::Block, params::currency::Balance, AccountId, Nonce};
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;

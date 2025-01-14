@@ -35,7 +35,7 @@ use sp_runtime::{
 use sp_std::marker::PhantomData;
 
 use utils::{
-	traits::{HoldVestingSchedule, NftDelegation, NftStaking},
+	traits::{HoldVestingSchedule, NftDelegation, NftPermission},
 	vesting::Schedule as VestingSchedule,
 	SessionIndex,
 };
@@ -57,7 +57,7 @@ pub mod pallet {
 		type PermissionType: Member + Parameter;
 		type ItemId: Clone + core::fmt::Debug;
 		type DelegatorNftBindMetadata;
-		type NftStaking: NftStaking<
+		type NftPermission: NftPermission<
 			Self::AccountId,
 			Self::Balance,
 			Self::PermissionType,
@@ -243,7 +243,7 @@ pub mod pallet {
 			}
 
 			if let Some(permission_nft) = &package.permission_nft {
-				T::NftStaking::mint(
+				T::NftPermission::mint(
 					&package.account_id,
 					&permission_nft.permission,
 					&permission_nft.nominal_value,

@@ -22,7 +22,7 @@ enum NftVariant {
     Delegation(ItemId)
 }
 
-interface NftStaking {
+interface NftPermission {
     bind(validator_id, item_id): (validator_variant, nominal_value)?
     unbind(validator_id): nominal_value?
     slash(validator_id, slash_proportion): nominal_value?
@@ -51,7 +51,7 @@ object Staking {
     +unstake_currency(SignedOrigin, balance): ()?
 }
 
-Staking .-down-> NftStaking: NftStakingHandler
+Staking .-down-> NftPermission: NftStakingHandler
 Staking .-down-> NftDelegation: NftDelegationHandler
 
 }

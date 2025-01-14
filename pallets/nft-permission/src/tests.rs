@@ -7,7 +7,7 @@ use sp_runtime::{DispatchError, Perbill};
 use pallet_nfts::Error as NftsError;
 
 use crate::{mock::*, Error, Event};
-use utils::traits::NftStaking;
+use utils::traits::NftPermission as _;
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 

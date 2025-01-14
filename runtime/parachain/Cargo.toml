@@ -104,7 +104,7 @@ build-wasm = [ "dep:substrate-wasm-builder" ]
 
 fast-runtime = []
 local = [ "fast-runtime" ]
-devnet = []
+mainnet = []
 
 std = [
 	"codec/std",
