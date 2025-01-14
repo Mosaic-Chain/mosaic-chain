@@ -35,10 +35,10 @@ test:
    - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
    - apt update -y && apt install google-cloud-cli -y
    - cargo install cargo-deb
-   - gcloud auth activate-service-account --key-file $GCP_DEB_DEPLOY_JSON_KEY
-   - gcloud config set core/project dlabs-317612
-   - gcloud config set artifacts/location europe-west3
-   - gcloud config set artifacts/repository deb-repo
+   - gcloud auth activate-service-account --key-file $GCP_STAGING_ARTIFACT_WRITE_JSON_KEY
+   - gcloud config set core/project mosaicchan-devnet
+   - gcloud config set artifacts/location europe
+   - gcloud config set artifacts/repository apt-staging-repository
 
 debian-testnet:
   extends: .debian-repo-setup
@@ -46,7 +46,7 @@ debian-testnet:
     - testnet
   script:
     - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release)
-    - gcloud artifacts apt upload deb-repo --source $PKG
+    - gcloud artifacts apt upload apt-staging-repository --source $PKG
   
 debian-devnet:
   extends: .debian-repo-setup
@@ -54,7 +54,7 @@ debian-devnet:
     - devnet
   script:
     - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant devnet)
-    - gcloud artifacts apt upload deb-repo --source $PKG
+    - gcloud artifacts apt upload apt-staging-repository --source $PKG
 
 debian-mainnet:
   extends: .debian-repo-setup
@@ -62,7 +62,7 @@ debian-mainnet:
     - mainnet
   script:
     - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant mainnet)
-    - gcloud artifacts apt upload deb-repo --source $PKG
+    - gcloud artifacts apt upload apt-staging-repository --source $PKG
 
 .docker:
   stage: release
@@ -70,8 +70,8 @@ debian-mainnet:
   services:
     - docker:dind
   variables:
-    GCP_URL: europe-west3-docker.pkg.dev
-    GCP_REGISTRY: $GCP_URL/dlabs-317612/docker-registry
+    GCP_URL: europe-docker.pkg.dev
+    GCP_REGISTRY: $GCP_URL/mosaicchan-devnet/docker-staging-registry
   script:
     # Build GitLab images
     - docker build -f Dockerfile.testnet-solo-local -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG -t $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
@@ -83,7 +83,7 @@ debian-mainnet:
     - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG
 
     # Login to GCP registry
-    - docker login -u _json_key --password-stdin https://$GCP_URL <$GCP_DEPLOY_JSON_KEY
+    - docker login -u _json_key --password-stdin https://$GCP_URL <$GCP_STAGING_ARTIFACT_WRITE_JSON_KEY
 
     # Push GCP image
     - docker push $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
