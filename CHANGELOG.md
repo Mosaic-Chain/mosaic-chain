@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.0] - 2024-12-09
+## [0.3.0] - 2025-01-16
+
+### 🚀 Features
+
+- *nft-staking*: Cursor based session ending
+- *bench*: Pallet-nft-staking session-ending benchmarks
+
+### ⚙️ Miscellaneous Tasks
+
+- New testnet chainspec for v0.3
+
+## [0.2.0] - 2024-12-12
 
 ### 🚀 Features
 
@@ -55,6 +66,8 @@ All notable changes to this project will be documented in this file.
 - *bench*: Vesting-to-freeze benchmarks
 - *bench*: Validator-subset-selection benchmarks
 - *subset-selection*: Removed costly randomness source and storage getters
+- *bench*: Extra benchmarks for nft-staking
+- *bench*: Added benchmarks to pallet_airdrop
 
 ### 🐛 Bug Fixes
 
@@ -69,6 +82,11 @@ All notable changes to this project will be documented in this file.
 - *vesting-to-freeze*: Actually mutate storage and error when converting already expired schedule
 - *nft-staking*: Rewarding empty accounts does not result in panic
 - *airdrop*: Ensuring the endowed account will at least have the ed minted
+- Parachain deb package variants
+- Testnet deb package assets and docker
+- Testnet deb package asset directory
+- Dockerfile
+- Deb package assets
 
 ### 📚 Documentation
 
@@ -115,6 +133,7 @@ All notable changes to this project will be documented in this file.
 - Added zepter checks for features and disabled docker build for now
 - Checking scripts and hooks, updated readme
 - Testnet branching
+- Release 0.2.0
 
 ## [0.1.0] - 2024-03-05
 
