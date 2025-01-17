@@ -8,7 +8,6 @@
 use sdk::*;
 
 use frame_support::{
-	construct_runtime,
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
 };
@@ -173,63 +172,123 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
-// this is needed, otherwise fmt will remove the :: from ::<Instance1>
-#[rustfmt::skip::macros(construct_runtime)]
-// Create the runtime by composing the FRAME pallets that were previously configured.
-construct_runtime!(
-	pub struct Runtime {
-		System: frame_system,
-		Parameters: pallet_parameters,
-		Timestamp: pallet_timestamp,
-		Aura: pallet_aura,
-		Grandpa: pallet_grandpa,
-		Balances: pallet_balances,
-		TransactionPayment: pallet_transaction_payment,
-		Nfts: pallet_nfts,
-		NftDelegation: pallet_nft_delegation,
-		NftPermission: pallet_nft_permission,
-		NftStaking: pallet_nft_staking,
-		ValidatorSubsetSelection: pallet_validator_subset_selection,
-		Session: pallet_session,
-		Offences: pallet_offences,
-		ImOnline: pallet_im_online,
-		Authorship: pallet_authorship,
-		Proxy: pallet_proxy,
-		Utility: pallet_utility,
-		Recovery: pallet_recovery,
-		Identity: pallet_identity,
-		Assets: pallet_assets,
-		DoAs: pallet_doas,
-		Preimage: pallet_preimage,
-		Scheduler: pallet_scheduler,
-		CouncilCollective: pallet_collective::<Instance1>,
-		CouncilMembership: pallet_membership::<Instance1>,
-		DevelopmentCollective: pallet_collective::<Instance2>,
-		DevelopmentMembership: pallet_membership::<Instance2>,
-		FinancialCollective: pallet_collective::<Instance3>,
-		FinancialMembership: pallet_membership::<Instance3>,
-		CommunityCollective: pallet_collective::<Instance4>,
-		CommunityMembership: pallet_membership::<Instance4>,
-		TeamAndAdvisorsCollective: pallet_collective::<Instance5>,
-		TeamAndAdvisorsMembership: pallet_membership::<Instance5>,
-		SecurityCollective: pallet_collective::<Instance6>,
-		SecurityMembership: pallet_membership::<Instance6>,
-		EducationCollective: pallet_collective::<Instance7>,
-		EducationMembership: pallet_membership::<Instance7>,
-		Treasury: pallet_treasury::<Instance1>,
-		DevelopmentFund: pallet_treasury::<Instance2>,
-		FinancialFund: pallet_treasury::<Instance3>,
-		CommunityFund: pallet_treasury::<Instance4>,
-		TeamAndAdvisorsFund: pallet_treasury::<Instance5>,
-		SecurityFund: pallet_treasury::<Instance6>,
-		EducationFund: pallet_treasury::<Instance7>,
-		Airdrop: pallet_airdrop,
-		HoldVesting: pallet_hold_vesting,
-		VestingToFreeze: pallet_vesting_to_freeze,
-		StakingIncentive: pallet_staking_incentive,
-		FungibleWrapper: pallet_extra_fungible_events,
-	}
-);
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(2)]
+	pub type Parameters = pallet_parameters;
+	#[runtime::pallet_index(3)]
+	pub type Timestamp = pallet_timestamp;
+	#[runtime::pallet_index(5)]
+	pub type Aura = pallet_aura;
+	#[runtime::pallet_index(6)]
+	pub type Grandpa = pallet_grandpa;
+	#[runtime::pallet_index(7)]
+	pub type Balances = pallet_balances;
+	#[runtime::pallet_index(8)]
+	pub type TransactionPayment = pallet_transaction_payment;
+	#[runtime::pallet_index(9)]
+	pub type Nfts = pallet_nfts;
+	#[runtime::pallet_index(10)]
+	pub type NftDelegation = pallet_nft_delegation;
+	#[runtime::pallet_index(11)]
+	pub type NftPermission = pallet_nft_permission;
+	#[runtime::pallet_index(12)]
+	pub type NftStaking = pallet_nft_staking;
+	#[runtime::pallet_index(13)]
+	pub type ValidatorSubsetSelection = pallet_validator_subset_selection;
+	#[runtime::pallet_index(14)]
+	pub type Session = pallet_session;
+	#[runtime::pallet_index(15)]
+	pub type Offences = pallet_offences;
+	#[runtime::pallet_index(16)]
+	pub type ImOnline = pallet_im_online;
+	#[runtime::pallet_index(17)]
+	pub type Authorship = pallet_authorship;
+	#[runtime::pallet_index(18)]
+	pub type Proxy = pallet_proxy;
+	#[runtime::pallet_index(19)]
+	pub type Utility = pallet_utility;
+	#[runtime::pallet_index(20)]
+	pub type Recovery = pallet_recovery;
+	#[runtime::pallet_index(21)]
+	pub type Identity = pallet_identity;
+	#[runtime::pallet_index(22)]
+	pub type Assets = pallet_assets;
+	#[runtime::pallet_index(23)]
+	pub type DoAs = pallet_doas;
+	#[runtime::pallet_index(24)]
+	pub type Preimage = pallet_preimage;
+	#[runtime::pallet_index(25)]
+	pub type Scheduler = pallet_scheduler;
+	#[runtime::pallet_index(26)]
+	pub type CouncilCollective = pallet_collective<Instance1>;
+	#[runtime::pallet_index(27)]
+	pub type CouncilMembership = pallet_membership<Instance1>;
+	#[runtime::pallet_index(28)]
+	pub type DevelopmentCollective = pallet_collective<Instance2>;
+	#[runtime::pallet_index(29)]
+	pub type DevelopmentMembership = pallet_membership<Instance2>;
+	#[runtime::pallet_index(30)]
+	pub type FinancialCollective = pallet_collective<Instance3>;
+	#[runtime::pallet_index(31)]
+	pub type FinancialMembership = pallet_membership<Instance3>;
+	#[runtime::pallet_index(32)]
+	pub type CommunityCollective = pallet_collective<Instance4>;
+	#[runtime::pallet_index(33)]
+	pub type CommunityMembership = pallet_membership<Instance4>;
+	#[runtime::pallet_index(34)]
+	pub type TeamAndAdvisorsCollective = pallet_collective<Instance5>;
+	#[runtime::pallet_index(35)]
+	pub type TeamAndAdvisorsMembership = pallet_membership<Instance5>;
+	#[runtime::pallet_index(36)]
+	pub type SecurityCollective = pallet_collective<Instance6>;
+	#[runtime::pallet_index(37)]
+	pub type SecurityMembership = pallet_membership<Instance6>;
+	#[runtime::pallet_index(38)]
+	pub type EducationCollective = pallet_collective<Instance7>;
+	#[runtime::pallet_index(39)]
+	pub type EducationMembership = pallet_membership<Instance7>;
+	#[runtime::pallet_index(40)]
+	pub type Treasury = pallet_treasury<Instance1>;
+	#[runtime::pallet_index(41)]
+	pub type DevelopmentFund = pallet_treasury<Instance2>;
+	#[runtime::pallet_index(42)]
+	pub type FinancialFund = pallet_treasury<Instance3>;
+	#[runtime::pallet_index(43)]
+	pub type CommunityFund = pallet_treasury<Instance4>;
+	#[runtime::pallet_index(44)]
+	pub type TeamAndAdvisorsFund = pallet_treasury<Instance5>;
+	#[runtime::pallet_index(45)]
+	pub type SecurityFund = pallet_treasury<Instance6>;
+	#[runtime::pallet_index(46)]
+	pub type EducationFund = pallet_treasury<Instance7>;
+	#[runtime::pallet_index(47)]
+	pub type Airdrop = pallet_airdrop;
+	#[runtime::pallet_index(48)]
+	pub type HoldVesting = pallet_hold_vesting;
+	#[runtime::pallet_index(49)]
+	pub type VestingToFreeze = pallet_vesting_to_freeze;
+	#[runtime::pallet_index(50)]
+	pub type StakingIncentive = pallet_staking_incentive;
+	#[runtime::pallet_index(51)]
+	pub type FungibleWrapper = pallet_extra_fungible_events;
+}
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
