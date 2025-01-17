@@ -1,8 +1,8 @@
-use sdk::{frame_system, pallet_collective, pallet_membership};
+use sdk::{frame_support, frame_system, pallet_collective, pallet_membership};
 
-use super::{
-	params, AccountId, EitherOfDiverse, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-};
+use frame_support::traits::EitherOfDiverse;
+
+use super::{params, AccountId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
 
 // NOTE: changing this to a type which won't check if a vote happened is a risk, because
 // pallet_collective::Call::propose{} with < 2 threshold will result in an immediate pallet_collective::Call::execute{}

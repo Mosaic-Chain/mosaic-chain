@@ -8,7 +8,7 @@ use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 use sp_keyring::Sr25519Keyring;
 
-use mosaic_testnet_solo_runtime::{opaque, Block, EXISTENTIAL_DEPOSIT};
+use mosaic_testnet_solo_runtime::{opaque, params::constant::balances::ExistentialDeposit, Block};
 
 use crate::{
 	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
@@ -196,7 +196,7 @@ pub fn run() -> sc_cli::Result<()> {
 							Box::new(TransferKeepAliveBuilder::new(
 								client.clone(),
 								Sr25519Keyring::Alice.to_account_id(),
-								EXISTENTIAL_DEPOSIT,
+								ExistentialDeposit::get(),
 							)),
 						]);
 

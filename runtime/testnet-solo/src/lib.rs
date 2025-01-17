@@ -7,61 +7,29 @@
 #[allow(clippy::wildcard_imports)]
 use sdk::*;
 
-use sp_std::prelude::*;
-
-use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
+	construct_runtime,
 	genesis_builder_helper::{build_state, get_preset},
-	pallet_prelude::TransactionValidityError,
-	traits::{
-		fungible::{Balanced, Credit, Debt, HoldConsideration, Inspect},
-		tokens::{PayFromAccount, Precision, UnityAssetBalanceConversion},
-		AsEnsureOriginWithArg, Currency, EitherOfDiverse, EqualPrivilegeOnly, Imbalance,
-		InstanceFilter, LinearStoragePrice, VariantCountOf, WithdrawReasons,
-	},
-	weights::ConstantMultiplier,
-	PalletId,
+	weights::Weight,
 };
-use frame_system::{EnsureRoot, EnsureWithSuccess};
-use pallet_grandpa::AuthorityId as GrandpaId;
+
 use sp_api::impl_runtime_apis;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, ConstBool, Get, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str,
-	generic::{self, Era},
-	impl_opaque_keys,
-	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, Convert, ConvertInto, IdentifyAccount,
-		IdentityLookup, NumberFor, OpaqueKeys, Verify, Zero,
-	},
-	transaction_validity::InvalidTransaction,
-	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedU128, MultiSignature, SaturatedConversion,
+	generic,
+	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify},
+	transaction_validity::{TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, MultiSignature, Vec,
 };
-use sp_staking::offence::{Offence, ReportOffence};
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
+use sp_version::{create_runtime_str, RuntimeVersion};
 
-// A few exports that help ease life for downstream crates.
-pub use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{
-		ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, Randomness, StorageInfo,
-	},
-	weights::{
-		constants::{
-			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
-		},
-		IdentityFee, Weight,
-	},
-	StorageValue,
-};
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{OnChargeTransaction, TargetedFeeAdjustment};
+use pallet_transaction_payment::OnChargeTransaction;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -70,12 +38,8 @@ pub use pallet_nft_permission;
 pub use pallet_validator_subset_selection;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-
-use params::{
-	currency::{Balance, MOSAIC},
-	time::{DAYS, SLOT_DURATION, YEARS},
-};
-use utils::SessionIndex;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 
 #[cfg(test)]
 #[path = "../../parachain/src/mock.rs"]
@@ -90,6 +54,8 @@ mod charge_transaction;
 
 pub mod params;
 
+pub mod configs;
+
 #[path = "../../parachain/src/collectives.rs"]
 pub mod collectives;
 
@@ -98,6 +64,8 @@ pub mod funds;
 
 #[path = "../../parachain/src/staking_reward.rs"]
 pub mod staking_reward;
+
+use params::currency::Balance;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -125,6 +93,7 @@ pub mod opaque {
 	use super::*;
 
 	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+	use sp_runtime::{generic, impl_opaque_keys};
 
 	/// Opaque block header type.
 	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
@@ -167,843 +136,42 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-
-parameter_types! {
-	pub const BlockHashCount: BlockNumber = 2400;
-	pub const Version: RuntimeVersion = VERSION;
-
-	/// We allow for 2 seconds of compute with a 6 second average block time.
-	pub BlockWeights: frame_system::limits::BlockWeights =
-		frame_system::limits::BlockWeights::with_sensible_defaults(
-			Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
-			NORMAL_DISPATCH_RATIO,
-		);
-	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
-		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
-	pub const SS58Prefix: u8 = 42;
-}
-
-// Configure FRAME pallets to include in runtime.
-impl frame_system::Config for Runtime {
-	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = frame_support::traits::Everything;
-
-	/// Block & extrinsics weights: base values and limits.
-	type BlockWeights = BlockWeights;
-
-	/// The maximum length of a block (in bytes).
-	type BlockLength = BlockLength;
-
-	/// The identifier used to distinguish between accounts.
-	type AccountId = AccountId;
-
-	/// The aggregated dispatch type that is available for extrinsics.
-	type RuntimeCall = RuntimeCall;
-
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	type Lookup = AccountIdLookup<AccountId, ()>;
-
-	/// The block type for the runtime
-	type Block = Block;
-
-	/// Number of previous transactions associated with an account
-	type Nonce = Nonce;
-
-	/// The type for hashing blocks and tries.
-	type Hash = Hash;
-
-	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
-
-	/// The ubiquitous event type.
-	type RuntimeEvent = RuntimeEvent;
-
-	/// The ubiquitous origin type.
-	type RuntimeOrigin = RuntimeOrigin;
-
-	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
-	type BlockHashCount = BlockHashCount;
-
-	/// The weight of database operations that the runtime can invoke.
-	type DbWeight = RocksDbWeight;
-
-	/// Version of the runtime.
-	type Version = Version;
-
-	/// Converts a module to the index of the module in `construct_runtime!`.
-	///
-	/// This type is being generated by `construct_runtime!`.
-	type PalletInfo = PalletInfo;
-
-	/// What to do if a new account is created.
-	type OnNewAccount = ();
-
-	/// What to do if an account is fully reaped from the system.
-	type OnKilledAccount = ();
-
-	/// The data to be stored in an account.
-	type AccountData = pallet_balances::AccountData<Balance>;
-
-	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = ();
-
-	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
-	type SS58Prefix = SS58Prefix;
-
-	/// The set code logic, just the default since we're not a parachain.
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-
-	type RuntimeTask = ();
-
-	type SingleBlockMigrations = ();
-
-	type MultiBlockMigrator = ();
-
-	type PreInherents = ();
-
-	type PostInherents = ();
-	type PostTransactions = ();
-}
-
-impl pallet_parameters::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeParameters = params::RuntimeParameters;
-	type AdminOrigin = collectives::CouncilOrigin;
-	type WeightInfo = ();
-}
-
-impl pallet_assets::Config for Runtime {
-	type WeightInfo = pallet_assets::weights::SubstrateWeight<Self>;
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = u64;
-	type AssetIdParameter = u64;
-	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
-	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type Freezer = ();
-	type Extra = ();
-	type CallbackHandle = ();
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-
-	type AssetDeposit = params::dynamic::assets::AssetDeposit;
-	type AssetAccountDeposit = params::dynamic::assets::AssetAccountDeposit;
-	type MetadataDepositBase = params::dynamic::assets::MetadataDepositBase;
-	type MetadataDepositPerByte = params::dynamic::assets::MetadataDepositPerByte;
-	type ApprovalDeposit = params::dynamic::assets::ApprovalDeposit;
-
-	type StringLimit = ConstU32<64>;
-	type RemoveItemsLimit = ConstU32<32>;
-}
-
-impl pallet_aura::Config for Runtime {
-	type AuthorityId = AuraId;
-	type DisabledValidators = ();
-	// TODO: figure out how to set this safely given subset sizes are not exact.
-	type MaxAuthorities = ConstU32<350>;
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
-}
-
-impl pallet_grandpa::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-	type MaxAuthorities = ConstU32<350>;
-	type MaxSetIdSessionEntries = ConstU64<0>;
-	type KeyOwnerProof = sp_core::Void;
-	type EquivocationReportSystem = ();
-	// We have no such things as nominators, grandpa only uses this for weight calculation of offence reporting extrinsics.
-	// Since we use the default implementation of EquivocationReportSystem (noop), we can safely set this to 0.
-	type MaxNominators = ConstU32<0>;
-}
-
-impl pallet_timestamp::Config for Runtime {
-	/// A timestamp: milliseconds since the unix epoch.
-	type Moment = u64;
-	type OnTimestampSet = Aura;
-	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-	type WeightInfo = ();
-}
-
-pub const EXISTENTIAL_DEPOSIT: u128 = 1;
-
-impl pallet_balances::Config for Runtime {
-	type MaxLocks = ConstU32<64>;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-
-	/// The type for recording an account's balance.
-	type Balance = Balance;
-
-	/// The ubiquitous event type.
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ConstU128<{ EXISTENTIAL_DEPOSIT }>;
-	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Self>;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-}
-
-impl pallet_extra_fungible_events::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Fungible = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
-}
-
-pub struct WeightToFee;
-impl frame_support::weights::WeightToFee for WeightToFee {
-	type Balance = Balance;
-
-	fn weight_to_fee(weight: &Weight) -> Self::Balance {
-		let time_fee = weight.ref_time() as u128 * params::currency::CENTS
-			/ (200 * Balance::from(ExtrinsicBaseWeight::get().ref_time()));
-		let pov_fee = weight.proof_size() as u128 * params::currency::CENTS / 20_000;
-
-		time_fee.max(pov_fee)
-	}
-}
-
-impl pallet_transaction_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = charge_transaction::ChargeTransaction;
-	type OperationalFeeMultiplier = params::constant::transaction_payment::OperationalFeeMultiplier;
-	type WeightToFee = WeightToFee;
-	type LengthToFee =
-		ConstantMultiplier<Balance, ConstU128<{ params::currency::message_fee(0, 1) }>>;
-	type FeeMultiplierUpdate = TargetedFeeAdjustment<
-		Self,
-		params::constant::transaction_payment::TargetBlockFullness,
-		params::constant::transaction_payment::AdjustmentVariable,
-		params::constant::transaction_payment::MinimumMultiplier,
-		params::constant::transaction_payment::MaximumMultiplier,
-	>;
-}
-
-impl pallet_nfts::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = u32;
-	type ItemId = u32;
-	type Currency = Balances;
-	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
-	type Locker = ();
-	type CollectionDeposit = ();
-	type ItemDeposit = ();
-	type MetadataDepositBase = ();
-	type AttributeDepositBase = ();
-	type DepositPerByte = ();
-	type StringLimit = ConstU32<256>;
-	type KeyLimit = ConstU32<256>;
-	type ValueLimit = ConstU32<256>;
-	type ApprovalsLimit = ();
-	type ItemAttributesApprovalsLimit = ();
-	type MaxTips = ();
-	type MaxDeadlineDuration = ();
-	type MaxAttributesPerCall = ();
-	type Features = ();
-	type OffchainSignature = Signature;
-	type OffchainPublic = <Signature as Verify>::Signer;
-	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Self>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type Helper = ();
-}
-
-parameter_types! {
-	pub const NftPermissionPalletId: PalletId = PalletId(*b"permissi");
-}
-
-impl pallet_nft_permission::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type PalletId = NftPermissionPalletId;
-	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
-	type Permission = pallet_nft_staking::PermissionType;
-	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Self>;
-}
-
-pub struct IdTupleToValidatorId;
-
-impl Convert<IdTuple, AccountId> for IdTupleToValidatorId {
-	fn convert(id_tuple: IdTuple) -> AccountId {
-		id_tuple.0
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub struct NftStakingBenchmarkHelper;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_nft_staking::BenchmarkHelper<Runtime> for NftStakingBenchmarkHelper {
-	fn id_tuple_from_account(acc: AccountId) -> IdTuple {
-		(acc.clone(), acc)
-	}
-}
-
-impl pallet_nft_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type Fungible = FungibleWrapper;
-	type NftDelegationHandler = NftDelegation;
-	type NftStakingHandler = NftPermission;
-	type Balance = Balance;
-	type ItemId = <Self as pallet_nfts::Config>::ItemId;
-	type OffenderToValidatorId = IdTupleToValidatorId;
-
-	type SlackingPeriod = params::dynamic::nft_staking::SlackingPeriod;
-	type NominalValueThreshold = params::dynamic::nft_staking::NominalValueThreshold;
-	type MinimumStakingPeriod = params::dynamic::nft_staking::MinimumStakingPeriod;
-	type MinimumCommissionRate = params::dynamic::nft_staking::MinimumCommission;
-	type MinimumStakingAmount = params::dynamic::nft_staking::MinimumStakingAmount;
-	type MaximumStakePercentage = params::dynamic::nft_staking::MaximumStakePercentage;
-
-	type SessionReward = staking_reward::SessionReward;
-	type MaximumContractsPerValidator = ConstU32<1000>;
-	type MaximumBoundValidators = ConstU32<4000>;
-	type ContributionPercentage = params::dynamic::nft_staking::ContributionPercentage;
-	type ContributionDestination = Treasury;
-	type Hooks = StakingIncentive;
-	type WeightInfo = pallet_nft_staking::weights::SubstrateWeight<Self>;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = NftStakingBenchmarkHelper;
-}
-
-parameter_types! {
-	pub const MaxSubAccounts: u32 = 16;
-	pub const MaxAdditionalFields: u32 = 16;
-	pub const MaxRegistrars: u32 = 32;
-	pub const MaxSuffixLength: u32 = 32;
-	pub const MaxUsernameLength: u32 = 32;
-}
-
-impl pallet_identity::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type Slashed = ();
-	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type RegistrarOrigin = frame_system::EnsureRoot<AccountId>;
-	type WeightInfo = pallet_identity::weights::SubstrateWeight<Self>;
-	type MaxSubAccounts = MaxSubAccounts;
-	type MaxRegistrars = MaxRegistrars;
-	type MaxSuffixLength = MaxSuffixLength;
-	type MaxUsernameLength = MaxUsernameLength;
-	type IdentityInformation = pallet_identity::legacy::IdentityInfo<MaxAdditionalFields>;
-	type OffchainSignature = Signature;
-	type SigningPublicKey = <Signature as Verify>::Signer;
-	type UsernameAuthorityOrigin = frame_system::EnsureRoot<AccountId>;
-	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
-
-	type ByteDeposit = params::dynamic::identity::ByteDeposit;
-	type BasicDeposit = params::dynamic::identity::BasicDeposit;
-	type SubAccountDeposit = params::dynamic::identity::SubAccountDeposit;
-}
-
-parameter_types! {
-	pub MaximumWeight: Weight = Perbill::from_percent(75) * BlockWeights::get().max_block;
-	pub const MaxScheduledPerBlock: u32 = 50;
-}
-
-impl pallet_scheduler::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
-	type PalletsOrigin = OriginCaller;
-	type RuntimeCall = RuntimeCall;
-	type MaximumWeight = MaximumWeight;
-	type ScheduleOrigin =
-		EitherOfDiverse<frame_system::EnsureRoot<AccountId>, frame_system::EnsureSigned<AccountId>>;
-	type OriginPrivilegeCmp = EqualPrivilegeOnly;
-	type MaxScheduledPerBlock = MaxScheduledPerBlock;
-	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Self>;
-	type Preimages = Preimage;
-}
-
-parameter_types! {
-	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
-}
-
-impl pallet_preimage::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Self>;
-	type Currency = Balances;
-	type ManagerOrigin = EnsureRoot<AccountId>;
-	type Consideration = HoldConsideration<
-		AccountId,
-		Balances,
-		PreimageHoldReason,
-		LinearStoragePrice<
-			params::dynamic::preimage::BaseDeposit,
-			params::dynamic::preimage::ByteDeposit,
-			Balance,
-		>,
-	>;
-}
-
-impl pallet_validator_subset_selection::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ValidatorId = AccountId;
-	type ValidatorSuperset = pallet_nft_staking::SelectableValidators<Self>;
-	type SubsetSize = params::dynamic::validator_subset_selection::SubsetSize;
-	type MinSessionLength = params::dynamic::validator_subset_selection::MinSessionLength;
-	type SessionHook = (NftDelegation, NftStaking);
-}
-
-impl pallet_session::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ValidatorId = ValidatorId;
-	type ValidatorIdOf = ConvertInto;
-	type ShouldEndSession = ValidatorSubsetSelection;
-	type NextSessionRotation = ValidatorSubsetSelection;
-	type SessionManager = ValidatorSubsetSelection;
-	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
-	type Keys = opaque::SessionKeys;
-	type WeightInfo = pallet_session::weights::SubstrateWeight<Self>;
-}
-
-// TODO: figure out how to be more generic over the id tuple
-impl pallet_offences::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type IdentificationTuple = pallet_im_online::IdentificationTuple<Self>;
-	type OnOffenceHandler = NftStaking;
-}
-
-#[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	Debug,
-	MaxEncodedLen,
-	scale_info::TypeInfo,
-)]
-// I made these ProxyTypes according to this: https://mosaicchain.medium.com/account-abstractions-on-mosaic-chain-9b4162897536
-pub enum ProxyType {
-	/// Allow any kind of transaction, including balance transfers, staking, governance and others on behalf of the proxied account.
-	Any,
-	/// Allow any type of transaction except the balance transfer functionality.
-	/// This proxy does not have permission to access calls in the Balances and XCM pallet.
-	NonTransfer,
-	/// Allow to make transactions related to only for governance.
-	Governance,
-	/// Allow all staking-related transactions.
-	Staking,
-	/// Allow registrars to make judgments on an account's identity.
-	Identity,
-	/// Allow to reject and remove any time-delay proxy announcements.
-	/// This proxy can only access the "reject_announcement" call from the Proxy pallet.
-	Cancel,
-}
-
-// Default must be provided and MUST BE the the most permissive value. aka Any
-impl Default for ProxyType {
-	fn default() -> Self {
-		Self::Any
-	}
-}
-
-impl InstanceFilter<RuntimeCall> for ProxyType {
-	fn filter(&self, c: &RuntimeCall) -> bool {
-		fn is_governance(c: &RuntimeCall) -> bool {
-			matches!(
-				c,
-				RuntimeCall::CouncilCollective(..)
-					| RuntimeCall::CouncilMembership(..)
-					| RuntimeCall::DevelopmentCollective(..)
-					| RuntimeCall::DevelopmentMembership(..)
-					| RuntimeCall::FinancialCollective(..)
-					| RuntimeCall::FinancialMembership(..)
-					| RuntimeCall::CommunityCollective(..)
-					| RuntimeCall::CommunityMembership(..)
-					| RuntimeCall::TeamAndAdvisorsCollective(..)
-					| RuntimeCall::TeamAndAdvisorsMembership(..)
-					| RuntimeCall::SecurityCollective(..)
-					| RuntimeCall::SecurityMembership(..)
-					| RuntimeCall::EducationCollective(..)
-					| RuntimeCall::EducationMembership(..)
-			)
-		}
-
-		fn nft_non_transfer(c: &RuntimeCall) -> bool {
-			let RuntimeCall::Nfts(x) = c else {
-				return false;
-			};
-
-			matches!(
-				x,
-				pallet_nfts::Call::create { .. }
-					| pallet_nfts::Call::force_create { .. }
-					| pallet_nfts::Call::mint { .. }
-					| pallet_nfts::Call::force_mint { .. }
-					| pallet_nfts::Call::lock_item_transfer { .. }
-					| pallet_nfts::Call::lock_collection { .. }
-					| pallet_nfts::Call::mint_pre_signed { .. }
-			)
-		}
-
-		if let ProxyType::Cancel = self {
-			return matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }));
-		};
-
-		if let RuntimeCall::Utility(..) = c {
-			return true;
-		}
-
-		match self {
-			ProxyType::Any => true,
-			ProxyType::NonTransfer => {
-				matches!(
-					c,
-					// skipping pallet_balances entirely
-					// when xcm will be implemented skip that too
-
-					// As we add more pallets to the chain this needs to be extended as well.
-					RuntimeCall::System(..)
-						| RuntimeCall::Timestamp(..)
-						| RuntimeCall::Grandpa(..)
-						| RuntimeCall::ImOnline(..)
-						| RuntimeCall::NftDelegation(..)
-						| RuntimeCall::NftPermission(..)
-						| RuntimeCall::NftStaking(..)
-						| RuntimeCall::Session(..)
-						| RuntimeCall::Recovery(
-							// TODO reevaluate if this is dangerous
-							pallet_recovery::Call::as_recovered { .. }
-								| pallet_recovery::Call::vouch_recovery { .. }
-								| pallet_recovery::Call::claim_recovery { .. }
-								| pallet_recovery::Call::close_recovery { .. }
-								| pallet_recovery::Call::remove_recovery { .. }
-								| pallet_recovery::Call::cancel_recovered { .. }
-						) | RuntimeCall::Identity(..)
-				) || nft_non_transfer(c)
-					|| is_governance(c)
-			},
-			ProxyType::Governance => is_governance(c),
-			ProxyType::Identity => matches!(c, RuntimeCall::Identity(..)),
-			ProxyType::Staking => {
-				matches!(c, RuntimeCall::NftStaking(..) | RuntimeCall::Session(..))
-			},
-			ProxyType::Cancel => unreachable!("Handled already"),
-		}
-	}
-
-	fn is_superset(&self, o: &Self) -> bool {
-		match (self, o) {
-			(x, y) if x == y => true,
-			(ProxyType::Any, _) => true,
-			(_, ProxyType::Any) => false,
-			(ProxyType::NonTransfer, _) => true,
-			_ => false,
-		}
-	}
-}
-
-impl pallet_proxy::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
-	type ProxyType = ProxyType;
-	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Self>;
-	type CallHasher = BlakeTwo256;
-	type MaxProxies = ConstU32<32>;
-	type MaxPending = ConstU32<32>;
-	type ProxyDepositBase = params::dynamic::proxy::DepositBase;
-	type ProxyDepositFactor = params::dynamic::proxy::DepositFactor;
-	type AnnouncementDepositBase = params::dynamic::proxy::AnnouncementDepositBase;
-	type AnnouncementDepositFactor = params::dynamic::proxy::AnnouncementDepositFactor;
-}
-
-impl pallet_utility::Config for Runtime {
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type PalletsOrigin = OriginCaller;
-	type WeightInfo = pallet_utility::weights::SubstrateWeight<Self>;
-}
-
-parameter_types! {
-	pub const MaxFriends: u16 = 9;
-}
-
-impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Self>;
-	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
-	type MaxFriends = MaxFriends;
-	type ConfigDepositBase = params::dynamic::recovery::ConfigDepositBase;
-	type FriendDepositFactor = params::dynamic::recovery::FriendDepositFactor;
-	type RecoveryDeposit = params::dynamic::recovery::RecoveryDeposit;
-}
-
-impl pallet_doas::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	// NOTE: changing this to a type which won't check if a vote happened is a risk, because
-	// pallet_collective::Call::propose{} with < 2 threshold will result in an immediate pallet_collective::Call::execute{}
-	// basically turning all of the council members into a doas account.
-	//
-	// This ensures that a vote with 2/3 aye ratio is needed for a doas proposal to be accepted.
-	type EnsureOrigin = pallet_collective::EnsureProportionAtLeast<
-		AccountId,
-		collectives::council::CollectiveInstance,
-		2,
-		3,
-	>;
-	type WeightInfo = pallet_doas::weights::SubstrateWeight<Self>;
-}
-
-parameter_types! {
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
-}
-
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
-where
-	RuntimeCall: From<LocalCall>,
-{
-	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-		call: RuntimeCall,
-		public: <Signature as Verify>::Signer,
-		account: AccountId,
-		nonce: Nonce,
-	) -> Option<(
-		RuntimeCall,
-		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-	)> {
-		let period =
-			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
-		let current_block = System::block_number().saturated_into::<u64>().saturating_sub(1);
-		let era = Era::mortal(period, current_block);
-		let extra = (
-			frame_system::CheckNonZeroSender::<Runtime>::new(),
-			frame_system::CheckSpecVersion::<Runtime>::new(),
-			frame_system::CheckTxVersion::<Runtime>::new(),
-			frame_system::CheckGenesis::<Runtime>::new(),
-			frame_system::CheckEra::<Runtime>::from(era),
-			frame_system::CheckNonce::<Runtime>::from(nonce),
-			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
-		);
-		let raw_payload = SignedPayload::new(call, extra)
-			.map_err(|e| {
-				log::warn!("Unable to create signed payload: {:?}", e);
-			})
-			.ok()?;
-		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
-		let address = account;
-		let (call, extra, _) = raw_payload.deconstruct();
-
-		Some((call, (sp_runtime::MultiAddress::Id(address), signature, extra)))
-	}
-}
-
-impl frame_system::offchain::SigningTypes for Runtime {
-	type Public = <Signature as Verify>::Signer;
-	type Signature = Signature;
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-where
-	RuntimeCall: From<C>,
-{
-	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
-}
-
-type IdTuple = pallet_im_online::IdentificationTuple<Runtime>;
-type ImOnlineOffence = pallet_im_online::UnresponsivenessOffence<IdTuple>;
-
-pub struct ImOnlineOffenceAdapter(ImOnlineOffence);
-
-pub struct ImOnlineReporter;
-
-impl Offence<IdTuple> for ImOnlineOffenceAdapter {
-	const ID: sp_staking::offence::Kind = *b"mos:imon-offline";
-	type TimeSlot = SessionIndex;
-
-	fn offenders(&self) -> Vec<IdTuple> {
-		self.0.offenders()
-	}
-
-	fn session_index(&self) -> SessionIndex {
-		self.0.session_index()
-	}
-
-	fn validator_set_count(&self) -> u32 {
-		self.0.validator_set_count()
-	}
-
-	fn time_slot(&self) -> Self::TimeSlot {
-		self.0.time_slot()
-	}
-
-	fn slash_fraction(&self, _offenders: u32) -> Perbill {
-		params::dynamic::tokenomics::SlashFraction::get()
-	}
-}
-
-impl ReportOffence<AccountId, IdTuple, ImOnlineOffence> for ImOnlineReporter {
-	fn report_offence(
-		reporters: Vec<AccountId>,
-		offence: ImOnlineOffence,
-	) -> Result<(), sp_staking::offence::OffenceError> {
-		let offence = ImOnlineOffenceAdapter(offence);
-		<Offences as ReportOffence<AccountId, IdTuple, ImOnlineOffenceAdapter>>::report_offence(
-			reporters, offence,
-		)
-	}
-
-	fn is_known_offence(offenders: &[IdTuple], time_slot: &SessionIndex) -> bool {
-		<Offences as ReportOffence<AccountId, IdTuple, ImOnlineOffenceAdapter>>::is_known_offence(
-			offenders, time_slot,
-		)
-	}
-}
-
-impl pallet_im_online::Config for Runtime {
-	type AuthorityKey = ImOnlineId;
-	type RuntimeEvent = RuntimeEvent;
-	type ValidatorSet = pallet_nft_staking::SlashableValidators<Self>;
-	type ReportUnresponsiveness = ImOnlineReporter;
-	type UnsignedPriority = ImOnlineUnsignedPriority;
-	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Self>;
-}
-
-impl pallet_authorship::Config for Runtime {
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type EventHandler = ImOnline;
-}
-
-parameter_types! {
-	pub const NftDelegationPalletId: PalletId = PalletId(*b"delegati");
-}
-
-pub struct CurrentSession;
-impl sp_core::Get<SessionIndex> for CurrentSession {
-	fn get() -> SessionIndex {
-		Session::current_index()
-	}
-}
-
-parameter_types! {
-	pub const MaxDelegationNftExpirationsPerSession: u32 = 16;
-}
-
-impl pallet_nft_delegation::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type PalletId = NftDelegationPalletId;
-	type MaxExpirationsPerSession = MaxDelegationNftExpirationsPerSession;
-	type CurrentSession = CurrentSession;
-	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
-	type Balance = Balance;
-	type NftExpirationHandler = NftStaking;
-	type BindMetadata = Self::AccountId;
-	type WeightInfo = pallet_nft_delegation::weights::SubstrateWeight<Self>;
-}
-
-impl pallet_airdrop::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type PermissionType = pallet_nft_staking::PermissionType;
-	type ItemId = <Self as pallet_nfts::Config>::ItemId;
-	type NftPermission = NftPermission;
-	type Fungible = FungibleWrapper;
-	type DelegatorNftBindMetadata = AccountId;
-	type NftDelegation = NftDelegation;
-	type VestingSchedule = HoldVesting;
-	type BaseTransactionPriority = ConstU64<{ TransactionPriority::MAX / 2 }>;
-	type MaxAirdropsInPool = ConstU64<12>;
-	const MAX_DELEGATOR_NFTS: u32 = params::constant::airdrop::MAX_DELEGATOR_NFTS;
-	type WeightInfo = pallet_airdrop::weights::SubstrateWeight<Self>;
-}
-
-parameter_types! {
-	pub const MinVestedTransfer: Balance = MOSAIC;
-	pub const UnvestedFundsAllowedWithdrawReasons: WithdrawReasons = WithdrawReasons::empty();
-}
-
-impl pallet_hold_vesting::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type Balance = Balance;
-	type Fungible = FungibleWrapper;
-	type BlockNumberToBalance = ConvertInto;
-	type MinVestedTransfer = MinVestedTransfer;
-	type BlockNumberProvider = System;
-	type WeightInfo = pallet_hold_vesting::weights::SubstrateWeight<Self>;
-	const MAX_VESTING_SCHEDULES: u32 = 8;
-}
-
-// TODO: when parameters are reviewed and organized better consider removing this.
-pub struct MaxFreezesAndLocks;
-impl Get<u32> for MaxFreezesAndLocks {
-	fn get() -> u32 {
-		let freezes: u32 = <Runtime as pallet_balances::Config>::MaxFreezes::get();
-		let locks: u32 = <Runtime as pallet_balances::Config>::MaxLocks::get();
-
-		freezes + locks
-	}
-}
-
-impl pallet_vesting_to_freeze::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type Balance = Balance;
-	type Fungible = FungibleWrapper;
-	type VestingSchedule = HoldVesting;
-	type BlockNumberToBalance = ConvertInto;
-	type BlockNumberProvider = System;
-	type MaxFrozenSchedules = ConstU32<8>;
-	type MaxFreezes = MaxFreezesAndLocks;
-	type MaxVestingSchedules =
-		ConstU32<{ <Self as pallet_hold_vesting::Config>::MAX_VESTING_SCHEDULES }>;
-	type WeightInfo = pallet_vesting_to_freeze::SubstrateWeight<Self>;
-}
-
-parameter_types! {
-	pub const ScoreCut: Perbill = Perbill::from_percent(10);
-	pub const PerBlockMultiplier: FixedU128 = utils::prod_or_fast!(
-		// 2x growth over a year: exp(ln(2)/5259600)
-		FixedU128::from_rational(1_000_000_131_787_061_037, 1_000_000_000_000_000_000),
-		// At max supply an overflow occurs in 269 blocks: (128-91) * ln(2)/ln(1.1)
-		FixedU128::from_rational(11, 10)
-	);
-	pub const IncentivePalletId: PalletId = PalletId(*b"mstkince");
-}
-
-pub struct BalanceToScore;
-
-impl Convert<Balance, FixedU128> for BalanceToScore {
-	fn convert(a: Balance) -> FixedU128 {
-		// One MOS is 10^18 tiles
-		// The divisor of `FixedU128` is also 10^18
-		// => 1 MOS can be considered as 1 Score
-		// => Around 3.4028 * 10^20 MOS can thus be represented as score
-		FixedU128::from_inner(a)
-	}
-}
-
-impl pallet_staking_incentive::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type Fungible = FungibleWrapper;
-	type VestingSchedule = HoldVesting;
-	type ClaimVestingScheduleLength = ConstU32<{ YEARS }>;
-	type PerBlockMultiplier = PerBlockMultiplier;
-	type BlockNumberProvider = System;
-	type BalanceToScore = BalanceToScore;
-	type PalletId = IncentivePalletId;
-	type MaxPayouts = ConstU32<16>;
-	type WeightInfo = pallet_staking_incentive::weights::SubstrateWeight<Self>;
-}
+/// The address format for describing accounts.
+pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
+
+/// Block header type as expected by this runtime.
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+
+/// Block type as expected by this runtime.
+pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+
+/// The SignedExtension to the basic transaction logic.
+pub type SignedExtra = (
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_system::CheckWeight<Runtime>,
+	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+);
+
+/// Unchecked extrinsic type as expected by this runtime.
+pub type UncheckedExtrinsic =
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+
+/// The payload being signed in transactions.
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
+
+/// Executive: handles dispatch to the various modules.
+pub type Executive = frame_executive::Executive<
+	Runtime,
+	Block,
+	frame_system::ChainContext<Runtime>,
+	Runtime,
+	AllPalletsWithSystem,
+>;
 
 // this is needed, otherwise fmt will remove the :: from ::<Instance1>
 #[rustfmt::skip::macros(construct_runtime)]
@@ -1062,43 +230,6 @@ construct_runtime!(
 		FungibleWrapper: pallet_extra_fungible_events,
 	}
 );
-
-/// The address format for describing accounts.
-pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
-
-/// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-
-/// Block type as expected by this runtime.
-pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-);
-
-/// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
-
-/// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
-
-/// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-	Runtime,
-	Block,
-	frame_system::ChainContext<Runtime>,
-	Runtime,
-	AllPalletsWithSystem,
->;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
@@ -1367,7 +498,7 @@ impl_runtime_apis! {
 			// right here and right now.
 			let weight = Executive::try_runtime_upgrade(checks).unwrap();
 
-			(weight, BlockWeights::get().max_block)
+			(weight, <Runtime as frame_system::Config>::BlockWeights::get().max_block)
 		}
 
 		fn execute_block(

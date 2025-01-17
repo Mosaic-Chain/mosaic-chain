@@ -1,9 +1,14 @@
-use super::{
-	parameter_types, params, AccountId, Balances, EnsureWithSuccess, IdentityLookup, PalletId,
-	PayFromAccount, Runtime, RuntimeEvent, RuntimeHoldReason, UnityAssetBalanceConversion,
-};
+use sdk::{frame_support, frame_system, pallet_collective, sp_runtime};
 
-use sdk::pallet_collective;
+use frame_support::{
+	parameter_types,
+	traits::tokens::{PayFromAccount, UnityAssetBalanceConversion},
+	PalletId,
+};
+use frame_system::EnsureWithSuccess;
+use sp_runtime::traits::IdentityLookup;
+
+use super::{params, AccountId, Balances, Runtime, RuntimeEvent, RuntimeHoldReason};
 
 macro_rules! impl_fund {
 	($fund:ident, $instance:ident, $pallet_id:expr) => {

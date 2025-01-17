@@ -1,9 +1,12 @@
-use sdk::{sp_core::Get, sp_runtime::helpers_128bit::sqrt};
+use sdk::{frame_support, sp_core, sp_runtime};
 
-use super::{
-	params::currency::MOSAIC, params::dynamic::tokenomics::TokenGenerationFactor, Balance,
-	Balances, Currency, Runtime, Session,
-};
+use frame_support::traits::Currency;
+use sp_core::Get;
+use sp_runtime::helpers_128bit::sqrt;
+
+use super::{params, Balance, Balances, Runtime, Session};
+use params::{currency::MOSAIC, dynamic::tokenomics::TokenGenerationFactor};
+
 use pallet_validator_subset_selection::CurrentSessionLength;
 
 pub struct SessionReward;
