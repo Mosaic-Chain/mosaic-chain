@@ -80,6 +80,7 @@ impl nft_permission::Config for Test {
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Permission = String;
 	type Balance = u64;
+	const COLLECTION_DESCRIPTION: &str = "permission nfts";
 }
 
 pub fn account(id: u8) -> AccountId {

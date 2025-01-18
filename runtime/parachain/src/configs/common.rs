@@ -171,7 +171,22 @@ impl pallet_nft_permission::Config for Runtime {
 	type PalletId = params::constant::nft_permission::PalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 	type Permission = pallet_nft_staking::PermissionType;
+	const COLLECTION_DESCRIPTION: &str =
+		"Collection of both PoS and DPoS NFTs that give permission to produce blocks.";
 	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Self>;
+}
+
+impl pallet_nft_delegation::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = params::constant::nft_delegation::PalletId;
+	type MaxExpirationsPerSession = params::constant::nft_delegation::MaxExpirationsPerSession;
+	type CurrentSession = CurrentSession;
+	type PrivilegedOrigin = collectives::CouncilOrigin;
+	type Balance = Balance;
+	type NftExpirationHandler = NftStaking;
+	type BindMetadata = AccountId;
+	const COLLECTION_DESCRIPTION: &str = "Collection of stakable delegator NFTs.";
+	type WeightInfo = pallet_nft_delegation::weights::SubstrateWeight<Self>;
 }
 
 pub struct IdTupleToValidatorId;
@@ -550,18 +565,6 @@ impl sp_core::Get<SessionIndex> for CurrentSession {
 	fn get() -> SessionIndex {
 		pallet_session::CurrentIndex::<Runtime>::get()
 	}
-}
-
-impl pallet_nft_delegation::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type PalletId = params::constant::nft_delegation::PalletId;
-	type MaxExpirationsPerSession = params::constant::nft_delegation::MaxExpirationsPerSession;
-	type CurrentSession = CurrentSession;
-	type PrivilegedOrigin = collectives::CouncilOrigin;
-	type Balance = Balance;
-	type NftExpirationHandler = NftStaking;
-	type BindMetadata = AccountId;
-	type WeightInfo = pallet_nft_delegation::weights::SubstrateWeight<Self>;
 }
 
 impl pallet_airdrop::Config for Runtime {

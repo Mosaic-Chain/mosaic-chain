@@ -105,6 +105,11 @@ pub mod pallet {
 			+ MaybeSerializeDeserialize
 			+ FixedPointOperand;
 
+		/// A short string describing the nft collection managed by the pallet.
+		///
+		/// The string is stored as collection metadata.
+		const COLLECTION_DESCRIPTION: &str;
+
 		/// Type representing the weights of calls in this pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -222,6 +227,13 @@ pub mod pallet {
 				},
 			)
 			.expect("could create collection");
+
+			<NftsPallet<T> as Mutate<_, _>>::set_collection_metadata(
+				None,
+				&collection_id,
+				T::COLLECTION_DESCRIPTION.as_bytes(),
+			)
+			.expect("description fits the collection metadata length limit");
 
 			CollectionId::<T>::put(collection_id);
 			NextItemId::<T>::put(T::ItemId::initial_value().expect("Item Id has initial value"));
