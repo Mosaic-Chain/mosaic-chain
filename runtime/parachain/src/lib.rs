@@ -297,7 +297,6 @@ mod benches {
 	use frame_benchmarking::define_benchmarks;
 
 	define_benchmarks!(
-		[frame_benchmarking, SystemBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
@@ -319,6 +318,7 @@ mod benches {
 		[pallet_doas, DoAs]
 		[pallet_preimage, Preimage]
 		[pallet_scheduler, Scheduler]
+		[pallet_session, SessionBench::<Runtime>]
 		[pallet_collective, CouncilCollective]
 		[pallet_membership, CouncilMembership]
 		[pallet_treasury, Treasury]
@@ -491,6 +491,7 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -505,6 +506,7 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {

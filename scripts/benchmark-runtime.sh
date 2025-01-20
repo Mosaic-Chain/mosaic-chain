@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-    echo "Usage: $0 <mosaic-chain> <benchmark-pallet-weights.hbs> [doas ... vesting-to-freeze]"
+    echo "Usage: $0 <mosaic-chain> <benchmark-pallet-weights.hbs> [pallet_doas ... pallet_vesting_to_freeze]"
     exit 1
 fi
 
@@ -19,16 +19,19 @@ else
 fi
 
 if [ $# -eq 0 ]; then
-  pallets=(doas hold-vesting im-online nft-delegation nft-permission nft-staking staking-incentive treasury validator-subset-selection vesting-to-freeze)
+  readarray -t pallets < <($node benchmark pallet --list=pallets --no-csv-header)
 else
   pallets=("$@")
 fi
 
 mkdir -p weights
-for pallet in "${pallets[@]}"; do
-    echo " ⏳ ⏱  Running runtime benchmarks for pallet-$pallet  ⏱ ⏳ "
+for pallet_prefixed in "${pallets[@]}"; do
+    echo " ⏳ ⏱  Running runtime benchmarks for $pallet_prefixed  ⏱ ⏳ "
 
-    touch "weights/$pallet.rs"
-    pallet_mod=$(echo $pallet | tr '-' '_')
-    "$node" benchmark pallet --pallet "pallet-$pallet" --extrinsic '*' --steps=50 --repeat=20 --wasm-execution=compiled --output "weights/$pallet_mod.rs" --template "$template"
+    pallet_mod="${pallet_prefixed#pallet_}"
+    pallet_mod="${pallet_mod#cumulus_pallet_}"
+    pallet_arg=$(echo $pallet_prefixed | tr '_' '-')
+    
+    touch "weights/$pallet_mod.rs"
+    "$node" benchmark pallet --pallet "$pallet_arg" --extrinsic '*' --steps=50 --repeat=20 --wasm-execution=compiled --output "weights/$pallet_mod.rs" --template "$template"
 done

@@ -51,10 +51,6 @@ mod tests;
 #[path = "../../parachain/src/charge_transaction.rs"]
 mod charge_transaction;
 
-pub mod params;
-
-pub mod configs;
-
 #[path = "../../parachain/src/collectives.rs"]
 pub mod collectives;
 
@@ -63,6 +59,11 @@ pub mod funds;
 
 #[path = "../../parachain/src/staking_reward.rs"]
 pub mod staking_reward;
+
+pub mod configs;
+pub mod params;
+
+mod weights;
 
 use params::currency::Balance;
 
@@ -296,7 +297,6 @@ mod benches {
 	use frame_benchmarking::define_benchmarks;
 
 	define_benchmarks!(
-		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_parameters, Parameters]
 		[pallet_timestamp, Timestamp]
@@ -315,6 +315,7 @@ mod benches {
 		[pallet_doas, DoAs]
 		[pallet_preimage, Preimage]
 		[pallet_scheduler, Scheduler]
+		[pallet_session, SessionBench::<Runtime>]
 		[pallet_collective, CouncilCollective]
 		[pallet_membership, CouncilMembership]
 		[pallet_treasury, Treasury]
@@ -499,10 +500,10 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
-			use baseline::Pallet as BaselineBench;
+			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 
@@ -516,13 +517,16 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::{Benchmarking, BenchmarkBatch};
 			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;
-			use baseline::Pallet as BaselineBench;
+
+			// NOTE: we use the implementation from cumulus as we can satisfy
+			// its bounds in contrast with `pallet_session_benchmarking`.
+			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 
 			impl frame_system_benchmarking::Config for Runtime {}
-			impl baseline::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use frame_support::traits::WhitelistedStorageKeys;
 

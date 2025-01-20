@@ -8,7 +8,7 @@ use frame_support::{
 use frame_system::EnsureWithSuccess;
 use sp_runtime::traits::IdentityLookup;
 
-use super::{params, AccountId, Balances, Runtime, RuntimeEvent, RuntimeHoldReason};
+use super::{params, weights, AccountId, Balances, Runtime, RuntimeEvent, RuntimeHoldReason};
 
 macro_rules! impl_fund {
 	($fund:ident, $instance:ident, $pallet_id:expr) => {
@@ -46,7 +46,6 @@ macro_rules! impl_fund {
 			type Burn = $fund::Burn;
 			type PalletId = $fund::GetPalletId;
 			type BurnDestination = ();
-			type WeightInfo = pallet_treasury::weights::SubstrateWeight<Self>;
 			type SpendFunds = ();
 			type MaxApprovals = params::constant::treasury::MaxApprovals;
 			type SpendOrigin = EnsureWithSuccess<
@@ -60,6 +59,7 @@ macro_rules! impl_fund {
 			type Paymaster = PayFromAccount<Balances, $fund::Account>;
 			type BalanceConverter = UnityAssetBalanceConversion;
 			type PayoutPeriod = $fund::PayoutPeriod;
+			type WeightInfo = weights::pallet::treasury::Weights<Self>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
 		}

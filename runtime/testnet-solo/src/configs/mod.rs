@@ -8,8 +8,8 @@ use frame_support::{derive_impl, weights::constants::RocksDbWeight};
 use sp_runtime::{generic::Era, traits::Verify, SaturatedConversion};
 
 use crate::{
-	params, AccountId, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	RuntimeTask, Signature, SignedPayload, System, UncheckedExtrinsic,
+	params, weights, AccountId, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, RuntimeTask, Signature, SignedPayload, System, UncheckedExtrinsic,
 };
 use params::currency::Balance;
 
@@ -43,16 +43,23 @@ impl frame_system::Config for Runtime {
 
 	/// This is used as an identifier of the chain.
 	type SS58Prefix = params::constant::system::SS58Prefix;
+
+	type SystemWeightInfo = weights::pallet::frame_system::Weights<Runtime>;
 }
 
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
 	type MaxAuthorities = params::constant::grandpa::MaxAuthorities;
 	type MaxSetIdSessionEntries = params::constant::grandpa::MaxSetIdSessionEntries;
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
 	type MaxNominators = params::constant::grandpa::MaxNominators;
+
+	// We do not currently benchmark `grandpa` as it's default implementation seems to be good enough
+	// and the weights don't depend so much on the other parts of the runtime.
+	//
+	// TODO: for the sake of completeness benchmark this as well.
+	type WeightInfo = ();
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

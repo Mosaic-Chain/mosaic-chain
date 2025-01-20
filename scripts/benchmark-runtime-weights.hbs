@@ -20,12 +20,19 @@
 use sdk::frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
+use sdk::*;
+
+{{#if (eq pallet "pallet_parameters") }}
+use {{pallet}}::WeightInfo;
+{{else}}
 use {{pallet}}::weights::WeightInfo;
+{{/if}}
+
 
 /// Weights for `{{pallet}}` using the recommended hardware.
 pub struct Weights<T>(PhantomData<T>);
 {{#if (or (eq pallet "frame_system") (eq pallet "frame_system_extensions"))}}
-impl<T: crate::Config> WeightInfo for Weights<T> {
+impl<T: {{pallet}}::Config> WeightInfo for Weights<T> {
 {{else}}
 impl<T: sdk::frame_system::Config> WeightInfo for Weights<T> {
 {{/if}}

@@ -2,7 +2,7 @@ use sdk::{frame_support, frame_system, pallet_collective, pallet_membership};
 
 use frame_support::traits::EitherOfDiverse;
 
-use super::{params, AccountId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
+use super::{params, weights, AccountId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
 
 // NOTE: changing this to a type which won't check if a vote happened is a risk, because
 // pallet_collective::Call::propose{} with < 2 threshold will result in an immediate pallet_collective::Call::execute{}
@@ -38,7 +38,7 @@ macro_rules! impl_collective {
 			type MembershipChanged =
 				pallet_collective::Pallet<Runtime, $collective::CollectiveInstance>;
 			type MaxMembers = params::constant::membership::MaxMembers;
-			type WeightInfo = pallet_membership::weights::SubstrateWeight<Self>;
+			type WeightInfo = weights::pallet::membership::Weights<Self>;
 		}
 
 		impl pallet_collective::Config<$collective::CollectiveInstance> for Runtime {
@@ -51,9 +51,9 @@ macro_rules! impl_collective {
 			type MaxMembers = params::constant::collective::MaxMembers;
 
 			type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
-			type WeightInfo = pallet_collective::weights::SubstrateWeight<Self>;
 			type SetMembersOrigin = CouncilOrigin;
 			type MaxProposalWeight = params::constant::collective::MaxProposalWeight;
+			type WeightInfo = weights::pallet::collective::Weights<Self>;
 		}
 	};
 }

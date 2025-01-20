@@ -24,11 +24,11 @@ use sp_staking::offence::{Offence, ReportOffence};
 use utils::SessionIndex;
 
 use crate::{
-	collectives, opaque, params, AccountId, Aura, AuraId, Balances, FungibleWrapper, HoldVesting,
-	ImOnline, ImOnlineId, NftDelegation, NftPermission, NftStaking, Offences, OriginCaller,
-	Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason,
-	RuntimeOrigin, Signature, StakingIncentive, System, Treasury, UncheckedExtrinsic,
-	ValidatorSubsetSelection,
+	collectives, opaque, params, weights, AccountId, Aura, AuraId, Balances, FungibleWrapper,
+	HoldVesting, ImOnline, ImOnlineId, NftDelegation, NftPermission, NftStaking, Offences,
+	OriginCaller, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason,
+	RuntimeHoldReason, RuntimeOrigin, Signature, StakingIncentive, System, Treasury,
+	UncheckedExtrinsic, ValidatorSubsetSelection,
 };
 use params::currency::Balance;
 
@@ -36,7 +36,7 @@ impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeParameters = params::RuntimeParameters;
 	type AdminOrigin = collectives::CouncilOrigin;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet::parameters::Weights<Runtime>;
 }
 
 impl pallet_assets::Config for Runtime {
@@ -62,7 +62,7 @@ impl pallet_assets::Config for Runtime {
 
 	type StringLimit = params::constant::assets::StringLimit;
 	type RemoveItemsLimit = params::constant::assets::RemoveItemsLimit;
-	type WeightInfo = pallet_assets::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::assets::Weights<Runtime>;
 }
 
 impl pallet_aura::Config for Runtime {
@@ -78,7 +78,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = params::constant::timestamp::MinimumPeriod;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet::timestamp::Weights<Runtime>;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -98,7 +98,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = params::constant::balances::ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::balances::Weights<Runtime>;
 }
 
 impl pallet_extra_fungible_events::Config for Runtime {
@@ -202,7 +202,7 @@ impl pallet_nfts::Config for Runtime {
 	type Features = ();
 	type OffchainSignature = Signature;
 	type OffchainPublic = <Signature as Verify>::Signer;
-	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::nfts::Weights<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = NftsBenchmarkHelper;
 }
@@ -215,7 +215,7 @@ impl pallet_nft_permission::Config for Runtime {
 	type Permission = pallet_nft_staking::PermissionType;
 	const COLLECTION_DESCRIPTION: &str =
 		"Collection of both PoS and DPoS NFTs that give permission to produce blocks.";
-	type WeightInfo = pallet_nft_permission::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::nft_permission::Weights<Runtime>;
 }
 
 impl pallet_nft_delegation::Config for Runtime {
@@ -228,7 +228,7 @@ impl pallet_nft_delegation::Config for Runtime {
 	type NftExpirationHandler = NftStaking;
 	type BindMetadata = AccountId;
 	const COLLECTION_DESCRIPTION: &str = "Collection of stakable delegator NFTs.";
-	type WeightInfo = pallet_nft_delegation::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::nft_delegation::Weights<Runtime>;
 }
 
 pub struct IdTupleToValidatorId;
@@ -272,7 +272,7 @@ impl pallet_nft_staking::Config for Runtime {
 	type ContributionPercentage = params::dynamic::nft_staking::ContributionPercentage;
 	type ContributionDestination = Treasury;
 	type Hooks = StakingIncentive;
-	type WeightInfo = pallet_nft_staking::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::nft_staking::Weights<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = NftStakingBenchmarkHelper;
@@ -298,7 +298,7 @@ impl pallet_identity::Config for Runtime {
 	type ByteDeposit = params::dynamic::identity::ByteDeposit;
 	type BasicDeposit = params::dynamic::identity::BasicDeposit;
 	type SubAccountDeposit = params::dynamic::identity::SubAccountDeposit;
-	type WeightInfo = pallet_identity::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::identity::Weights<Runtime>;
 }
 
 impl pallet_scheduler::Config for Runtime {
@@ -311,7 +311,7 @@ impl pallet_scheduler::Config for Runtime {
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type MaxScheduledPerBlock = params::constant::scheduler::MaxScheduledPerBlock;
 	type Preimages = Preimage;
-	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::scheduler::Weights<Runtime>;
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -328,7 +328,7 @@ impl pallet_preimage::Config for Runtime {
 			Balance,
 		>,
 	>;
-	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::preimage::Weights<Runtime>;
 }
 
 impl pallet_validator_subset_selection::Config for Runtime {
@@ -350,7 +350,7 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = ValidatorSubsetSelection;
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
-	type WeightInfo = pallet_session::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::session::Weights<Runtime>;
 }
 
 // TODO: figure out how to be more generic over the id tuple
@@ -497,14 +497,14 @@ impl pallet_proxy::Config for Runtime {
 	type ProxyDepositFactor = params::dynamic::proxy::DepositFactor;
 	type AnnouncementDepositBase = params::dynamic::proxy::AnnouncementDepositBase;
 	type AnnouncementDepositFactor = params::dynamic::proxy::AnnouncementDepositFactor;
-	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::proxy::Weights<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
-	type WeightInfo = pallet_utility::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::utility::Weights<Runtime>;
 }
 
 impl pallet_recovery::Config for Runtime {
@@ -515,14 +515,14 @@ impl pallet_recovery::Config for Runtime {
 	type ConfigDepositBase = params::dynamic::recovery::ConfigDepositBase;
 	type FriendDepositFactor = params::dynamic::recovery::FriendDepositFactor;
 	type RecoveryDeposit = params::dynamic::recovery::RecoveryDeposit;
-	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::recovery::Weights<Runtime>;
 }
 
 impl pallet_doas::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type EnsureOrigin = collectives::CouncilOrigin;
-	type WeightInfo = pallet_doas::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::doas::Weights<Runtime>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -594,7 +594,7 @@ impl pallet_im_online::Config for Runtime {
 	type ValidatorSet = pallet_nft_staking::SlashableValidators<Self>;
 	type ReportUnresponsiveness = ImOnlineReporter;
 	type UnsignedPriority = params::constant::im_online::UnsignedPriority;
-	type WeightInfo = pallet_im_online::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::im_online::Weights<Runtime>;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -622,7 +622,7 @@ impl pallet_airdrop::Config for Runtime {
 	type BaseTransactionPriority = params::constant::airdrop::BaseTransactionPriority;
 	type MaxAirdropsInPool = params::constant::airdrop::MaxAirdropsInPool;
 	const MAX_DELEGATOR_NFTS: u32 = params::constant::airdrop::MAX_DELEGATOR_NFTS;
-	type WeightInfo = pallet_airdrop::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::airdrop::Weights<Runtime>;
 }
 
 impl pallet_hold_vesting::Config for Runtime {
@@ -634,7 +634,7 @@ impl pallet_hold_vesting::Config for Runtime {
 	type MinVestedTransfer = params::constant::hold_vesting::MinVestedTransfer;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = params::constant::hold_vesting::MAX_VESTING_SCHEDULES;
-	type WeightInfo = pallet_hold_vesting::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::hold_vesting::Weights<Runtime>;
 }
 
 impl pallet_vesting_to_freeze::Config for Runtime {
@@ -648,7 +648,7 @@ impl pallet_vesting_to_freeze::Config for Runtime {
 	type MaxFrozenSchedules = params::constant::vesting_to_freeze::MaxFrozenSchedules;
 	type MaxFreezes = params::constant::vesting_to_freeze::MaxFreezes;
 	type MaxVestingSchedules = params::constant::vesting_to_freeze::MaxVestingSchedules;
-	type WeightInfo = pallet_vesting_to_freeze::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::vesting_to_freeze::Weights<Runtime>;
 }
 
 pub struct BalanceToScore;
@@ -675,5 +675,5 @@ impl pallet_staking_incentive::Config for Runtime {
 	type BalanceToScore = BalanceToScore;
 	type PalletId = params::constant::staking_incentive::PalletId;
 	type MaxPayouts = params::constant::staking_incentive::MaxPayouts;
-	type WeightInfo = pallet_staking_incentive::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet::staking_incentive::Weights<Runtime>;
 }

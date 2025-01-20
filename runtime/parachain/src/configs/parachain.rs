@@ -13,10 +13,10 @@ use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use sp_runtime::{generic::Era, traits::Verify, SaturatedConversion};
 
 use crate::{
-	collectives, params, xcm_config::XcmOriginToTransactDispatchOrigin, AccountId, Balance, Block,
-	MessageQueue, Nonce, PalletInfo, ParachainInfo, ParachainSystem, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, RuntimeTask, Signature, SignedPayload, System, UncheckedExtrinsic,
-	XcmpQueue,
+	collectives, params, weights, xcm_config::XcmOriginToTransactDispatchOrigin, AccountId,
+	Balance, Block, MessageQueue, Nonce, PalletInfo, ParachainInfo, ParachainSystem, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, RuntimeTask, Signature, SignedPayload, System,
+	UncheckedExtrinsic, XcmpQueue,
 };
 
 // Configure FRAME pallets to include in runtime.
@@ -48,13 +48,14 @@ impl frame_system::Config for Runtime {
 
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
+
+	type SystemWeightInfo = weights::pallet::frame_system::Weights<Runtime>;
 }
 
 impl staging_parachain_info::Config for Runtime {}
 
 impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = (); // Configure based on benchmarking results.
 	#[cfg(feature = "runtime-benchmarks")]
 	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
 		cumulus_primitives_core::AggregateMessageOrigin,
@@ -73,6 +74,7 @@ impl pallet_message_queue::Config for Runtime {
 	type MaxStale = params::constant::message_queue::MaxStale;
 	type ServiceWeight = params::constant::message_queue::ServiceWeight;
 	type IdleMaxServiceWeight = params::constant::message_queue::ServiceWeight;
+	type WeightInfo = weights::pallet::message_queue::Weights<Runtime>;
 }
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
@@ -86,7 +88,6 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type MaxInboundSuspended = params::constant::xcmp_queue::MaxInboundSuspended;
 	type ControllerOrigin = collectives::CouncilOrigin;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type WeightInfo = (); // Configure based on benchmarking results.
 	type PriceForSiblingDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
 		params::constant::xcmp_queue::FeeAssetId,
 		params::constant::xcmp_queue::BaseDeliveryFee,
@@ -95,10 +96,10 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	>;
 	type MaxActiveOutboundChannels = params::constant::xcmp_queue::MaxActiveOutboundChannels;
 	type MaxPageSize = params::constant::xcmp_queue::MaxPageSize;
+	type WeightInfo = weights::pallet::xcmp_queue::Weights<Runtime>;
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
-	type WeightInfo = (); // Configure based on benchmarking results.
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = ParachainInfo;
@@ -117,6 +118,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		{ params::constant::parachain_system::BLOCK_PROCESSING_VELOCITY },
 		{ params::constant::parachain_system::UNINCLUDED_SEGMENT_CAPACITY },
 	>;
+	type WeightInfo = weights::pallet::parachain_system::Weights<Runtime>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime

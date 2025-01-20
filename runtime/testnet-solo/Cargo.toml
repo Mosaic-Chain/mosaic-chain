@@ -13,7 +13,51 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 log = { workspace = true }
-sdk = { workspace = true, features = ["frame-executive", "frame-support", "frame-system", "frame-try-runtime", "pallet-collective", "pallet-membership", "pallet-preimage", "pallet-scheduler", "pallet-assets", "pallet-aura", "pallet-authorship", "pallet-balances", "pallet-grandpa", "pallet-identity", "pallet-nfts", "pallet-offences", "pallet-proxy", "pallet-recovery", "pallet-session", "pallet-timestamp", "pallet-transaction-payment", "pallet-utility", "pallet-parameters", "sp-api", "sp-block-builder", "sp-consensus-aura", "sp-consensus-grandpa", "sp-core", "sp-inherents", "sp-offchain", "sp-runtime", "sp-session", "sp-staking", "sp-std", "sp-storage", "sp-transaction-pool", "sp-version", "sp-genesis-builder", "frame-system-rpc-runtime-api", "pallet-transaction-payment-rpc-runtime-api", "frame-benchmarking", "frame-system-benchmarking"] }
+sdk = { workspace = true, features = [
+	"frame-executive",
+	"frame-support",
+	"frame-system",
+	"frame-try-runtime",
+	"pallet-collective",
+	"pallet-membership",
+	"pallet-preimage",
+	"pallet-scheduler",
+	"pallet-assets",
+	"pallet-aura",
+	"pallet-authorship",
+	"pallet-balances",
+	"pallet-grandpa",
+	"pallet-identity",
+	"pallet-nfts",
+	"pallet-offences",
+	"pallet-proxy",
+	"pallet-recovery",
+	"pallet-session",
+	"pallet-timestamp",
+	"pallet-transaction-payment",
+	"pallet-utility",
+	"pallet-parameters",
+	"sp-api",
+	"sp-block-builder",
+	"sp-consensus-aura",
+	"sp-consensus-grandpa",
+	"sp-core",
+	"sp-inherents",
+	"sp-offchain",
+	"sp-runtime",
+	"sp-session",
+	"sp-staking",
+	"sp-std",
+	"sp-storage",
+	"sp-transaction-pool",
+	"sp-version",
+	"sp-genesis-builder",
+	"frame-system-rpc-runtime-api",
+	"pallet-transaction-payment-rpc-runtime-api",
+	"frame-benchmarking",
+	"frame-system-benchmarking",
+	"cumulus-pallet-session-benchmarking",
+]}
 
 # Local Dependencies
 pallet-doas = { workspace = true }
