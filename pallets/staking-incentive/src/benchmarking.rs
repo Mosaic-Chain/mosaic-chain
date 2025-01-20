@@ -8,6 +8,8 @@ use sdk::{
 	pallet_balances::{Config as BalancesConfig, Pallet as BalancesPallet},
 };
 
+const UNIT: u128 = 10u128.pow(18); // 1 MOS = 10^18 tile
+
 #[expect(clippy::multiple_bound_locations)]
 #[benchmarks(where
     <T as Config>::Balance: From<u128>,
@@ -18,15 +20,15 @@ mod benchmarks {
 
 	#[benchmark]
 	fn new_payout() {
-		let genesis = GenesisConfig::<T> { incentive_pool: 500u128.into() };
+		let genesis = GenesisConfig::<T> { incentive_pool: (500 * UNIT).into() };
 		genesis.build();
 
 		let delegator: T::AccountId = whitelisted_caller();
-		let amount = 50u128.into();
+		let amount = (50 * UNIT).into();
 		Pallet::<T>::stake_action(&delegator, amount);
 
 		let score_cut = Perbill::from_rational(7u32, 10u32);
-		let amount = 50u128.into();
+		let amount = (50 * UNIT).into();
 		let origin = RawOrigin::Root;
 
 		#[extrinsic_call]
@@ -41,16 +43,16 @@ mod benchmarks {
 
 	#[benchmark]
 	fn update_and_claim(p: Linear<0, 3>) {
-		let genesis = GenesisConfig::<T> { incentive_pool: 500u128.into() };
+		let genesis = GenesisConfig::<T> { incentive_pool: (500 * UNIT).into() };
 		genesis.build();
 
 		let caller: T::AccountId = whitelisted_caller();
-		<BalancesPallet<T> as Mutate<_>>::mint_into(&caller, 50u128.into())
+		<BalancesPallet<T> as Mutate<_>>::mint_into(&caller, (50 * UNIT).into())
 			.expect("Should succeed");
-		Pallet::<T>::stake_action(&caller, 500u128.into());
+		Pallet::<T>::stake_action(&caller, (500 * UNIT).into());
 
 		let score_cut = Perbill::from_rational(7u32, 10u32);
-		let amount: <T as Config>::Balance = 50u128.into();
+		let amount: <T as Config>::Balance = (50 * UNIT).into();
 		let origin = RawOrigin::Root;
 		for payout in 0..p {
 			<T as Config>::BlockNumberProvider::set_block_number(((payout + 1) * 50_000u32).into());

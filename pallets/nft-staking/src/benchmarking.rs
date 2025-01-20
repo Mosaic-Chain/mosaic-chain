@@ -31,7 +31,7 @@ pub trait BenchmarkHelper<T: Config> {
 }
 
 const MAX_ACTIVE_VALIDATORS: u32 = 400;
-const UNIT: u128 = 1_000_000_000_000_000_000; // 1 MOS = 10^18 tile
+const UNIT: u128 = 10u128.pow(18); // 1 MOS = 10^18 tile
 
 #[derive(Debug, Clone)]
 struct Account<T: NftStakingConfig> {
@@ -40,7 +40,7 @@ struct Account<T: NftStakingConfig> {
 
 impl<T: NftStakingConfig> Default for Account<T> {
 	fn default() -> Self {
-		let id: T::AccountId = whitelisted_caller();
+		let id: T::AccountId = account("unknown", 0, 0);
 		Self { id }
 	}
 }
@@ -84,7 +84,7 @@ impl<T: NftStakingConfig> Default for DelegatorNft<T> {
 	fn default() -> Self {
 		let account = Default::default();
 		let expiration = 24 /* hours */ * 30 /* days */ * 24u32 /* months */;
-		let nominal_value: T::Balance = (10 * UNIT).into();
+		let nominal_value: T::Balance = (50 * UNIT).into();
 
 		Self { account, expiration, nominal_value }
 	}
@@ -265,7 +265,7 @@ mod benchmarks {
 			let nft = DelegatorNft::<T> {
 				account: delegator.clone(),
 				expiration: 24 /* hours */ * 30 /* days */ * 24u32 + i, // we need to spread out expiration to different sessions
-				nominal_value: (10 * UNIT).into(),
+				nominal_value: (50 * UNIT).into(),
 			};
 			let item_id = nft.mint();
 			let origin = delegator.signed_origin();
@@ -279,7 +279,7 @@ mod benchmarks {
 			.expect("Should succeed");
 
 			delegator.endow((2000 * UNIT).into());
-			let amount = (10 * UNIT).into();
+			let amount = (50 * UNIT).into();
 			NftStakingPallet::<T>::delegate_currency(
 				origin.into(),
 				amount,
@@ -357,7 +357,7 @@ mod benchmarks {
 		validator.account.endow((2000 * UNIT).into());
 
 		let origin = validator.signed_origin();
-		let amount: <T as NftStakingConfig>::Balance = (10 * UNIT).into();
+		let amount: <T as NftStakingConfig>::Balance = (50 * UNIT).into();
 		#[extrinsic_call]
 		_(origin, amount);
 	}
@@ -382,7 +382,7 @@ mod benchmarks {
 		validator.mint_and_bind();
 		validator.account.endow((2000 * UNIT).into());
 		let origin = validator.signed_origin();
-		let amount: <T as NftStakingConfig>::Balance = (10 * UNIT).into();
+		let amount: <T as NftStakingConfig>::Balance = (50 * UNIT).into();
 		NftStakingPallet::<T>::self_stake_currency(origin.into(), amount).expect("Should succeed");
 		fixture.period_passed();
 
@@ -415,7 +415,7 @@ mod benchmarks {
 		validator.mint_and_bind();
 		let delegator = Account::<T>::delegator(0);
 		delegator.endow((2000 * UNIT).into());
-		let amount = (10 * UNIT).into();
+		let amount = (50 * UNIT).into();
 		let target = &validator.account.id;
 		let Some(ValidatorDetails::DPoS {
 			accept_delegations: true,
@@ -460,7 +460,7 @@ mod benchmarks {
 		validator.mint_and_bind();
 		let delegator = Account::<T>::delegator(0);
 		delegator.endow((2000 * UNIT).into());
-		let amount = (10 * UNIT).into();
+		let amount = (50 * UNIT).into();
 		let target = &validator.account.id;
 		let Some(ValidatorDetails::DPoS {
 			accept_delegations: true,
@@ -571,7 +571,7 @@ mod benchmarks {
 			.expect("Could not delegate NFT");
 		}
 		delegator.endow((200 * UNIT).into());
-		let amount = (10 * UNIT).into();
+		let amount = (50 * UNIT).into();
 		NftStakingPallet::<T>::delegate_currency(
 			origin.into(),
 			amount,
@@ -645,7 +645,7 @@ mod benchmarks {
 		// FIXME: Why is the 2nd contract missing if this call is not in here?
 		NftStakingPallet::<T>::delegate_currency(
 			delegator.signed_origin().into(),
-			(2 * UNIT).into(),
+			(50 * UNIT).into(),
 			v.id.clone(),
 			T::MinimumStakingPeriod::get().into(),
 			T::MinimumCommissionRate::get(),
@@ -747,7 +747,7 @@ mod benchmarks {
 		// FIXME: Why is the 2nd contract missing if this call is not in here?
 		NftStakingPallet::<T>::delegate_currency(
 			delegator.signed_origin().into(),
-			(2 * UNIT).into(),
+			(50 * UNIT).into(),
 			v.id.clone(),
 			T::MinimumStakingPeriod::get().into(),
 			T::MinimumCommissionRate::get(),
@@ -849,8 +849,8 @@ mod benchmarks {
 	#[benchmark]
 	fn unlock_currency() {
 		let account = Account::<T>::delegator(0);
-		let amount: <T as NftStakingConfig>::Balance = 300u32.into();
-		account.endow(500u32.into());
+		let amount: <T as NftStakingConfig>::Balance = (UNIT * 300).into();
+		account.endow((UNIT * 500).into());
 		Pallet::<T>::lock_currency(&account.id, amount, Precision::Exact)
 			.expect("Currency can be locked");
 
@@ -878,7 +878,7 @@ mod benchmarks {
 	fn nft_expire(c: Linear<1, { MAX_NFTS_PER_CONTRACT }>) {
 		let fixture = Fixture::<T>::default();
 		let validator = &fixture.validator;
-		let _ = validator.mint_and_bind();
+		let _id = validator.mint_and_bind();
 
 		let delegator = Account::<T>::delegator(42);
 

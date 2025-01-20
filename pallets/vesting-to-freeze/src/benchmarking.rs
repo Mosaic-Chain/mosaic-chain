@@ -18,10 +18,11 @@ where
 	const ALL_TEST_REASONS: [FreezeReason; 4] =
 		[FreezeReason::Test1, FreezeReason::Test2, FreezeReason::Test3, FreezeReason::Test4];
 
-	T::Fungible::mint_into(who, 10u32.into()).unwrap();
+	T::Fungible::mint_into(who, T::Fungible::minimum_balance()).expect("Could mint ED");
 	for id in 0..n {
 		let reason = (ALL_TEST_REASONS[id as usize]).into();
-		<T::Fungible as MutateFreeze<_>>::set_freeze(&reason, who, 10u32.into()).unwrap();
+		<T::Fungible as MutateFreeze<_>>::set_freeze(&reason, who, T::Fungible::minimum_balance())
+			.expect("Could freeze ED");
 	}
 }
 
@@ -31,9 +32,10 @@ where
 {
 	let frozen_amount = (f * 20).into();
 
-	T::Fungible::mint_into(who, T::Fungible::minimum_balance() + frozen_amount).unwrap();
+	T::Fungible::mint_into(who, T::Fungible::minimum_balance() + frozen_amount)
+		.expect("Could mint ED + freeze");
 	T::Fungible::increase_frozen(&FreezeReason::VestingToFreeze.into(), who, frozen_amount)
-		.unwrap();
+		.expect("Could increase freeze");
 
 	FrozenSchedules::<T>::mutate(who, |schedules| {
 		*schedules = BoundedVec::truncate_from(
@@ -43,7 +45,7 @@ where
 }
 
 #[benchmarks(
-	where T::Fungible: Mutate<T::AccountId> + MutateFreeze<T::AccountId>,
+	where T::Fungible: Mutate<T::AccountId> + MutateFreeze<T::AccountId>
 )]
 mod benchmarks {
 	use super::*;

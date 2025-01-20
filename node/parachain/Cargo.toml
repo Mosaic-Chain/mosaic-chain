@@ -13,18 +13,38 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [package.metadata.deb]
-depends = "ca-certificates"
+depends = ["ca-certificates", "libstdc++6", "libgcc-s1", "libc6"]
+extended-description = "Mosaic parachain node"
+section = "net"
+
+[package.metadata.deb.variants.benchmark]
+name = "mosaic-chain-benchmark"
+features = ["runtime-benchmarks", "dev-spec"]
+assets = [
+	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain-benchmark/CHANGELOG", "644"],
+	["../../scripts/benchmark-runtime-weights.hbs", "usr/share/mosaic-chain-benchmark/", "644"],
+	["../../scripts/benchmark-runtime.sh", "usr/bin/benchmark-runtime", "755"],
+	["target/release/mosaic-chain", "usr/bin/mosaic-chain-benchmark", "755"]
+]
 
 [package.metadata.deb.variants.devnet]
 name = "mosaic-chain-devnet"
-conflicts = "mosaic-chain"
 suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
-features = [ "dev-spec" ]
+features = ["dev-spec"]
+assets = [
+	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain-devnet/CHANGELOG", "644"],
+	["../../chainspecs/devnet/*", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	["../../chainspecs/paseo/*", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	["target/release/mosaic-chain", "usr/bin/mosaic-chain-devnet", "755"]
+]
 
 [package.metadata.deb.variants.mainnet]
 name = "mosaic-chain"
-conflicts = "mosaic-chain-devnet"
 suggests = "mosaic-explorer, mosaic-admin, mosaic-announcer"
+assets = [
+	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain-benchmark/CHANGELOG", "644"],
+	["target/release/mosaic-chain", "usr/bin/mosaic-chain", "755"]
+]
 
 [[bin]]
 name = "mosaic-chain"
@@ -45,49 +65,7 @@ mosaic-chain-runtime = { workspace = true }
 # TODO: once procmacros are compatible with umbrella crate remove this
 sc-tracing = { workspace = true }
 
-sdk = { workspace = true, features = [
-	"frame-benchmarking",
-	"frame-benchmarking-cli",
-	"pallet-transaction-payment-rpc",
-	"sc-basic-authorship",
-	"sc-chain-spec",
-	"sc-cli",
-	"sc-client-api",
-	"sc-offchain",
-	"sc-consensus",
-	"sc-executor",
-	"sc-network",
-	"sc-network-sync",
-	"sc-rpc",
-	"sc-service",
-	"sc-sysinfo",
-	"sc-telemetry",
-	"sc-transaction-pool",
-	"sc-transaction-pool-api",
-	"sp-api",
-	"sp-block-builder",
-	"sp-blockchain",
-	"sp-consensus-aura",
-	"sp-core",
-	"sp-keystore",
-	"sp-io",
-	"sp-runtime",
-	"sp-timestamp",
-	"substrate-frame-rpc-system",
-	"substrate-prometheus-endpoint",
-	"polkadot-cli",
-	"polkadot-primitives",
-	"staging-xcm",
-	"cumulus-client-cli",
-	"cumulus-client-collator",
-	"cumulus-client-consensus-aura",
-	"cumulus-client-consensus-common",
-	"cumulus-client-consensus-proposer",
-	"cumulus-client-service",
-	"cumulus-primitives-core",
-	"cumulus-primitives-parachain-inherent",
-	"cumulus-relay-chain-interface",
-]}
+sdk = { workspace = true, features = ["frame-benchmarking", "frame-benchmarking-cli", "pallet-transaction-payment-rpc", "sc-basic-authorship", "sc-chain-spec", "sc-cli", "sc-client-api", "sc-offchain", "sc-consensus", "sc-executor", "sc-network", "sc-network-sync", "sc-rpc", "sc-service", "sc-sysinfo", "sc-telemetry", "sc-transaction-pool", "sc-transaction-pool-api", "sp-api", "sp-block-builder", "sp-blockchain", "sp-consensus-aura", "sp-core", "sp-keystore", "sp-io", "sp-runtime", "sp-timestamp", "substrate-frame-rpc-system", "substrate-prometheus-endpoint", "polkadot-cli", "polkadot-primitives", "staging-xcm", "cumulus-client-cli", "cumulus-client-collator", "cumulus-client-consensus-aura", "cumulus-client-consensus-common", "cumulus-client-consensus-proposer", "cumulus-client-service", "cumulus-primitives-core", "cumulus-primitives-parachain-inherent", "cumulus-relay-chain-interface"] }
 
 [build-dependencies]
 sdk = { workspace = true, features = ["substrate-build-script-utils"] }
