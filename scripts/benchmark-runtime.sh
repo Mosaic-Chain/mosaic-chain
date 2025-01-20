@@ -19,7 +19,7 @@ else
 fi
 
 if [ $# -eq 0 ]; then
-  pallets=(doas hold-vesting im-online nft-delegation nft-permission nft-staking staking-incentive validator-subset-selection vesting-to-freeze)
+  pallets=(doas hold-vesting im-online nft-delegation nft-permission nft-staking staking-incentive treasury validator-subset-selection vesting-to-freeze)
 else
   pallets=("$@")
 fi

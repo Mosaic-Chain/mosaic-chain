@@ -104,7 +104,8 @@ fn create_spend_arguments<T: Config<I>, I: 'static>(
 	let asset_kind = T::BenchmarkHelper::create_asset_kind(seed);
 	let beneficiary = T::BenchmarkHelper::create_beneficiary([seed.try_into().unwrap(); 32]);
 	let beneficiary_lookup = T::BeneficiaryLookup::unlookup(beneficiary.clone());
-	(asset_kind, 100u32.into(), beneficiary, beneficiary_lookup)
+
+	(asset_kind, T::Fungible::minimum_balance(), beneficiary, beneficiary_lookup)
 }
 
 #[instance_benchmarks]
