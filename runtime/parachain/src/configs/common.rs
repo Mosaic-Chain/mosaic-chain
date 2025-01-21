@@ -136,6 +136,48 @@ impl pallet_transaction_payment::Config for Runtime {
 	>;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct NftsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_nfts::BenchmarkHelper<u32, u32, sp_runtime::MultiSigner, AccountId, Signature>
+	for NftsBenchmarkHelper
+{
+	fn collection(i: u16) -> u32 {
+		// In the genesis state we already assign `0` `1` to collections
+		// (delegation, permission), but when it comes to executing
+		// benchmarks the code assumes otherwise.
+		(2 + i).into()
+	}
+	fn item(i: u16) -> u32 {
+		<() as pallet_nfts::BenchmarkHelper<
+			u32,
+			u32,
+			sp_runtime::MultiSigner,
+			AccountId,
+			Signature,
+		>>::item(i)
+	}
+	fn signer() -> (sp_runtime::MultiSigner, AccountId) {
+		<() as pallet_nfts::BenchmarkHelper<
+			u32,
+			u32,
+			sp_runtime::MultiSigner,
+			AccountId,
+			Signature,
+		>>::signer()
+	}
+	fn sign(signer: &sp_runtime::MultiSigner, message: &[u8]) -> Signature {
+		<() as pallet_nfts::BenchmarkHelper<
+			u32,
+			u32,
+			sp_runtime::MultiSigner,
+			AccountId,
+			Signature,
+		>>::sign(signer, message)
+	}
+}
+
 impl pallet_nfts::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type CollectionId = u32;
@@ -162,7 +204,7 @@ impl pallet_nfts::Config for Runtime {
 	type OffchainPublic = <Signature as Verify>::Signer;
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type Helper = ();
+	type Helper = NftsBenchmarkHelper;
 }
 
 impl pallet_nft_permission::Config for Runtime {
