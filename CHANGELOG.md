@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2025-01-22
+
+### 🚀 Features
+
+- *parachain*: Runtime on par with solochain
+- *parachain*: Runtime migrations
+- *parachain*: Dynamic SlashFraction and TokenGenerationFactor
+- *parachain*: Updated runtime profiles
+- Revised pallet configurations and parameters
+- NFT collection descriptions
+- *bench*: Runtime benchmark script and deb variant
+- *bench*: Integrated benchmark results into runtimes
+
+### 🐛 Bug Fixes
+
+- *treasury*: Benchmarks ensure that spend amounts are at least equal to the ED
+- *bench*: Removed redundant instances of collectives and membership from listed benchmarks
+- *bench*: Custom nfts benchmark helper returns unused collection ids
+
+### 📚 Documentation
+
+- ADR-003 about many validators going offline
+
+### ⚙️ Miscellaneous Tasks
+
+- Rename parachain-template-* to mosaic-chain-*
+- Moved from shell.nix to flake.nix and added missing dependencies for zombienet
+- Reorganized imports and deduped pallet configuration between runtimes
+- Runtime construction uses attribute macro
+- Added live devnet chainspecs
+- New testnet chainspec for v0.4
+
 ## [0.3.0] - 2025-01-16
 
 ### 🚀 Features
@@ -12,6 +44,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - New testnet chainspec for v0.3
+- Release 0.3.0
 
 ## [0.2.0] - 2024-12-12
 
