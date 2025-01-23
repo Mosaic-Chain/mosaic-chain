@@ -25,6 +25,7 @@ fn main() {
 			target_dir: "./target/runtime-generator".into(),
 			extra_build_opts: Some(inherited_features),
 			override_build_opts: None,
+			out_wasm: None,
 		};
 
 		let chain_spec = local_config(&builder)

@@ -56,6 +56,7 @@ fn build<'a>(image: Cow<'a, str>, tag: Cow<'a, str>, opts: BuildOpts) -> anyhow:
 		image,
 		tag,
 		path: opts.common.path,
+		out_wasm: opts.common.out_wasm,
 		extra_build_opts: opts.common.extra_build_opts,
 		override_build_opts: opts.common.override_build_opts,
 		no_root: opts.no_root,

@@ -8,6 +8,7 @@ pub struct Builder<'a> {
 	pub image: Cow<'a, str>,
 	pub tag: Cow<'a, str>,
 	pub path: PathBuf,
+	pub out_wasm: Option<PathBuf>,
 	pub extra_build_opts: Option<Cow<'a, str>>,
 	pub override_build_opts: Option<Cow<'a, str>>,
 	pub no_root: bool,
@@ -97,12 +98,20 @@ impl<'a> RuntimeBuilder for Builder<'a> {
 			bail!("Could not build runtime: srtool execution failed");
 		}
 
-		std::fs::read(format!(
+		let wasm = std::fs::read(format!(
 			"{runtime_dir}/target/srtool/release/wbuild/{package}/{binary}.compact.compressed.wasm",
 			runtime_dir = runtime_dir.display(),
 			package = package,
 			binary = package.replace('-', "_"),
 		))
-		.context("Could not load built wasm binary")
+		.context("Could not load built wasm binary")?;
+
+		if let Some(path) = self.out_wasm.as_ref() {
+			if let Err(err) = std::fs::write(path, &wasm) {
+				log::error!("could not copy wasm output to file: {err}");
+			}
+		}
+
+		Ok(wasm)
 	}
 }

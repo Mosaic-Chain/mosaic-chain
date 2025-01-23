@@ -35,6 +35,10 @@ pub struct CommonBuildOpts {
 	#[arg(long)]
 	pub raw: bool,
 
+	/// Copy built wasm to specified path
+	#[arg(long)]
+	pub out_wasm: Option<PathBuf>,
+
 	/// By default, this tool will work in the current folder.
 	/// If the project is located in another location, you can pass it here.
 	#[arg(long, default_value = ".")]

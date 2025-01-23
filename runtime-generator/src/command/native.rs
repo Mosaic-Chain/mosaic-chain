@@ -27,6 +27,7 @@ fn build(opts: BuildOpts) -> anyhow::Result<()> {
 	let builder = NativeBuilder {
 		path: opts.common.path,
 		target_dir: opts.target_dir,
+		out_wasm: opts.common.out_wasm,
 		extra_build_opts: opts.common.extra_build_opts,
 		override_build_opts: opts.common.override_build_opts,
 	};

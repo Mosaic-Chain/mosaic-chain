@@ -7,6 +7,7 @@ use super::RuntimeBuilder;
 pub struct Builder<'a> {
 	pub path: PathBuf,
 	pub target_dir: PathBuf,
+	pub out_wasm: Option<PathBuf>,
 	pub extra_build_opts: Option<Cow<'a, str>>,
 	pub override_build_opts: Option<Cow<'a, str>>,
 }
@@ -51,12 +52,20 @@ impl<'a> RuntimeBuilder for Builder<'a> {
 			bail!("Could not build runtime: cargo command execution failed");
 		}
 
-		std::fs::read(format!(
+		let wasm = std::fs::read(format!(
 			"{target_dir}/release/wbuild/{package}/{binary}.compact.compressed.wasm",
 			target_dir = self.target_dir.display(),
 			package = package,
 			binary = package.replace('-', "_"),
 		))
-		.context("Could not load built wasm binary")
+		.context("Could not load built wasm binary")?;
+
+		if let Some(path) = self.out_wasm.as_ref() {
+			if let Err(err) = std::fs::write(path, &wasm) {
+				log::error!("could not copy wasm output to file: {err}");
+			}
+		}
+
+		Ok(wasm)
 	}
 }
