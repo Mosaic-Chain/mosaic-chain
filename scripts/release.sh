@@ -55,18 +55,19 @@ while true; do
 
 done
 
-./scripts/check.sh
-
 git cliff --bump > CHANGELOG.md
 
 mv Cargo.toml Cargo.toml.old
 toml set Cargo.toml.old workspace.package.version "$new_ver" > Cargo.toml
 rm Cargo.toml.old
 
+./scripts/check.sh
+
 git add CHANGELOG.md
 git add Cargo.toml
+git add Cargo.lock
 
-git commit -m"chore: release $new_ver"
+git commit -m"chore: release $new_ver" --no-verify
 
 git tag $new_ver
 
