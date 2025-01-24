@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2025-01-24
+
+### ⚙️ Miscellaneous Tasks
+
+- Release script now commits the updated Cargo.lock
+- Added 2 more devnet nodes and their addresses to chainspec
+
 ## [0.4.0] - 2025-01-22
 
 ### 🚀 Features
@@ -33,6 +40,7 @@ All notable changes to this project will be documented in this file.
 - Runtime construction uses attribute macro
 - Added live devnet chainspecs
 - New testnet chainspec for v0.4
+- Release 0.4.0
 
 ## [0.3.0] - 2025-01-16
 
