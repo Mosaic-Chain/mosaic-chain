@@ -3,10 +3,12 @@
   "id": "mosaic-devnet",
   "chainType": "Live",
   "bootNodes": [
-    "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWNDdNLmnvKPgijNQiHXFjBYKtarxWoYbkbJpHK48Zw224",
-    "/ip4/127.0.0.1/tcp/30334/p2p/12D3KooWNt4pyN4LMVYyZraHy66amMA6fkwoWKmghypUvA7n5aKm",
-    "/ip4/127.0.0.1/tcp/30335/p2p/12D3KooWMuUqs82s4PudML93n3zXdUR6TpoTNdUoeXBdXksMbN6d",
-    "/ip4/127.0.0.1/tcp/30336/p2p/12D3KooWDMnfzueRzxXkuqnv3vNoK2ox3HaFV6spb1MRmFgta7XU"
+    "/ip4/193.201.191.59/tcp/3330/p2p/12D3KooWNDdNLmnvKPgijNQiHXFjBYKtarxWoYbkbJpHK48Zw224",
+    "/ip4/193.201.191.59/tcp/3331/p2p/12D3KooWNt4pyN4LMVYyZraHy66amMA6fkwoWKmghypUvA7n5aKm",
+    "/ip4/193.201.191.59/tcp/3332/p2p/12D3KooWMuUqs82s4PudML93n3zXdUR6TpoTNdUoeXBdXksMbN6d",
+    "/ip4/148.251.68.238/tcp/3330/p2p/12D3KooWDMnfzueRzxXkuqnv3vNoK2ox3HaFV6spb1MRmFgta7XU",
+    "/ip4/148.251.68.238/tcp/3331/p2p/12D3KooWJ1CiVhsbCX1U5sFUBL1Nnv3LuSgZ7n8WEL8mCE5NgyNa",
+    "/ip4/148.251.68.238/tcp/3332/p2p/12D3KooWH8KyqQZ2WnRQFQX2ingVSAotYnk9ksyaf83PpapbePH5",
   ],
   "telemetryEndpoints": null,
   "protocolId": "mosaic-devnet",
