@@ -26,7 +26,7 @@ fn vote_in_dave() {
 				who: sp_runtime::MultiAddress::Id(account(DAVE)),
 			});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(TestCouncilCollective::propose(
@@ -124,7 +124,7 @@ fn not_vote_in_dave() {
 				who: sp_runtime::MultiAddress::Id(account(DAVE)),
 			});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(TestCouncilCollective::propose(
@@ -223,7 +223,7 @@ fn update_dave_balance() {
 		let proposal = RuntimeCall::DoAs(pallet_doas::Call::doas_root { call: Box::new(proposal) });
 
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(TestCouncilCollective::propose(
@@ -334,7 +334,7 @@ fn not_update_dave_balance() {
 		let proposal = RuntimeCall::DoAs(pallet_doas::Call::doas_root { call: Box::new(proposal) });
 
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(TestCouncilCollective::propose(
@@ -438,7 +438,7 @@ fn two_member_agrees_on_something_non_root() {
 				who: sp_runtime::MultiAddress::Id(account(DAVE)),
 			});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(TestCouncilCollective::propose(
@@ -542,7 +542,7 @@ fn two_member_disagrees_on_something_non_root() {
 				who: sp_runtime::MultiAddress::Id(account(DAVE)),
 			});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(TestCouncilCollective::propose(
@@ -642,7 +642,7 @@ fn two_member_agrees_on_something_root() {
 		let proposal = RuntimeCall::DoAs(pallet_doas::Call::doas_root { call: Box::new(proposal) });
 
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(TestCouncilCollective::propose(
@@ -754,7 +754,7 @@ fn two_member_disagrees_on_something_root() {
 		let proposal = RuntimeCall::DoAs(pallet_doas::Call::doas_root { call: Box::new(proposal) });
 
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(TestCouncilCollective::propose(

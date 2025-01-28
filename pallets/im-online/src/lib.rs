@@ -75,8 +75,6 @@
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
-// Expect lints caused by procmacros
-#![expect(clippy::manual_inspect)]
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -99,7 +97,7 @@ use frame_support::{
 	},
 };
 use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
+	offchain::{CreateInherent, SubmitTransaction},
 	pallet_prelude::*,
 };
 pub use pallet::*;
@@ -268,7 +266,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		SendTransactionTypes<Call<Self>> + sdk::frame_system::Config + pallet_session::Config
+		CreateInherent<Call<Self>> + sdk::frame_system::Config + pallet_session::Config
 	{
 		/// The identifier type for an authority.
 		type AuthorityKey: Member
@@ -596,7 +594,7 @@ impl<T: Config> Pallet<T> {
 				call,
 			);
 
-			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			SubmitTransaction::<T, Call<T>>::submit_transaction(T::create_inherent(call.into()))
 				.map_err(|()| OffchainErr::SubmitTransaction)?;
 
 			Ok(())

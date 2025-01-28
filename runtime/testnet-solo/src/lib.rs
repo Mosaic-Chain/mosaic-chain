@@ -7,6 +7,8 @@
 #[allow(clippy::wildcard_imports)]
 use sdk::*;
 
+extern crate alloc;
+
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
@@ -23,7 +25,7 @@ use sp_runtime::{
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
-use sp_version::{create_runtime_str, RuntimeVersion};
+use sp_version::{Cow, RuntimeVersion};
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -115,8 +117,8 @@ pub mod opaque {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("mosaic-testnet-solo"),
-	impl_name: create_runtime_str!("mosaic-testnet-solo"),
+	spec_name: Cow::Borrowed("mosaic-testnet-solo"),
+	impl_name: Cow::Borrowed("mosaic-testnet-solo"),
 	authoring_version: 1,
 	// The version of the runtime specification. A full node will not attempt to use its native
 	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
@@ -127,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -146,7 +148,7 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
 /// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
+pub type TxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -159,10 +161,10 @@ pub type SignedExtra = (
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -301,6 +303,7 @@ mod benches {
 		[pallet_parameters, Parameters]
 		[pallet_timestamp, Timestamp]
 		[pallet_balances, Balances]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_nfts, Nfts]
 		[pallet_nft_delegation, NftDelegation]
 		[pallet_nft_permission, NftPermission]
@@ -516,7 +519,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch};
 			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;

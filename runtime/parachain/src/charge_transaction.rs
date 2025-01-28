@@ -2,7 +2,7 @@ use sdk::{frame_support, pallet_authorship, sp_core, sp_runtime};
 
 use frame_support::traits::{
 	fungible::{Balanced, Credit, Debt, Inspect},
-	tokens::Precision,
+	tokens::{Precision, WithdrawConsequence},
 	Imbalance,
 };
 use sp_core::Get;
@@ -102,5 +102,32 @@ impl OnChargeTransaction<Runtime> for ChargeTransaction {
 		}
 
 		Ok(())
+	}
+
+	fn can_withdraw_fee(
+		who: &AccountId,
+		_call: &RuntimeCall,
+		_dispatch_info: &sp_runtime::traits::DispatchInfoOf<RuntimeCall>,
+		fee: Self::Balance,
+		_tip: Self::Balance,
+	) -> Result<(), TransactionValidityError> {
+		if fee.is_zero() {
+			return Ok(());
+		}
+
+		match Balances::can_withdraw(who, fee) {
+			WithdrawConsequence::Success => Ok(()),
+			_ => Err(InvalidTransaction::Payment.into()),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn endow_account(who: &AccountId, amount: Self::Balance) {
+		let _ = Balances::deposit(who, amount, Precision::BestEffort);
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn minimum_balance() -> Self::Balance {
+		Balances::minimum_balance()
 	}
 }

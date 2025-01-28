@@ -10,13 +10,12 @@ use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{derive_impl, traits::TransformOrigin, weights::constants::RocksDbWeight};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
-use sp_runtime::{generic::Era, traits::Verify, SaturatedConversion};
+use sp_runtime::{generic::Era, SaturatedConversion};
 
 use crate::{
-	collectives, params, weights, xcm_config::XcmOriginToTransactDispatchOrigin, AccountId,
-	Balance, Block, MessageQueue, Nonce, PalletInfo, ParachainInfo, ParachainSystem, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, RuntimeTask, Signature, SignedPayload, System,
-	UncheckedExtrinsic, XcmpQueue,
+	collectives, params, weights, xcm_config::XcmOriginToTransactDispatchOrigin, Balance, Block,
+	MessageQueue, PalletInfo, ParachainInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, RuntimeTask, SignedPayload, System, UncheckedExtrinsic, XcmpQueue,
 };
 
 // Configure FRAME pallets to include in runtime.
@@ -119,21 +118,22 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		{ params::constant::parachain_system::UNINCLUDED_SEGMENT_CAPACITY },
 	>;
 	type WeightInfo = weights::pallet::parachain_system::Weights<Runtime>;
+
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+	fn create_signed_transaction<
+		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+	>(
 		call: RuntimeCall,
-		public: <Signature as Verify>::Signer,
-		account: AccountId,
-		nonce: Nonce,
-	) -> Option<(
-		RuntimeCall,
-		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-	)> {
+		public: Self::Public,
+		account: Self::AccountId,
+		nonce: Self::Nonce,
+	) -> Option<Self::Extrinsic> {
 		let period = Self::BlockHashCount::get()
 			.checked_next_power_of_two()
 			.map(|c| c / 2)
@@ -157,9 +157,9 @@ where
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
-		let address = account;
-		let (call, extra, _) = raw_payload.deconstruct();
-
-		Some((call, (sp_runtime::MultiAddress::Id(address), signature, extra)))
+		let (call, tx_ext, _) = raw_payload.deconstruct();
+		let address = account.into();
+		let transaction = UncheckedExtrinsic::new_signed(call, address, signature, tx_ext);
+		Some(transaction)
 	}
 }

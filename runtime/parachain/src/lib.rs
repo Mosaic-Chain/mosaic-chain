@@ -7,6 +7,8 @@
 #[allow(clippy::wildcard_imports)]
 use sdk::*;
 
+extern crate alloc;
+
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
@@ -22,7 +24,7 @@ use sp_runtime::{
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
-use sp_version::{create_runtime_str, RuntimeVersion};
+use sp_version::{Cow, RuntimeVersion};
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -101,19 +103,19 @@ pub mod opaque {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("mosaic-chain"),
-	impl_name: create_runtime_str!("mosaic-chain"),
+	spec_name: Cow::Borrowed("mosaic-chain"),
+	impl_name: Cow::Borrowed("mosaic-chain"),
 	authoring_version: 1,
 	// The version of the runtime specification. A full node will not attempt to use its native
 	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 101,
+	spec_version: 102,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -124,10 +126,10 @@ pub fn native_version() -> NativeVersion {
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -136,7 +138,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	migrations::v101::MigrateV100ToV101<Runtime>,
+	(),
 >;
 
 /// The address format for describing accounts.
@@ -149,7 +151,7 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
 /// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
+pub type TxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -304,6 +306,7 @@ mod benches {
 		[pallet_parameters, Parameters]
 		[pallet_timestamp, Timestamp]
 		[pallet_balances, Balances]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_nfts, Nfts]
 		[pallet_nft_delegation, NftDelegation]
 		[pallet_nft_permission, NftPermission]
@@ -502,7 +505,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 			use frame_system_benchmarking::Pallet as SystemBench;

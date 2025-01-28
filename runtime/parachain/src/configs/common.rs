@@ -98,6 +98,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = params::constant::balances::ExistentialDeposit;
 	type AccountStore = System;
+	type DoneSlashHandler = ();
 	type WeightInfo = weights::pallet::balances::Weights<Runtime>;
 }
 
@@ -134,6 +135,8 @@ impl pallet_transaction_payment::Config for Runtime {
 		params::constant::transaction_payment::MinimumMultiplier,
 		params::constant::transaction_payment::MaximumMultiplier,
 	>;
+
+	type WeightInfo = weights::pallet::transaction_payment::Weights<Runtime>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -297,6 +300,9 @@ impl pallet_identity::Config for Runtime {
 
 	type ByteDeposit = params::dynamic::identity::ByteDeposit;
 	type BasicDeposit = params::dynamic::identity::BasicDeposit;
+	// Must only change in a runtime upgrade with proper migrations.
+	type UsernameDeposit = params::constant::identity::UsernameDeposit;
+	type UsernameGracePeriod = params::constant::identity::UsernameGracePeriod;
 	type SubAccountDeposit = params::dynamic::identity::SubAccountDeposit;
 	type WeightInfo = weights::pallet::identity::Weights<Runtime>;
 }
@@ -530,12 +536,21 @@ impl frame_system::offchain::SigningTypes for Runtime {
 	type Signature = Signature;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
 where
 	RuntimeCall: From<C>,
 {
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
 }
 
 type IdTuple = pallet_im_online::IdentificationTuple<Runtime>;

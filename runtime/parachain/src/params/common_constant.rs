@@ -137,6 +137,9 @@ pub mod identity {
 		pub const MaxSuffixLength: u32 = 7;
 		pub const MaxUsernameLength: u32 = 32;
 		pub const PendingUsernameExpiration: u32 = 7 * DAYS;
+		pub const UsernameGracePeriod: u32 = 7 * DAYS;
+		// Must only change in a runtime upgrade with proper migrations.
+		pub const UsernameDeposit: Balance = MOSAIC; // currently = deposit(1, 0)
 	}
 }
 

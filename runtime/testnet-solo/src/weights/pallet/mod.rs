@@ -42,6 +42,8 @@ pub mod session;
 pub mod staking_incentive;
 #[path = "../../../../parachain/src/weights/pallet/timestamp.rs"]
 pub mod timestamp;
+#[path = "../../../../parachain/src/weights/pallet/transaction_payment.rs"]
+pub mod transaction_payment;
 #[path = "../../../../parachain/src/weights/pallet/treasury.rs"]
 pub mod treasury;
 #[path = "../../../../parachain/src/weights/pallet/utility.rs"]

@@ -1,12 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![expect(clippy::manual_inspect)]
 
 use sdk::frame_support::{
 	pallet_prelude::{DispatchError, DispatchResult, Encode, IsType, TypeInfo},
 	traits::{
 		fungible::{
-			Balanced, BalancedHold, Credit, Debt, Dust, Inspect, InspectFreeze, InspectHold,
-			Mutate, MutateFreeze, MutateHold, Unbalanced, UnbalancedHold,
+			hold::DoneSlash, Balanced, BalancedHold, Credit, Debt, Dust, Inspect, InspectFreeze,
+			InspectHold, Mutate, MutateFreeze, MutateHold, Unbalanced, UnbalancedHold,
 		},
 		tokens::{
 			DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
@@ -275,7 +274,19 @@ where
 		Self::done_slash(reason, who, amount);
 		ret
 	}
-	fn done_slash(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
+}
+
+impl<T: Config, Reason, Balance> DoneSlash<Reason, T::AccountId, Balance> for Pallet<T>
+where
+	T::Fungible: Inspect<T::AccountId, Balance = Balance>,
+	T::Fungible: InspectHold<T::AccountId, Reason = Reason>,
+	Reason: Clone,
+{
+	fn done_slash(
+		reason: &<Self as InspectHold<T::AccountId>>::Reason,
+		who: &T::AccountId,
+		amount: <Self as Inspect<T::AccountId>>::Balance,
+	) {
 		Self::deposit_event(Event::<T>::HoldSlashed {
 			who: who.clone(),
 			amount,

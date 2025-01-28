@@ -31,12 +31,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // Expect lints caused by procmacros
-#![expect(
-	dead_code,
-	clippy::manual_inspect,
-	clippy::must_use_candidate,
-	clippy::cast_possible_truncation
-)]
+#![expect(dead_code, clippy::must_use_candidate, clippy::cast_possible_truncation)]
 
 #[cfg(test)]
 mod mock;

@@ -1,6 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-// Expect lints caused by procmacros
-#![expect(clippy::manual_inspect)]
 
 #[cfg(test)]
 mod mock;
@@ -60,7 +58,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				T::WeightInfo::doas_root().saturating_add(dispatch_info.weight),
+				T::WeightInfo::doas_root().saturating_add(dispatch_info.call_weight),
 				dispatch_info.class
 			)
 		})]
@@ -106,7 +104,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				T::WeightInfo::doas().saturating_add(dispatch_info.weight),
+				T::WeightInfo::doas().saturating_add(dispatch_info.call_weight),
 				dispatch_info.class
 			)
 		})]

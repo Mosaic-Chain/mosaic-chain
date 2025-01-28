@@ -59,6 +59,7 @@ impl frame_system::Config for Test {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
@@ -105,6 +106,9 @@ impl pallet_collective::Config<TestCouncil> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = frame_system::EnsureRoot<AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type DisapproveOrigin = EnsureRootOrTwoThirdCouncil;
+	type KillOrigin = EnsureRootOrTwoThirdCouncil;
+	type Consideration = ();
 }
 
 type TestCouncilMembership = pallet_membership::Instance1;
@@ -172,4 +176,5 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
+	type DoneSlashHandler = ();
 }

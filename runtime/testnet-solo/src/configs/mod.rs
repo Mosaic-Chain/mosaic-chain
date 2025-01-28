@@ -5,11 +5,11 @@ use sdk::{
 
 use codec::Encode;
 use frame_support::{derive_impl, weights::constants::RocksDbWeight};
-use sp_runtime::{generic::Era, traits::Verify, SaturatedConversion};
+use sp_runtime::{generic::Era, SaturatedConversion};
 
 use crate::{
-	params, weights, AccountId, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, RuntimeTask, Signature, SignedPayload, System, UncheckedExtrinsic,
+	params, weights, Block, PalletInfo, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	RuntimeTask, SignedPayload, System, UncheckedExtrinsic,
 };
 use params::currency::Balance;
 
@@ -66,15 +66,14 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for R
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+	fn create_signed_transaction<
+		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+	>(
 		call: RuntimeCall,
-		public: <Signature as Verify>::Signer,
-		account: AccountId,
-		nonce: Nonce,
-	) -> Option<(
-		RuntimeCall,
-		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-	)> {
+		public: Self::Public,
+		account: Self::AccountId,
+		nonce: Self::Nonce,
+	) -> Option<Self::Extrinsic> {
 		let period = Self::BlockHashCount::get()
 			.checked_next_power_of_two()
 			.map(|c| c / 2)
@@ -97,9 +96,9 @@ where
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
-		let address = account;
-		let (call, extra, _) = raw_payload.deconstruct();
-
-		Some((call, (sp_runtime::MultiAddress::Id(address), signature, extra)))
+		let (call, tx_ext, _) = raw_payload.deconstruct();
+		let address = account.into();
+		let transaction = UncheckedExtrinsic::new_signed(call, address, signature, tx_ext);
+		Some(transaction)
 	}
 }

@@ -22,6 +22,7 @@ pub mod scheduler;
 pub mod session;
 pub mod staking_incentive;
 pub mod timestamp;
+pub mod transaction_payment;
 pub mod treasury;
 pub mod utility;
 pub mod vesting_to_freeze;

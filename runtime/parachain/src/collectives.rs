@@ -43,6 +43,11 @@ macro_rules! impl_collective {
 
 		impl pallet_collective::Config<$collective::CollectiveInstance> for Runtime {
 			type RuntimeOrigin = RuntimeOrigin;
+			type DisapproveOrigin = CouncilOrigin;
+			type KillOrigin = CouncilOrigin;
+
+			type Consideration = ();
+
 			type Proposal = RuntimeCall;
 			type RuntimeEvent = RuntimeEvent;
 

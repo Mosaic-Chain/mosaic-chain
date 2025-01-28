@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // Expect lints caused by procmacros
-#![expect(clippy::manual_inspect, clippy::must_use_candidate, clippy::cast_possible_truncation)]
+#![expect(clippy::must_use_candidate, clippy::cast_possible_truncation)]
 
 //! Validator subset selection pallet
 //! This module makes it possible to select a subset of the validator
