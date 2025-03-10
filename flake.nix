@@ -36,6 +36,7 @@
           polkadot
           zombienet
           zepter
+          subwasm
         ];
       in {
         devShell = pkgs.mkShell {

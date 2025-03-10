@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
 set -eu
 
+confirm() {
+    while true; do
+
+        read -e -p "$1 (yes/no): " yn
+
+        case $yn in
+            yes ) break;;
+            no ) exit;;
+        esac
+
+    done
+}
+
 develop="develop"
+
+confirm "I have checked docs/release/checklist.md"
 
 # Check current branch is develop
 
@@ -44,22 +59,24 @@ echo -e "- Current version: $old_ver"
 echo -e "- Release version: $new_ver"
 echo -e "\nThe script updates the changelog; updates Cargo.toml; creates a release commit and tags it."
 
-while true; do
 
-    read -e -p "Are you sure? (yes/no) " yn
+confirm "Are you sure?"
 
-    case $yn in
-        yes ) break;;
-        no ) exit;;
-    esac
+if [ ! -f CHANGELOG.md ]; then
+    touch CHANGELOG.md
+fi
 
-done
-
-git cliff --bump > CHANGELOG.md
+git cliff --bump --unreleased --prepend CHANGELOG.md
 
 mv Cargo.toml Cargo.toml.old
 toml set Cargo.toml.old workspace.package.version "$new_ver" > Cargo.toml
 rm Cargo.toml.old
+
+echo "Please review CHANGELOG.md and add runtime compatibility changes"
+echo "  - see ADR/004-using-subwasm-for-more-detailed-changelogs.md"
+echo "  - see docs/release/check-runtime-compat.md"
+
+confirm "CHANGELOG.md is properly amended"
 
 ./scripts/check.sh
 
