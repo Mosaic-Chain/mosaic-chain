@@ -33,7 +33,7 @@ suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
 features = ["dev-spec"]
 assets = [
 	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain-devnet/changelog.md", "644"],
-	["../../chainspecs/devnet/devnet-live-1734434142-raw.json", "usr/share/mosaic-chain-devnet/chainspec/devnet-spec-1734434142.json", "644"],
+	["../../chainspecs/devnet/devnet-live-1739953051-raw.json", "usr/share/mosaic-chain-devnet/chainspec/devnet-spec-1739953051.json", "644"],
 	["../../chainspecs/paseo/paseo-live-1728985302-raw.json", "usr/share/mosaic-chain-devnet/chainspec/paseo-spec-1728985302.json", "644"],
 	["target/release/mosaic-chain", "usr/bin/mosaic-chain-devnet", "755"]
 ]
@@ -42,7 +42,7 @@ assets = [
 name = "mosaic-chain"
 suggests = "mosaic-explorer, mosaic-admin, mosaic-announcer"
 assets = [
-	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain-benchmark/changelog.md", "644"],
+	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain/changelog.md", "644"],
 	["target/release/mosaic-chain", "usr/bin/mosaic-chain", "755"]
 ]
 

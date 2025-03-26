@@ -13,7 +13,7 @@
   "telemetryEndpoints": null,
   "protocolId": "mosaic-devnet",
   "properties": {
-    "ss58Format": 42,
+    "ss58Format": 0,
     "tokenDecimals": 18,
     "tokenSymbol": "TMOS"
   },
@@ -27,19 +27,19 @@
         "balances": {
           "balances": [
             [
-              "5DXmMtGGmjioukgJrxeC2yVMSQ39HEWLXewVX2pSUXACTY8T",
+              "12U4WDXLdWzHMHgppbhCB8KWJ22nyY4Uc9fygKoo2cBidqyN",
               50000000000000000000
             ],
             [
-              "5HRQJifHqQGYUDRUS3kFEG6LbeaPbGkZiRESHhg7skAVRuJX",
+              "16MhT3vMhBY1ukRzPgoFNQvVTGa3HaJhnuxvSzfURqC1cK4T",
               50000000000000000000
             ],
             [
-              "5FRpMKvm1ECTDWTLLRaK1HD5S5fwRz4m3JimcULSwfZTE2xH",
+              "14N7VfBps1Tvf3TrJ4dK9S3EHhfb8Hcu7oTFmmKoVkayQKWo",
               50000000000000000000
             ],
             [
-              "5EeBerBeuQxZEkNceGmFuzD6ftB2pcAvdVyTWJ2jeDEZKxsR",
+              "13aUoBSimCE2gHP8bupG493FXWAgWuj4hzhwfb26CJG5WTkB",
               50000000000000000000
             ]
           ]
@@ -47,8 +47,8 @@
         "collatorSelection": {
           "candidacyBond": 16000000000,
           "invulnerables": [
-            "5DXmMtGGmjioukgJrxeC2yVMSQ39HEWLXewVX2pSUXACTY8T",
-            "5HRQJifHqQGYUDRUS3kFEG6LbeaPbGkZiRESHhg7skAVRuJX"
+            "12U4WDXLdWzHMHgppbhCB8KWJ22nyY4Uc9fygKoo2cBidqyN",
+            "16MhT3vMhBY1ukRzPgoFNQvVTGa3HaJhnuxvSzfURqC1cK4T"
           ]
         },
         "parachainInfo": {
@@ -60,23 +60,23 @@
         "session": {
           "keys": [
             [
-              "5DXmMtGGmjioukgJrxeC2yVMSQ39HEWLXewVX2pSUXACTY8T",
-              "5DXmMtGGmjioukgJrxeC2yVMSQ39HEWLXewVX2pSUXACTY8T",
+              "12U4WDXLdWzHMHgppbhCB8KWJ22nyY4Uc9fygKoo2cBidqyN",
+              "12U4WDXLdWzHMHgppbhCB8KWJ22nyY4Uc9fygKoo2cBidqyN",
               {
-                "aura": "5Hp3SoCkjcwRCdSCbtrMnNfostY6LvNN3fFc2Kj6wPLDPJVM"
+                "aura": "16kLb8TpbQCteASiZXuMvXVxjWXk3DvW89z6BciTVUMjZpSn"
               }
             ],
             [
-              "5HRQJifHqQGYUDRUS3kFEG6LbeaPbGkZiRESHhg7skAVRuJX",
-              "5HRQJifHqQGYUDRUS3kFEG6LbeaPbGkZiRESHhg7skAVRuJX",
+              "16MhT3vMhBY1ukRzPgoFNQvVTGa3HaJhnuxvSzfURqC1cK4T",
+              "16MhT3vMhBY1ukRzPgoFNQvVTGa3HaJhnuxvSzfURqC1cK4T",
               {
-                "aura": "5HKJKjPo84Lq5ECcTaGjaXkZoDgcoRAKQDHLLPCkhJBk6ocv"
+                "aura": "16FbU4eryqcJWmD8RDKjigaieqgGViiTUi1pVgC7FPDGH9x7"
               }
             ]
           ]
         },
         "sudo": {
-          "key": "5DXmMtGGmjioukgJrxeC2yVMSQ39HEWLXewVX2pSUXACTY8T"
+          "key": "12U4WDXLdWzHMHgppbhCB8KWJ22nyY4Uc9fygKoo2cBidqyN"
         }
       }
     }

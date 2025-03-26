@@ -7,7 +7,7 @@
   "protocolId": "mosaic-local",
   "properties": {
     "color": "#5f32ff",
-    "ss58Format": 42,
+    "ss58Format": 0,
     "tokenDecimals": 18,
     "tokenSymbol": "TMOS"
   },
@@ -21,27 +21,27 @@
         "balances": {
           "balances": [
             [
-              "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+              "15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5",
               50000000000000000000
             ],
             [
-              "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+              "14E5nqKAp3oAJcmzgZhUD2RcptBeUBScxKHgJKU4HPNcKVf3",
               50000000000000000000
             ],
             [
-              "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+              "14Gjs1TD93gnwEBfDMHoCgsuf1s2TVKUP6Z1qKmAZnZ8cW5q",
               50000000000000000000
             ],
             [
-              "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy",
-              50000000000000000000
-            ],
- [
-              "5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw",
+              "126TwBzBM4jUEK2gTphmW4oLoBWWnYvPp8hygmduTr4uds57",
               50000000000000000000
             ],
             [
-              "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
+              "16D2eVuK5SWfwvtFD3gVdBC2nc2BafK31BY6PrbZHBAGew7L",
+              50000000000000000000
+            ],
+            [
+              "1egYCubF1U5CGWiXjQnsXduiJYP49KTs8eX1jn1JrTqCYyQ",
               50000000000000000000
             ]
           ]
@@ -49,8 +49,8 @@
         "collatorSelection": {
           "candidacyBond": 16000000000,
           "invulnerables": [
-            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+            "15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5",
+            "14E5nqKAp3oAJcmzgZhUD2RcptBeUBScxKHgJKU4HPNcKVf3"
           ]
         },
         "parachainInfo": {
@@ -62,26 +62,25 @@
         "session": {
           "keys": [
             [
-              "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-              "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+              "15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5",
+              "15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5",
               {
-                "aura": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+                "aura": "15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5"
               }
             ],
             [
-              "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
-              "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+              "14E5nqKAp3oAJcmzgZhUD2RcptBeUBScxKHgJKU4HPNcKVf3",
+              "14E5nqKAp3oAJcmzgZhUD2RcptBeUBScxKHgJKU4HPNcKVf3",
               {
-                "aura": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+                "aura": "14E5nqKAp3oAJcmzgZhUD2RcptBeUBScxKHgJKU4HPNcKVf3"
               }
             ]
           ]
         },
         "sudo": {
-          "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+          "key": "15oF4uVJwmo4TdGW7VfQxNLavjCXviqxT9S1MgbjMNHr6Sp5"
         }
       }
     }
   }
 }
-

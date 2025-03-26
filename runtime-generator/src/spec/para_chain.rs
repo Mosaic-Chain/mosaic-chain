@@ -130,7 +130,7 @@ pub fn local_config(
 
 	Ok(Box::new(
 		ChainSpec::builder(&wasm, Extensions { relay_chain: relay_chain.into(), para_id })
-			.with_properties(properties(42, "TMOS"))
+			.with_properties(properties(0, "TMOS"))
 			.with_name("Mosaic Chain Local Testnet")
 			.with_id("mosaic-local")
 			.with_protocol_id("mosaic-local")
@@ -182,7 +182,7 @@ pub fn devnet_config(
 
 	Ok(Box::new(
 		ChainSpec::builder(&wasm, Extensions { relay_chain: relay_chain.into(), para_id })
-			.with_properties(properties(42, "TMOS"))
+			.with_properties(properties(0, "TMOS"))
 			.with_name("Mosaic Chain Devnet")
 			.with_id("mosaic-devnet")
 			.with_protocol_id("mosaic-devnet")
@@ -234,7 +234,7 @@ pub fn mainnet_config(
 
 	Ok(Box::new(
 		ChainSpec::builder(&wasm, Extensions { relay_chain: relay_chain.into(), para_id })
-			.with_properties(properties(14998, "MOS"))
+			.with_properties(properties(0, "MOS"))
 			.with_name("Mosaic Chain")
 			.with_id("mosaic-mainnet")
 			.with_protocol_id("mosaic-mainnet")

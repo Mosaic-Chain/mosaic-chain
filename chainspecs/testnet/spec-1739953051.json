@@ -7,7 +7,7 @@
   "protocolId": "mosaic-solo-local",
   "properties": {
     "color": "#5f32ff",
-    "ss58Format": 42,
+    "ss58Format": 0,
     "tokenDecimals": 18,
     "tokenSymbol": "TMOS"
   },

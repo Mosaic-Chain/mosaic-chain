@@ -21,7 +21,9 @@ impl crate::cli::Cli {
 fn build(builder: &impl RuntimeBuilder, profile: &str, raw: bool) -> anyhow::Result<()> {
 	if let Some(create_fn) = fetch_create_fn(profile) {
 		log::info!("Found supported profile: {}", profile);
-
+		sdk::sp_core::crypto::set_default_ss58_version(
+			sdk::sp_core::crypto::Ss58AddressFormatRegistry::PolkadotAccount.into(),
+		);
 		let chain_spec = (create_fn)(builder)?.as_json(raw).map_err(|e| anyhow!(e))?;
 		print!("{chain_spec}");
 		Ok(())

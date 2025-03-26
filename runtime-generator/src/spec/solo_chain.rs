@@ -86,7 +86,7 @@ pub fn local_config(
 
 	Ok(Box::new(
 		ChainSpec::builder(&code, None)
-			.with_properties(properties(42, "TMOS"))
+			.with_properties(properties(0, "TMOS"))
 			.with_name("Mosaic Local Solo Testnet")
 			.with_id("mosaic-solo-local")
 			.with_protocol_id("mosaic-solo-local")
@@ -119,7 +119,7 @@ pub fn live_config(builder: &dyn RuntimeBuilder) -> anyhow::Result<Box<dyn sc_se
 
 	Ok(Box::new(
 		ChainSpec::builder(&build_runtime(builder, None)?, None)
-			.with_properties(properties(42, "MOS"))
+			.with_properties(properties(0, "MOS"))
 			.with_name("Mosaic Solo Testnet")
 			.with_id("mosaic-solo-live")
 			.with_protocol_id("mosaic-solo-live")
