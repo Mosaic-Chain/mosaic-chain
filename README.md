@@ -49,7 +49,7 @@ NOTE: cargo-deb, cargo-nextest and zepter can be installed with `cargo install` 
 they are not available in your package manager.
 
 A `flake.nix` file is also included using which a complete development environment can be spawned.
-It also serves as a complete list of dependencies together with `toolchain.toml`.
+It also serves as a complete list of dependencies together with `rust-toolchain.toml`.
 
 ### Setup git hooks
 

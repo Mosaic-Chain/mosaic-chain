@@ -24,7 +24,7 @@
         };
 
         nativeBuildInputs = with pkgs; [
-          (rust-bin.fromRustupToolchainFile ./toolchain.toml)
+          (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
           clang
           rocksdb
           llvmPackages.libclang.lib
