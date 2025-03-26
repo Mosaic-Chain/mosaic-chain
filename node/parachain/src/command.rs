@@ -9,7 +9,7 @@ use cumulus_primitives_core::ParaId;
 use log::info;
 use mosaic_chain_runtime::Block;
 
-// TODO: use our own referenc hardware requirements
+// TODO: use our own reference hardware requirements
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
@@ -275,7 +275,7 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match config.network.network_backend {
-        			sc_network::config::NetworkBackendType::Libp2p =>
+        			Some(sc_network::config::NetworkBackendType::Libp2p) | None =>
         				crate::service::start_parachain_node::<sc_network::NetworkWorker<_, _>>(
         					config,
         					polkadot_config,
@@ -283,7 +283,7 @@ pub fn run() -> Result<()> {
         					id,
         					hwbench
         				).await.map(|r| r.0).map_err(Into::into),
-					sc_network::config::NetworkBackendType::Litep2p =>
+					Some(sc_network::config::NetworkBackendType::Litep2p) =>
 						crate::service::start_parachain_node::<sc_network::Litep2pNetworkBackend>(
 							config,
 							polkadot_config,
