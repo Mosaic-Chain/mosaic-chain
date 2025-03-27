@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2025-03-27
+
+### Runtime Compatibility Changes
+
+- `pallet_system`
+  - For the extrinsic events (`ExtrinsicSuccess` and `ExtrinsicFailed`),
+    the type for its dispatch info argument was changed from
+    `DispatchInfo` to `DispatchEventInfo`
+- `pallet_identity`
+  - Breaking changes for calls:
+    - Arguments for `remove_username_authority` changed
+    - New argument was added to `set_username_for`
+    - Renamed `remove_dangling_username` to `unbind_username`
+  - New calls added:
+    - `remove_username`
+    - `kill_username`
+  - Breaking changes on several events
+  - Four new errors added
+  - Two new constants added
+  - Breaking storage changes
+- `pallet_collective`
+  - Two new calls added: `kill` and `release_proposal_cost`
+  - Three new events added: `Killed`, `ProposalCostBurned` and
+    `ProposalCostReleased`
+  - Added a new error: `ProposalActive`
+  - Added new storage: `CostOf`
+
+### 🚀 Features
+
+- Upgraded polkadot-sdk to polkadot-stable-2412-2:
+- *runtime-generator*: Added option to copy built wasm to some path
+- Upgraded polkadot-sdk to polkadot-stable-2412-3
+- *im-online*: Using pallet_session directly for getting session index as its
+  already a hard dependency
+- *im-online*: Only requesting the validator set once when a session starts
+- Ss58 prefix is now set to 0 everywhere
+- *testnet*: Increased runtime version
+
+### 📚 Documentation
+
+- Release checklist and documentation
+
+### ⚙️ Miscellaneous Tasks
+
+- Using correct name for rust-toolchain.toml
+
 ## [0.4.1] - 2025-01-24
 
 ### ⚙️ Miscellaneous Tasks
@@ -40,7 +86,6 @@ All notable changes to this project will be documented in this file.
 - Runtime construction uses attribute macro
 - Added live devnet chainspecs
 - New testnet chainspec for v0.4
-- Release 0.4.0
 
 ## [0.3.0] - 2025-01-16
 
@@ -52,7 +97,6 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - New testnet chainspec for v0.3
-- Release 0.3.0
 
 ## [0.2.0] - 2024-12-12
 
@@ -174,7 +218,6 @@ All notable changes to this project will be documented in this file.
 - Added zepter checks for features and disabled docker build for now
 - Checking scripts and hooks, updated readme
 - Testnet branching
-- Release 0.2.0
 
 ## [0.1.0] - 2024-03-05
 
