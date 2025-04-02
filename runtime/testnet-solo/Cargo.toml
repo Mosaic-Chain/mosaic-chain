@@ -3,7 +3,7 @@ name = "mosaic-testnet-solo-runtime"
 version.workspace = true
 repository.workspace = true
 edition = "2021"
-license = "MIT-0"
+license = "GPL-3.0-or-later"
 publish = false
 
 [package.metadata.docs.rs]

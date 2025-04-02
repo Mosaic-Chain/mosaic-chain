@@ -1,19 +1,17 @@
 [package]
 name = "pallet-treasury"
 version = "27.0.0"
+publish = false
 authors.workspace = true
 edition.workspace = true
-license = "Apache-2.0"
+license.workspace = true
 repository.workspace = true
 description = "FRAME pallet to manage treasury"
 readme = "README.md"
 
 [dependencies]
 sdk = { workspace = true, features = ["frame-support", "frame-system", "frame-benchmarking", "sp-runtime", "sp-core", "sp-std"] }
-codec = { workspace = true, features = [
-	"derive",
-	"max-encoded-len",
-] }
+codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 docify = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 scale-info = { workspace = true, features = ["derive"]}

@@ -1,6 +1,8 @@
 [package]
 name = "pallet-vesting-to-freeze"
 edition = "2021"
+publish = false
+license.workspace = true
 version.workspace = true
 repository.workspace = true
 

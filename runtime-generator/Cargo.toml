@@ -1,5 +1,6 @@
 [package]
 name = "runtime-generator"
+publish = false
 version.workspace = true
 repository.workspace = true
 edition.workspace = true

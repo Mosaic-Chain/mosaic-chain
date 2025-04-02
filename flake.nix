@@ -33,6 +33,7 @@
           git-cliff
           toml-cli
           cargo-deb
+          cargo-deny
           polkadot
           zombienet
           zepter

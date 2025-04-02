@@ -1,9 +1,10 @@
 [package]
 name = "pallet-nft-staking"
 edition = "2021"
+publish = false
+license.workspace = true
 version.workspace = true
 repository.workspace = true
-publish = false
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
