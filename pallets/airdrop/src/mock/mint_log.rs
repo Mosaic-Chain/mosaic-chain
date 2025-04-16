@@ -215,6 +215,10 @@ impl utils::traits::NftPermission<AccountId, Balance, Permission, ItemId> for Mi
 	fn set_nominal_value_of_bound(_account_id: &AccountId, _new_value: Balance) -> DispatchResult {
 		unimplemented!()
 	}
+
+	fn set_item_metadata(_item_id: &ItemId, _metadata: &[u8]) -> DispatchResult {
+		unimplemented!()
+	}
 }
 
 impl utils::traits::NftDelegation<AccountId, Balance, ItemId, AccountId> for MintLog {
@@ -246,11 +250,11 @@ impl utils::traits::NftDelegation<AccountId, Balance, ItemId, AccountId> for Min
 		unimplemented!()
 	}
 
-	fn metadata_of_bound(_item_id: &ItemId) -> Result<AccountId, sp_runtime::DispatchError> {
+	fn bind_metadata(_item_id: &ItemId) -> Result<AccountId, sp_runtime::DispatchError> {
 		unimplemented!()
 	}
 
-	fn set_metadata_of_bound(_item_id: &ItemId, _metadata: AccountId) -> DispatchResult {
+	fn set_bind_metadata(_item_id: &ItemId, _metadata: AccountId) -> DispatchResult {
 		unimplemented!()
 	}
 
@@ -263,6 +267,10 @@ impl utils::traits::NftDelegation<AccountId, Balance, ItemId, AccountId> for Min
 	}
 
 	fn set_nominal_value(_item_id: &ItemId, _new_value: Balance) -> DispatchResult {
+		unimplemented!()
+	}
+
+	fn set_item_metadata(_item_id: &ItemId, _metadata: &[u8]) -> DispatchResult {
 		unimplemented!()
 	}
 }

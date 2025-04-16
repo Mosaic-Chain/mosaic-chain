@@ -108,8 +108,8 @@ fn mints_delegator_nfts() {
 	new_test_ext().execute_with(|| {
 		let mut package = empty_package();
 		package.delegator_nfts = BoundedVec::truncate_from(vec![
-			DelegatorNft { expiration: 1, nominal_value: 100 },
-			DelegatorNft { expiration: 2, nominal_value: 200 },
+			DelegatorNft { expiration: 1, nominal_value: 100, metadata: None },
+			DelegatorNft { expiration: 2, nominal_value: 200, metadata: None },
 		]);
 		let account = package.account_id.clone();
 
@@ -136,8 +136,11 @@ fn mints_delegator_nfts() {
 fn mints_permission_nfts() {
 	new_test_ext().execute_with(|| {
 		let mut package = empty_package();
-		package.permission_nft =
-			Some(PermissionNft { permission: Permission::DPoS, nominal_value: 100 });
+		package.permission_nft = Some(PermissionNft {
+			permission: Permission::DPoS,
+			nominal_value: 100,
+			metadata: None,
+		});
 		let account = package.account_id.clone();
 
 		prefund_account_with_ed(&account);

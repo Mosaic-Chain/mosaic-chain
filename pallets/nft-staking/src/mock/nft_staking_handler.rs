@@ -158,4 +158,8 @@ impl utils::traits::NftPermission<AccountId, Balance, pallet_nft_staking::Permis
 
 		Self::set_nominal_value(item_id, new_value)
 	}
+
+	fn set_item_metadata(_item_id: &ItemId, _metadata: &[u8]) -> DispatchResult {
+		unimplemented!()
+	}
 }

@@ -48,9 +48,10 @@ where
 	let permission_nft = Some(PermissionNft {
 		permission: PermissionType::DPoS.into(),
 		nominal_value: 50u128.into(),
+		metadata: None,
 	});
 	let delegator_nfts = (0..delegator_nft_count)
-		.map(|i| DelegatorNft { expiration: i, nominal_value: 50u128.into() })
+		.map(|i| DelegatorNft { expiration: i, nominal_value: 50u128.into(), metadata: None })
 		.collect::<Vec<_>>();
 	let delegator_nfts = BoundedVec::truncate_from(delegator_nfts);
 

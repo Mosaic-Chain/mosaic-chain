@@ -48,6 +48,8 @@ pub trait NftPermission<AccountId, Balance, Variant, ItemId> {
 	fn set_nominal_value(item_id: &ItemId, new_value: Balance) -> DispatchResult;
 
 	fn set_nominal_value_of_bound(account_id: &AccountId, new_value: Balance) -> DispatchResult;
+
+	fn set_item_metadata(item_id: &ItemId, metadata: &[u8]) -> DispatchResult;
 }
 
 // Some methods take the delegetor id to check ownership.
@@ -69,15 +71,17 @@ pub trait NftDelegation<AccountId, Balance, ItemId, BindMetadata> {
 		item_id: &ItemId,
 	) -> Result<(Balance, BindMetadata), DispatchError>;
 
-	fn metadata_of_bound(item_id: &ItemId) -> Result<BindMetadata, DispatchError>;
+	fn bind_metadata(item_id: &ItemId) -> Result<BindMetadata, DispatchError>;
 
-	fn set_metadata_of_bound(item_id: &ItemId, metadata: BindMetadata) -> DispatchResult;
+	fn set_bind_metadata(item_id: &ItemId, metadata: BindMetadata) -> DispatchResult;
 
 	fn nominal_value(item_id: &ItemId) -> Result<Balance, DispatchError>;
 
 	fn is_bound(item_id: &ItemId) -> bool;
 
 	fn set_nominal_value(item_id: &ItemId, new_value: Balance) -> DispatchResult;
+
+	fn set_item_metadata(item_id: &ItemId, metadata: &[u8]) -> DispatchResult;
 }
 
 // TODO: add more events and detailed parameters (eg.: chill reason)

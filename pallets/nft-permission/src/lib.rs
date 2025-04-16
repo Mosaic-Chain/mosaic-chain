@@ -645,5 +645,17 @@ pub mod pallet {
 
 			Ok(Perbill::from_rational(current, max))
 		}
+
+		fn set_item_metadata(item_id: &T::ItemId, metadata: &[u8]) -> DispatchResult {
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
+			<NftsPallet<T> as Mutate<_, _>>::set_item_metadata(
+				None,
+				&collection_id,
+				item_id,
+				metadata,
+			)
+		}
 	}
 }

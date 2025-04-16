@@ -68,11 +68,11 @@ fn set_metadata_of_bound_works() {
 		let item = NftDelegation::mint(&owner, 3, &42).expect("could mint nft");
 		NftDelegation::bind(&owner, &item, account(2)).expect("could bind nft");
 
-		assert_ok!(NftDelegation::metadata_of_bound(&item), account(2));
+		assert_ok!(NftDelegation::bind_metadata(&item), account(2));
 
-		NftDelegation::set_metadata_of_bound(&item, account(3)).expect("could set metadata");
+		NftDelegation::set_bind_metadata(&item, account(3)).expect("could set metadata");
 
-		assert_ok!(NftDelegation::metadata_of_bound(&item), account(3));
+		assert_ok!(NftDelegation::bind_metadata(&item), account(3));
 	});
 }
 
@@ -80,10 +80,7 @@ fn set_metadata_of_bound_works() {
 fn set_metadata_of_bound_not_bound() {
 	new_test_ext().execute_with(|| {
 		let item = NftDelegation::mint(&account(0), 3, &42).expect("could mint nft");
-		assert_noop!(
-			NftDelegation::set_metadata_of_bound(&item, account(2)),
-			Error::<Test>::NotBound
-		);
+		assert_noop!(NftDelegation::set_bind_metadata(&item, account(2)), Error::<Test>::NotBound);
 	});
 }
 
@@ -111,7 +108,7 @@ fn bind_works() {
 			(expiration, nominal_value)
 		);
 
-		assert_ok!(NftDelegation::metadata_of_bound(&item), validator);
+		assert_ok!(NftDelegation::bind_metadata(&item), validator);
 
 		System::assert_last_event(Event::TokenBound { item_id: item }.into());
 		System::assert_has_event(

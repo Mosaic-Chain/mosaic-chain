@@ -602,13 +602,13 @@ pub mod pallet {
 			Ok((nominal_value, metadata))
 		}
 
-		fn metadata_of_bound(
+		fn bind_metadata(
 			item_id: &<T as NftsConfig>::ItemId,
 		) -> Result<T::BindMetadata, DispatchError> {
 			BoundItems::<T>::get(item_id).ok_or(Error::<T>::NotBound.into())
 		}
 
-		fn set_metadata_of_bound(
+		fn set_bind_metadata(
 			item_id: &<T as NftsConfig>::ItemId,
 			metadata: T::BindMetadata,
 		) -> DispatchResult {
@@ -629,6 +629,18 @@ pub mod pallet {
 			let collection_id =
 				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
 			Self::encode_nominal_value(&collection_id, item_id, &new_value)
+		}
+
+		fn set_item_metadata(item_id: &T::ItemId, metadata: &[u8]) -> DispatchResult {
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
+			<NftsPallet<T> as Mutate<_, _>>::set_item_metadata(
+				None,
+				&collection_id,
+				item_id,
+				metadata,
+			)
 		}
 	}
 

@@ -28,7 +28,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, AtLeast32BitUnsigned, Saturating, Zero},
 	DispatchResult,
 };
-use sp_std::marker::PhantomData;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 use utils::{
 	traits::{HoldVestingSchedule, NftDelegation, NftPermission},
@@ -140,12 +140,14 @@ pub mod pallet {
 	pub struct PermissionNft<PermissionType, Balance> {
 		pub permission: PermissionType,
 		pub nominal_value: Balance,
+		pub metadata: Option<Vec<u8>>,
 	}
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
 	pub struct DelegatorNft<Balance> {
 		pub expiration: SessionIndex,
 		pub nominal_value: Balance,
+		pub metadata: Option<Vec<u8>>,
 	}
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
@@ -223,15 +225,27 @@ pub mod pallet {
 			}
 
 			if let Some(permission_nft) = &package.permission_nft {
-				T::NftPermission::mint(
+				let item = T::NftPermission::mint(
 					&package.account_id,
 					&permission_nft.permission,
 					&permission_nft.nominal_value,
 				)?;
+
+				if let Some(metadata) = &permission_nft.metadata {
+					T::NftPermission::set_item_metadata(&item, metadata.as_slice())?;
+				}
 			}
 
 			for nft in &package.delegator_nfts {
-				T::NftDelegation::mint(&package.account_id, nft.expiration, &nft.nominal_value)?;
+				let item = T::NftDelegation::mint(
+					&package.account_id,
+					nft.expiration,
+					&nft.nominal_value,
+				)?;
+
+				if let Some(metadata) = &nft.metadata {
+					T::NftDelegation::set_item_metadata(&item, metadata.as_slice())?;
+				}
 			}
 
 			if let Some(vesting) = package.vesting.clone() {
