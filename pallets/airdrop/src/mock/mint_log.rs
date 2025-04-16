@@ -9,17 +9,29 @@ pub enum Permission {
 }
 
 #[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub struct Entry {
-	pub account: AccountId,
-	pub event: MintEvent,
-}
-
-#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
-pub enum MintEvent {
-	TokensMinted(Balance),
-	VestingScheduleAdded(VestingSchedule<Balance, BlockNumberFor<Test>>),
-	PermissionNftMinted { nominal_value: Balance, permission: Permission },
-	DelegatorNftMinted { nominal_value: Balance, expiration: SessionIndex },
+pub enum Entry {
+	TokensMinted {
+		account: AccountId,
+		amount: Balance,
+	},
+	VestingScheduleAdded {
+		account: AccountId,
+		schedule: VestingSchedule<Balance, BlockNumberFor<Test>>,
+	},
+	PermissionNftMinted {
+		account: AccountId,
+		nominal_value: Balance,
+		permission: Permission,
+	},
+	DelegatorNftMinted {
+		account: AccountId,
+		nominal_value: Balance,
+		expiration: SessionIndex,
+	},
+	NftMetadataSet {
+		item_id: ItemId,
+		metadata: Vec<u8>,
+	},
 }
 
 pub struct MintLog;
@@ -73,15 +85,9 @@ impl frame_support::traits::fungible::Inspect<AccountId> for MintLog {
 	fn total_balance(who: &AccountId) -> Self::Balance {
 		EventLogStorage::get()
 			.into_iter()
-			.filter_map(|evt| {
-				if evt.account != *who {
-					return None;
-				}
-
-				match evt.event {
-					MintEvent::TokensMinted(amount) => Some(amount),
-					_ => None,
-				}
+			.filter_map(|entry| match entry {
+				Entry::TokensMinted { account, amount } if account == *who => Some(amount),
+				_ => None,
 			})
 			.sum()
 	}
@@ -90,15 +96,11 @@ impl frame_support::traits::fungible::Inspect<AccountId> for MintLog {
 		let total = Self::total_balance(who);
 		let vesting: Balance = EventLogStorage::get()
 			.into_iter()
-			.filter_map(|evt| {
-				if evt.account != *who {
-					return None;
-				}
-
-				match evt.event {
-					MintEvent::VestingScheduleAdded(schedule) => Some(schedule.locked),
-					_ => None,
-				}
+			.filter_map(|entry| match entry {
+				Entry::VestingScheduleAdded { account, schedule } if account == *who => {
+					Some(schedule.locked)
+				},
+				_ => None,
 			})
 			.sum();
 
@@ -157,7 +159,7 @@ impl frame_support::traits::fungible::Mutate<AccountId> for MintLog {
 
 		let actual = new_balance.saturating_sub(old_balance);
 
-		MintLog::deposit(Entry { account: who.clone(), event: MintEvent::TokensMinted(actual) });
+		MintLog::deposit(Entry::TokensMinted { account: who.clone(), amount: actual });
 		Ok(actual)
 	}
 }
@@ -168,12 +170,10 @@ impl utils::traits::NftPermission<AccountId, Balance, Permission, ItemId> for Mi
 		permission: &Permission,
 		nominal_value: &Balance,
 	) -> Result<ItemId, sp_runtime::DispatchError> {
-		MintLog::deposit(Entry {
+		MintLog::deposit(Entry::PermissionNftMinted {
 			account: account_id.clone(),
-			event: MintEvent::PermissionNftMinted {
-				nominal_value: *nominal_value,
-				permission: *permission,
-			},
+			nominal_value: *nominal_value,
+			permission: *permission,
 		});
 
 		Ok(0) // we dont care about the id
@@ -216,8 +216,9 @@ impl utils::traits::NftPermission<AccountId, Balance, Permission, ItemId> for Mi
 		unimplemented!()
 	}
 
-	fn set_item_metadata(_item_id: &ItemId, _metadata: &[u8]) -> DispatchResult {
-		unimplemented!()
+	fn set_item_metadata(item_id: &ItemId, metadata: &[u8]) -> DispatchResult {
+		MintLog::deposit(Entry::NftMetadataSet { item_id: *item_id, metadata: metadata.to_vec() });
+		Ok(())
 	}
 }
 
@@ -227,9 +228,10 @@ impl utils::traits::NftDelegation<AccountId, Balance, ItemId, AccountId> for Min
 		expiration: utils::SessionIndex,
 		nominal_value: &Balance,
 	) -> Result<ItemId, sp_runtime::DispatchError> {
-		MintLog::deposit(Entry {
+		MintLog::deposit(Entry::DelegatorNftMinted {
 			account: account_id.clone(),
-			event: MintEvent::DelegatorNftMinted { nominal_value: *nominal_value, expiration },
+			nominal_value: *nominal_value,
+			expiration,
 		});
 
 		Ok(0) // we dont care about the item id
@@ -270,8 +272,9 @@ impl utils::traits::NftDelegation<AccountId, Balance, ItemId, AccountId> for Min
 		unimplemented!()
 	}
 
-	fn set_item_metadata(_item_id: &ItemId, _metadata: &[u8]) -> DispatchResult {
-		unimplemented!()
+	fn set_item_metadata(item_id: &ItemId, metadata: &[u8]) -> DispatchResult {
+		MintLog::deposit(Entry::NftMetadataSet { item_id: *item_id, metadata: metadata.to_vec() });
+		Ok(())
 	}
 }
 
@@ -285,11 +288,7 @@ impl utils::traits::HoldVestingSchedule<AccountId> for MintLog {
 		who: &AccountId,
 		schedule: VestingSchedule<Balance, Self::BlockNumber>,
 	) -> DispatchResult {
-		MintLog::deposit(Entry {
-			account: who.clone(),
-			event: MintEvent::VestingScheduleAdded(schedule),
-		});
-
+		MintLog::deposit(Entry::VestingScheduleAdded { account: who.clone(), schedule });
 		Ok(())
 	}
 

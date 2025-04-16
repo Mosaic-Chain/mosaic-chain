@@ -15,7 +15,7 @@ use sdk::{
 pub use crate as airdrop;
 
 pub mod mint_log;
-pub use mint_log::{Entry, MintEvent, MintLog, Permission};
+pub use mint_log::{Entry, MintLog, Permission};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

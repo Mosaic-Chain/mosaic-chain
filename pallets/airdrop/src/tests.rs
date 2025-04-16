@@ -61,10 +61,8 @@ fn mints_tokens() {
 
 		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
 			.expect("could airdrop package");
-		MintLog::assert_last_entry(&Entry {
-			account: account(0),
-			event: MintEvent::TokensMinted(42),
-		});
+
+		MintLog::assert_last_entry(&Entry::TokensMinted { account: account(0), amount: 42 });
 		MintLog::assert_height(1);
 	});
 }
@@ -80,9 +78,10 @@ fn mints_at_least_ed_on_empty_account() {
 
 		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
 			.expect("could airdrop package");
-		MintLog::assert_last_entry(&Entry {
+
+		MintLog::assert_last_entry(&Entry::TokensMinted {
 			account: account_id,
-			event: MintEvent::TokensMinted(MintLog::minimum_balance()),
+			amount: MintLog::minimum_balance(),
 		});
 		MintLog::assert_height(1);
 	});
@@ -119,16 +118,39 @@ fn mints_delegator_nfts() {
 		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
 			.expect("could airdrop package");
 
-		MintLog::assert_has_entry(&Entry {
+		MintLog::assert_has_entry(&Entry::DelegatorNftMinted {
 			account: account.clone(),
-			event: MintEvent::DelegatorNftMinted { expiration: 1, nominal_value: 100 },
+			expiration: 1,
+			nominal_value: 100,
 		});
-		MintLog::assert_has_entry(&Entry {
+
+		MintLog::assert_has_entry(&Entry::DelegatorNftMinted {
 			account: account.clone(),
-			event: MintEvent::DelegatorNftMinted { expiration: 2, nominal_value: 200 },
+			expiration: 2,
+			nominal_value: 200,
 		});
 
 		MintLog::assert_height(log_height + 2);
+	});
+}
+
+#[test]
+fn sets_delegator_nft_metadata() {
+	new_test_ext().execute_with(|| {
+		let mut package = empty_package();
+		package.delegator_nfts = BoundedVec::truncate_from(vec![DelegatorNft {
+			expiration: 1,
+			nominal_value: 100,
+			metadata: Some(b"nft #1".to_vec()),
+		}]);
+
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
+
+		MintLog::assert_has_entry(&Entry::NftMetadataSet {
+			item_id: 0,
+			metadata: b"nft #1".to_vec(),
+		});
 	});
 }
 
@@ -149,15 +171,33 @@ fn mints_permission_nfts() {
 		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
 			.expect("could airdrop package");
 
-		MintLog::assert_has_entry(&Entry {
+		MintLog::assert_has_entry(&Entry::PermissionNftMinted {
 			account: account.clone(),
-			event: MintEvent::PermissionNftMinted {
-				nominal_value: 100,
-				permission: Permission::DPoS,
-			},
+			nominal_value: 100,
+			permission: Permission::DPoS,
 		});
 
 		MintLog::assert_height(log_height + 1);
+	});
+}
+
+#[test]
+fn sets_permission_nft_metadata() {
+	new_test_ext().execute_with(|| {
+		let mut package = empty_package();
+		package.permission_nft = Some(PermissionNft {
+			permission: Permission::DPoS,
+			nominal_value: 100,
+			metadata: Some(b"validator #1".to_vec()),
+		});
+
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
+
+		MintLog::assert_has_entry(&Entry::NftMetadataSet {
+			item_id: 0,
+			metadata: b"validator #1".to_vec(),
+		});
 	});
 }
 
@@ -175,19 +215,12 @@ fn adds_vesting_schedule() {
 			.expect("could airdrop package");
 
 		// Mints tokens to vest
-		MintLog::assert_has_entry(&Entry {
-			account: account.clone(),
-			event: MintEvent::TokensMinted(101),
-		});
+		MintLog::assert_has_entry(&Entry::TokensMinted { account: account.clone(), amount: 101 });
 
 		// Vests tokens
-		MintLog::assert_has_entry(&Entry {
+		MintLog::assert_has_entry(&Entry::VestingScheduleAdded {
 			account: account.clone(),
-			event: MintEvent::VestingScheduleAdded(VestingSchedule {
-				locked: 101,
-				per_block: 1,
-				starting_block: None,
-			}),
+			schedule: VestingSchedule { locked: 101, per_block: 1, starting_block: None },
 		});
 
 		MintLog::assert_height(log_height + 2);
