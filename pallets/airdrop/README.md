@@ -31,7 +31,7 @@ The pallet exposes a single call that handles the creation of all assets above:
   - `package` _(required)_: airdrop package
     - nonce _(required)_: ever-increasing sequance number for this call (u64)
     - account_id _(required)_: ss58 address of the recipient (AccountId)
-    - balance _(optional)_: immediately accessable tokens in _tiles_ (u128)
+    - balance _(optional)_: immediately accessible tokens in _tiles_ (u128)
     - vesting _(optional)_: gradually unlocking tokens
       - amount _(required)_: balance that unlocks overtime in _tiles_ (u128)
       - unlock_per_block _(required)_: how much of the tokens unlock per block in _tiles_ (u128)
@@ -39,10 +39,12 @@ The pallet exposes a single call that handles the creation of all assets above:
     - permission_nft _(optional)_: permission nft details
       - permission _(required)_: "PoS" or "DPoS"
       - nominal_value _(required)_: what is the nft worth in _tiles_ (u128)
+      - metadata _(optional)_: nft metadata (eg.: link to image) ([u8])
     - delegator_nfts _(optional)_: a **list** of delegator nft details
       - Each item:
         - expiration _(required)_: number of _sessions_ the nft is valid starting from it's first use (u32)
         - nominal_value _(required)_: what is the nft worth in _tiles_ (u128)
+        - metadata _(optional)_: nft metadata (eg.: link to image) ([u8])
   - `signature` _(required)_: the sr25519 signature of the `data` parameter using the **Minting Authority's** private key
   
 Example `package` in json (for demonstration only):
@@ -55,6 +57,7 @@ Example `package` in json (for demonstration only):
     "permission_nft": {
       "permission": "PoS",
       "nominal_value": 5e+22
+      "metadata": "ipfs://ipfs/bafybeihlyqahjigpjtswtqzzu2p3az5jro2gbkvbjzywgx6s65bq6bcv74"
     },
     "delegator_nfts": [
       {
@@ -77,12 +80,30 @@ must be submitted ordered by the nonce. The current nonce can be read from the p
 
 ## Rotating the key
 
-For security mesures it might be worth rotating the **Minting Authority** keys periodically.
+For security measures it might be worth rotating the **Minting Authority** keys periodically.
 This can be done by submitting the new key using the `set_key` call.
-This call requries `RootOrigin` and is _not_ signed by the **Minting Authority**.
+This call requires `RootOrigin` and is _not_ signed by the **Minting Authority**.
 
 Make sure there are no pending airdrops when rotating the key.
 Otherwise they might get invalidated.
+
+
+## Testing using subkey and polkadot.js
+
+It is possible to mint a package without specialized tooling or scripts if we know the suri of
+the **Minting Authority**'s private key and we can connect to a running node where this pallet is
+deployed with polkadot.js.
+
+1. Connect to the running node with polkadot.js
+2. Navigate to Developer -> Chain state
+3. Select the `airdrop` pallet's `nonce` storage and query it's value
+4. Navigate to Developer -> Extrinsics
+5. Select the `airdrop` pallet's `airdrop` extrinsic
+6. Use the UI to assemble the desired package leaving the signature field empty
+7. Copy `encoded call data`
+8. Strip the first 4 characters after the `0x` prefix (call index) and the last 128 zeros (signature)
+9. Sign using the remaining data using subkey: `subkey sign --suri <suri> --hex --message 0x...`
+10. Paste signature and use `Submit Unsigned` to submit
 
 ## Resources
 
