@@ -13,6 +13,8 @@ ignore = [
     "RUSTSEC-2025-0010", # Unmaintained `ring` version used in `litep2p`
     "RUSTSEC-2024-0336", # `rustls` dep of `litep2p` can get to infinite loop based on network input
     "RUSTSEC-2025-0017", # `trust-dns-resolver` is unmaintained
+    "RUSTSEC-2024-0438", # `wasmtime` doesn't fully sandbox all the Windows device filenames
+    "RUSTSEC-2023-0091", # `wasmtime` miscompilation of wasm `i64x2.shr_s` instruction with constant input on x86\_64
 ]
 
 [licenses]
