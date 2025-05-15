@@ -9,7 +9,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     polkadot-overlay = {
-      url = "github:andresilva/polkadot.nix";
+      # 2412-3
+      url = "github:andresilva/polkadot.nix/9f6aa99b30c21469d58ba226b9bfc85e594c499e";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
