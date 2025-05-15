@@ -1,9 +1,18 @@
 use sdk::{frame_benchmarking_cli, sc_cli};
+use std::borrow::Cow;
 
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
+
+	/// The Sentry DSN used by the node
+	#[arg(long, env, requires = "sentry_environment")]
+	pub sentry_dsn: Option<Cow<'static, str>>,
+
+	/// The environment the node is deployed to
+	#[arg(long, env, requires = "sentry_dsn")]
+	pub sentry_environment: Option<Cow<'static, str>>,
 
 	#[clap(flatten)]
 	pub run: sc_cli::RunCmd,

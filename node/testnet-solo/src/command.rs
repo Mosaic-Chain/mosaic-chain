@@ -72,6 +72,19 @@ impl SubstrateCli for Cli {
 pub fn run() -> sc_cli::Result<()> {
 	let cli = Cli::from_args();
 
+	let _sentry_guard = sentry::init((
+		cli.sentry_dsn.as_deref(),
+		sentry::ClientOptions {
+			environment: cli.sentry_environment.clone(),
+			release: sentry::release_name!(),
+			send_default_pii: true,
+			attach_stacktrace: true,
+			sample_rate: 0.1,
+			traces_sample_rate: 1.0,
+			..Default::default()
+		},
+	));
+
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
 		Some(Subcommand::BuildSpec(cmd)) => {

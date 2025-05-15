@@ -27,9 +27,10 @@ name = "mosaic-testnet-solo"
 path = "src/main.rs"
 
 [dependencies]
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true, features = ["derive", "env"] }
 futures = { workspace = true, features = ["thread-pool"] }
 jsonrpsee = { workspace = true, features = ["server"] }
+sentry = { workspace = true }
 
 sdk = { workspace = true, features = [
 	"frame-benchmarking",

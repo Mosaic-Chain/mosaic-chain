@@ -51,13 +51,14 @@ name = "mosaic-chain"
 path = "src/main.rs"
 
 [dependencies]
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true, features = ["derive", "env"] }
 log = { workspace = true }
 serde = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server"] }
 futures = { workspace = true }
 serde_json = { workspace = true }
 color-print = { workspace = true }
+sentry = { workspace = true }
 
 # Local
 mosaic-chain-runtime = { workspace = true }

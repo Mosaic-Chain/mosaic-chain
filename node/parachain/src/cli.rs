@@ -1,5 +1,5 @@
 use sdk::{cumulus_client_cli, frame_benchmarking_cli, polkadot_cli, sc_cli, sc_service};
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf};
 
 /// Sub-commands supported by the collator.
 #[allow(clippy::large_enum_variant)]
@@ -72,6 +72,14 @@ const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(
 pub struct Cli {
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
+
+	/// The Sentry DSN used by the node
+	#[arg(long, env, requires = "sentry_environment")]
+	pub sentry_dsn: Option<Cow<'static, str>>,
+
+	/// The environment the node is deployed to
+	#[arg(long, env, requires = "sentry_dsn")]
+	pub sentry_environment: Option<Cow<'static, str>>,
 
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,

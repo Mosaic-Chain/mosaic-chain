@@ -30,6 +30,7 @@
           rocksdb
           llvmPackages.libclang.lib
           pkg-config
+          openssl
           cargo-nextest
           git-cliff
           toml-cli
