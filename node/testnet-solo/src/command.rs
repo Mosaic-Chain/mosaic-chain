@@ -77,9 +77,7 @@ pub fn run() -> sc_cli::Result<()> {
 		sentry::ClientOptions {
 			environment: cli.sentry_environment.clone(),
 			release: sentry::release_name!(),
-			send_default_pii: true,
 			attach_stacktrace: true,
-			sample_rate: 0.1,
 			traces_sample_rate: 1.0,
 			..Default::default()
 		},
