@@ -11,21 +11,17 @@ use sdk::{frame_support, frame_system, sp_core, sp_runtime, sp_std};
 
 use codec::{Decode, Encode};
 use frame_support::{
-	pallet_prelude::{
-		BuildGenesisConfig, InvalidTransaction, Member, StorageValue, TransactionSource,
-		TransactionValidity, ValidTransaction, ValueQuery,
-	},
+	pallet_prelude::{BuildGenesisConfig, Member, StorageValue},
 	storage::bounded_vec::BoundedVec,
 	traits::{
 		fungible::{Inspect, Mutate},
 		IsType,
 	},
-	unsigned::ValidateUnsigned,
 	PalletId, Parameter,
 };
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
-use sp_core::{crypto::Pair, sr25519, Get};
+use sp_core::{sr25519, Get};
 use sp_runtime::{
 	traits::{AccountIdConversion, AtLeast32BitUnsigned, Saturating, Zero},
 	DispatchResult,
@@ -78,9 +74,6 @@ pub mod pallet {
 
 		const MAX_DELEGATOR_NFTS: u32;
 
-		/// NOTE: this value must never exceed u64::MAX - `Self::MaxAirdropsPerBlock`
-		type BaseTransactionPriority: Get<u64>;
-
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -112,9 +105,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MintingAuthority<T: Config> = StorageValue<_, sr25519::Public>;
 
-	#[pallet::storage]
-	pub type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
-
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
@@ -131,8 +121,6 @@ pub mod pallet {
 		ParseError,
 		BadNonce,
 	}
-
-	type Signature = <sr25519::Pair as Pair>::Signature;
 
 	pub type PackageOf<T> = Package<
 		<T as frame_system::Config>::AccountId,
@@ -171,7 +159,6 @@ pub mod pallet {
 
 	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
 	pub struct Package<AccountId, Balance, PermissionType, BlockNumber, MaxDelegatorNfts: Get<u32>> {
-		pub nonce: u64,
 		pub account_id: AccountId,
 		pub balance: Option<Balance>,
 		pub vesting: Option<VestingInfo<Balance, BlockNumber>>,
@@ -208,24 +195,15 @@ pub mod pallet {
 		T::AccountId: From<sr25519::Public>,
 	{
 		#[pallet::call_index(0)]
-		#[pallet::weight({
-			let delegator_nft_count = package.delegator_nfts.len().try_into().unwrap_or(T::MAX_DELEGATOR_NFTS);
-			<T as Config>::WeightInfo::airdrop(delegator_nft_count) +
-			<T as Config>::WeightInfo::validate_unsigned(delegator_nft_count)
-		})]
-		pub fn airdrop(
-			origin: OriginFor<T>,
-			package: PackageOf<T>,
-			signature: Signature,
-		) -> DispatchResult {
-			ensure_none(origin)?;
+		#[pallet::weight(
+			<T as Config>::WeightInfo::airdrop(package.delegator_nfts.len().try_into().unwrap_or(T::MAX_DELEGATOR_NFTS))
+		)]
+		#[pallet::feeless_if(|_: &OriginFor<T>,_: &PackageOf<T>| -> bool { true })]
+		pub fn airdrop(origin: OriginFor<T>, package: PackageOf<T>) -> DispatchResult {
+			let authority = ensure_signed(origin)?;
 
-			if !Self::check_signature(&package.encode(), &signature) {
+			if authority != Self::minting_authority_account_id() {
 				return Err(Error::<T>::InvalidSignature.into());
-			}
-
-			if package.nonce != Self::post_increment_nonce() {
-				return Err(Error::<T>::BadNonce.into());
 			}
 
 			// Ensure the account has at least enough balance to not be dusted
@@ -279,64 +257,13 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
-		fn minting_authority() -> sr25519::Public {
-			MintingAuthority::<T>::get().expect("pallet initalized properly")
-		}
-
-		fn post_increment_nonce() -> u64 {
-			let current = Nonce::<T>::get();
-			Nonce::<T>::put(current + 1);
-			current
-		}
-
-		fn check_signature(data: &[u8], signature: &Signature) -> bool {
-			sr25519::Pair::verify(signature, data, &Self::minting_authority())
-		}
-	}
-
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T>
+	impl<T: Config> Pallet<T>
 	where
 		T::AccountId: From<sr25519::Public>,
 	{
-		type Call = Call<T>;
-
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			match call {
-				Call::airdrop { package, signature } => {
-					let current_nonce = Nonce::<T>::get();
-
-					if package.nonce < current_nonce {
-						return InvalidTransaction::Stale.into();
-					}
-
-					let nonce_limit = current_nonce.saturating_add(T::MaxAirdropsInPool::get());
-
-					if package.nonce >= nonce_limit {
-						return InvalidTransaction::Future.into();
-					}
-
-					if !Self::check_signature(&package.encode(), signature) {
-						return InvalidTransaction::BadSigner.into();
-					}
-
-					let valid = ValidTransaction::with_tag_prefix("Airdrop")
-						.priority(T::BaseTransactionPriority::get() + (nonce_limit - package.nonce))
-						.longevity(1) // Ensure priority is updated after every block
-						.and_provides(package.nonce); // Disallow transactions with equal nonces in the tx pool
-
-					if package.nonce == current_nonce {
-						valid.build()
-					} else {
-						// If the tx is not the first to be included in the next block
-						// require the tx-pool to already include the tx with the previous nonce
-						valid.and_requires(package.nonce - 1).build()
-					}
-				},
-
-				_ => InvalidTransaction::Call.into(),
-			}
+		fn minting_authority_account_id() -> T::AccountId {
+			let public_key = MintingAuthority::<T>::get().expect("pallet initalized properly");
+			public_key.into()
 		}
 	}
 }

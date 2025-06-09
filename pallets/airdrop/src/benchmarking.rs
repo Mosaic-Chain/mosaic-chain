@@ -22,21 +22,26 @@ pub mod mint_crypto {
 
 use mint_crypto::MintId;
 
-fn create_key() -> mint_crypto::MintId {
-	MintId::generate_pair(Some(DEV_PHRASE.into()))
+fn minting_authority() -> sr25519::Public {
+	let pair = MintId::generate_pair(Some(DEV_PHRASE.into()));
+	pair.into()
 }
 
-fn create_package<T>(delegator_nft_count: u32) -> (PackageOf<T>, sr25519::Signature)
+fn minting_authority_account_id<T>() -> T::AccountId
+where
+	T: Config,
+	T::AccountId: From<sr25519::Public>,
+{
+	minting_authority().into()
+}
+
+fn create_package<T>(delegator_nft_count: u32) -> PackageOf<T>
 where
 	T: Config,
 	T::Balance: From<u128>,
 	T::AccountId: From<sr25519::Public>,
 	T::PermissionType: From<PermissionType>,
 {
-	let authority_key = create_key();
-	MintingAuthority::<T>::put(sr25519::Public::from(authority_key.clone()));
-
-	let nonce = 0u64;
 	let account_id = whitelisted_caller();
 	let balance = Some(50u128.into());
 	let vesting = Some(VestingInfo {
@@ -53,12 +58,7 @@ where
 		.collect::<Vec<_>>();
 	let delegator_nfts = BoundedVec::truncate_from(delegator_nfts);
 
-	let package =
-		PackageOf::<T> { nonce, account_id, balance, vesting, permission_nft, delegator_nfts };
-	let package_bytes = package.encode();
-
-	let signature = authority_key.sign(&package_bytes).expect("Should be able to sign it");
-	(package, signature.into())
+	PackageOf::<T> { account_id, balance, vesting, permission_nft, delegator_nfts }
 }
 
 #[expect(clippy::multiple_bound_locations)]
@@ -74,34 +74,21 @@ mod benchmarks {
 
 	#[benchmark]
 	fn rotate_key() {
-		let key = create_key();
+		let public_key = minting_authority();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, key.into())
+		_(RawOrigin::Root, public_key)
 	}
 
 	#[benchmark()]
 	fn airdrop(d: Linear<0, { T::MAX_DELEGATOR_NFTS }>) {
-		let (package, signature) = create_package(d);
+		let package = create_package(d);
 
-		let origin = RawOrigin::None;
+		let origin = RawOrigin::Signed(minting_authority_account_id::<T>());
 
 		#[extrinsic_call]
-		Pallet::<T>::airdrop(origin, package, signature)
+		Pallet::<T>::airdrop(origin, package)
 	}
 
-	#[benchmark()]
-	fn validate_unsigned(d: Linear<0, { T::MAX_DELEGATOR_NFTS }>) {
-		let (package, signature) = create_package(d);
-
-		let call = Call::airdrop { package, signature };
-
-		#[block]
-		{
-			Pallet::<T>::validate_unsigned(TransactionSource::InBlock, &call)
-				.map_err(<&str>::from)
-				.unwrap();
-		}
-	}
 	// impl_benchmark_test_suite!(Airdrop, crate::mock::new_test_ext(), crate::mock::Runtime);
 }

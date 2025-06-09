@@ -200,10 +200,8 @@ pub mod nft_delegation {
 
 pub mod airdrop {
 	use super::*;
-	use sp_runtime::transaction_validity::TransactionPriority;
 
 	parameter_types! {
-		pub const BaseTransactionPriority: u64 = TransactionPriority::MAX / 2;
 		pub const MaxAirdropsInPool: u64 = 12;
 	}
 

@@ -1,13 +1,16 @@
+#![allow(non_camel_case_types)]
+
 use super::*;
 use sdk::{
-	frame_support::{self, parameter_types},
-	frame_system, sp_io,
-	sp_runtime::{self, traits::AccountIdLookup, AccountId32},
+	frame_support::{
+		self, derive_impl, dispatch::DispatchResult, pallet_prelude::ValueQuery, parameter_types,
+		traits::fungible::Inspect,
+	},
+	frame_system,
+	sp_application_crypto::Pair,
+	sp_io,
+	sp_runtime::{self, traits::AccountIdLookup, AccountId32, BuildStorage, DispatchError},
 };
-
-use frame_support::{derive_impl, dispatch::DispatchResult, traits::fungible::Inspect};
-use sp_core::ConstU64;
-use sp_runtime::{BuildStorage, DispatchError};
 
 pub use crate as airdrop;
 
@@ -54,8 +57,6 @@ impl airdrop::Config for Test {
 	type MaxAirdropsInPool = MaxAirdropsInPool;
 	const MAX_DELEGATOR_NFTS: u32 = MAX_DELEGATOR_NFTS;
 
-	/// NOTE: this value must never exceed u64::MAX - `Self::MaxAirdropsPerBlock`
-	type BaseTransactionPriority = ConstU64<0>;
 	type WeightInfo = ();
 }
 

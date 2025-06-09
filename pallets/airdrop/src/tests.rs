@@ -1,51 +1,54 @@
-use frame_support::{assert_err, assert_noop, assert_ok};
-use sp_runtime::DispatchError;
+use sdk::{
+	frame_support::{assert_noop, assert_ok},
+	frame_system::Config as SystemConfig,
+	sp_application_crypto::Pair,
+	sp_runtime::DispatchError,
+};
 
 use super::*;
 use mock::*;
 
-fn sign_package(package: &PackageOf<Test>) -> sr25519::Signature {
-	minting_authority().sign(package.encode().as_slice())
-}
-
-fn dummy_package() -> (PackageOf<Test>, sr25519::Signature) {
-	let package = Package {
-		nonce: 0,
+fn dummy_package() -> PackageOf<Test> {
+	Package {
 		account_id: account(0),
 		balance: None,
 		vesting: None,
 		permission_nft: None,
 		delegator_nfts: BoundedVec::truncate_from(vec![]),
-	};
-
-	let signature = sign_package(&package);
-
-	(package, signature)
+	}
 }
 
 fn prefund_account_with_ed(account: &AccountId) {
 	MintLog::mint_into(account, MintLog::minimum_balance()).expect("could mint tokens");
 }
 
+fn signed_origin_of(pair: sr25519::Pair) -> <Test as SystemConfig>::RuntimeOrigin {
+	let public_key: sr25519::Public = pair.public();
+	let account_id: <Test as SystemConfig>::AccountId = public_key.into();
+	RuntimeOrigin::signed(account_id)
+}
+
+fn signed_origin_of_minting_authority() -> <Test as SystemConfig>::RuntimeOrigin {
+	signed_origin_of(mock::minting_authority())
+}
+
 #[test]
 fn cannot_be_called_by_root() {
 	new_test_ext().execute_with(|| {
-		let (package, signature) = dummy_package();
+		let package = dummy_package();
 
-		assert_noop!(
-			Airdrop::airdrop(RuntimeOrigin::root(), package, signature),
-			DispatchError::BadOrigin
-		);
+		assert_noop!(Airdrop::airdrop(RuntimeOrigin::root(), package), DispatchError::BadOrigin);
 	});
 }
 
 #[test]
 fn deposits_event() {
 	new_test_ext().execute_with(|| {
-		let (package, signature) = dummy_package();
+		let package = dummy_package();
 		let account_id = package.account_id.clone();
 
-		Airdrop::airdrop(RuntimeOrigin::none(), package, signature).expect("could airdrop package");
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
 		System::assert_last_event(Event::<Test>::MintedPackage { account_id }.into());
 	});
 }
@@ -53,17 +56,11 @@ fn deposits_event() {
 #[test]
 fn mints_tokens() {
 	new_test_ext().execute_with(|| {
-		let package = Package {
-			nonce: 0,
-			account_id: account(0),
-			balance: Some(42),
-			vesting: None,
-			permission_nft: None,
-			delegator_nfts: BoundedVec::truncate_from(vec![]),
-		};
-		let signature = sign_package(&package);
+		let mut package = dummy_package();
+		package.balance = Some(42);
 
-		Airdrop::airdrop(RuntimeOrigin::none(), package, signature).expect("could airdrop package");
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
 		MintLog::assert_last_entry(&Entry {
 			account: account(0),
 			event: MintEvent::TokensMinted(42),
@@ -75,13 +72,14 @@ fn mints_tokens() {
 #[test]
 fn mints_at_least_ed_on_empty_account() {
 	new_test_ext().execute_with(|| {
-		let (package, signature) = dummy_package();
+		let package = dummy_package();
 		let account_id = package.account_id.clone();
 
 		assert_eq!(MintLog::total_balance(&account_id), 0);
 		assert_eq!(package.balance, None);
 
-		Airdrop::airdrop(RuntimeOrigin::none(), package, signature).expect("could airdrop package");
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
 		MintLog::assert_last_entry(&Entry {
 			account: account_id,
 			event: MintEvent::TokensMinted(MintLog::minimum_balance()),
@@ -93,13 +91,14 @@ fn mints_at_least_ed_on_empty_account() {
 #[test]
 fn does_not_mint_extra_if_account_not_empty() {
 	new_test_ext().execute_with(|| {
-		let (package, signature) = dummy_package();
+		let package = dummy_package();
 		let account_id = package.account_id.clone();
 
 		prefund_account_with_ed(&account_id);
 		let log_height = MintLog::height();
 
-		Airdrop::airdrop(RuntimeOrigin::none(), package, signature).expect("could airdrop package");
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
 		MintLog::assert_height(log_height); // No assets were minted
 	});
 }
@@ -107,26 +106,18 @@ fn does_not_mint_extra_if_account_not_empty() {
 #[test]
 fn mints_delegator_nfts() {
 	new_test_ext().execute_with(|| {
-		let account = account(0);
-
-		let package = Package {
-			nonce: 0,
-			account_id: account.clone(),
-			balance: None,
-			vesting: None,
-			permission_nft: None,
-			delegator_nfts: BoundedVec::truncate_from(vec![
-				DelegatorNft { expiration: 1, nominal_value: 100 },
-				DelegatorNft { expiration: 2, nominal_value: 200 },
-			]),
-		};
-
-		let signature = sign_package(&package);
+		let mut package = dummy_package();
+		package.delegator_nfts = BoundedVec::truncate_from(vec![
+			DelegatorNft { expiration: 1, nominal_value: 100 },
+			DelegatorNft { expiration: 2, nominal_value: 200 },
+		]);
+		let account = package.account_id.clone();
 
 		prefund_account_with_ed(&account);
 		let log_height = MintLog::height();
 
-		Airdrop::airdrop(RuntimeOrigin::none(), package, signature).expect("could airdrop package");
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
 
 		MintLog::assert_has_entry(&Entry {
 			account: account.clone(),
@@ -144,26 +135,16 @@ fn mints_delegator_nfts() {
 #[test]
 fn mints_permission_nfts() {
 	new_test_ext().execute_with(|| {
-		let account = account(0);
-
-		let package = Package {
-			nonce: 0,
-			account_id: account.clone(),
-			balance: None,
-			vesting: None,
-			permission_nft: Some(PermissionNft {
-				permission: Permission::DPoS,
-				nominal_value: 100,
-			}),
-			delegator_nfts: BoundedVec::truncate_from(vec![]),
-		};
-
-		let signature = sign_package(&package);
+		let mut package = dummy_package();
+		package.permission_nft =
+			Some(PermissionNft { permission: Permission::DPoS, nominal_value: 100 });
+		let account = package.account_id.clone();
 
 		prefund_account_with_ed(&account);
 		let log_height = MintLog::height();
 
-		Airdrop::airdrop(RuntimeOrigin::none(), package, signature).expect("could airdrop package");
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
 
 		MintLog::assert_has_entry(&Entry {
 			account: account.clone(),
@@ -180,23 +161,15 @@ fn mints_permission_nfts() {
 #[test]
 fn adds_vesting_schedule() {
 	new_test_ext().execute_with(|| {
-		let account = account(0);
-
-		let package = Package {
-			nonce: 0,
-			account_id: account.clone(),
-			balance: None,
-			vesting: Some(VestingInfo { amount: 101, unlock_per_block: 1, start_block: None }),
-			permission_nft: None,
-			delegator_nfts: BoundedVec::truncate_from(vec![]),
-		};
-
-		let signature = sign_package(&package);
+		let mut package = dummy_package();
+		package.vesting = Some(VestingInfo { amount: 101, unlock_per_block: 1, start_block: None });
+		let account = package.account_id.clone();
 
 		prefund_account_with_ed(&account);
 		let log_height = MintLog::height();
 
-		Airdrop::airdrop(RuntimeOrigin::none(), package, signature).expect("could airdrop package");
+		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
+			.expect("could airdrop package");
 
 		// Mints tokens to vest
 		MintLog::assert_has_entry(&Entry {
@@ -221,21 +194,11 @@ fn adds_vesting_schedule() {
 #[test]
 fn refuses_invalid_vesting_schedule() {
 	new_test_ext().execute_with(|| {
-		let account = account(0);
+		let mut package = dummy_package();
+		package.vesting = Some(VestingInfo { amount: 101, unlock_per_block: 0, start_block: None });
 
-		let package = Package {
-			nonce: 0,
-			account_id: account.clone(),
-			balance: None,
-			// `per_block` = 0 => schedule is invalid
-			vesting: Some(VestingInfo { amount: 101, unlock_per_block: 0, start_block: None }),
-			permission_nft: None,
-			delegator_nfts: BoundedVec::truncate_from(vec![]),
-		};
-
-		let signature = sign_package(&package);
 		assert_noop!(
-			Airdrop::airdrop(RuntimeOrigin::none(), package, signature),
+			Airdrop::airdrop(signed_origin_of_minting_authority(), package),
 			mint_log::INVALID_SCHEDULE_ERROR
 		);
 	});
@@ -245,66 +208,12 @@ fn refuses_invalid_vesting_schedule() {
 fn refuses_signature_not_by_authority() {
 	new_test_ext().execute_with(|| {
 		let pair = sr25519::Pair::from_string("//EvilGenius", None).expect("valid seed");
-		let (package, _) = dummy_package();
-		let signature = pair.sign(package.encode().as_slice());
+		let package = dummy_package();
 
 		assert_noop!(
-			Airdrop::airdrop(RuntimeOrigin::none(), package, signature),
+			Airdrop::airdrop(signed_origin_of(pair), package),
 			Error::<Test>::InvalidSignature
 		);
-	});
-}
-
-#[test]
-fn refuses_signature_of_wrong_package() {
-	new_test_ext().execute_with(|| {
-		let (mut package, signature) = dummy_package();
-		package.account_id = account(42);
-
-		assert_noop!(
-			Airdrop::airdrop(RuntimeOrigin::none(), package, signature),
-			Error::<Test>::InvalidSignature
-		);
-	});
-}
-
-#[test]
-fn refuses_bad_nonce() {
-	new_test_ext().execute_with(|| {
-		Nonce::<Test>::set(2);
-
-		let (mut package, _) = dummy_package();
-
-		// Nonce too low
-		package.nonce = 1;
-		let signature = sign_package(&package);
-
-		assert_noop!(
-			Airdrop::airdrop(RuntimeOrigin::none(), package.clone(), signature),
-			Error::<Test>::BadNonce
-		);
-
-		// Nonce too high
-		package.nonce = 3;
-		let signature = sign_package(&package);
-
-		assert_noop!(
-			Airdrop::airdrop(RuntimeOrigin::none(), package, signature),
-			Error::<Test>::BadNonce
-		);
-	});
-}
-
-#[test]
-fn increments_nonce() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(Nonce::<Test>::get(), 0);
-
-		let (package, signature) = dummy_package();
-
-		Airdrop::airdrop(RuntimeOrigin::none(), package, signature).expect("could airdrop package");
-
-		assert_eq!(Nonce::<Test>::get(), 1);
 	});
 }
 
@@ -327,107 +236,6 @@ fn rotate_key_ensures_root() {
 				sr25519::Pair::from_string("//BadGuy", None).unwrap().public()
 			),
 			DispatchError::BadOrigin
-		);
-	});
-}
-
-#[test]
-fn validate_unsigned_checks_signature() {
-	new_test_ext().execute_with(|| {
-		let (mut package, signature) = dummy_package();
-		package.balance = Some(42); // this invalidates the signature
-
-		assert_err!(
-			Airdrop::validate_unsigned(
-				TransactionSource::External,
-				&Call::<Test>::airdrop { package, signature }
-			),
-			InvalidTransaction::BadSigner
-		);
-	});
-}
-
-#[test]
-fn validate_unsigned_checks_nonce() {
-	new_test_ext().execute_with(|| {
-		Nonce::<Test>::set(2);
-		let (mut package, _) = dummy_package();
-
-		// future nonce
-		package.nonce = 4;
-		let signature = sign_package(&package);
-
-		assert_err!(
-			Airdrop::validate_unsigned(
-				TransactionSource::External,
-				&Call::<Test>::airdrop { package: package.clone(), signature }
-			),
-			InvalidTransaction::Future
-		);
-
-		// old nonce
-		package.nonce = 1;
-		let signature = sign_package(&package);
-
-		assert_err!(
-			Airdrop::validate_unsigned(
-				TransactionSource::External,
-				&Call::<Test>::airdrop { package: package.clone(), signature }
-			),
-			InvalidTransaction::Stale
-		);
-
-		// not current, but acceptable nonce (eg.: next)
-		package.nonce = 3;
-		let signature = sign_package(&package);
-
-		assert_ok!(Airdrop::validate_unsigned(
-			TransactionSource::External,
-			&Call::<Test>::airdrop { package, signature }
-		));
-	});
-}
-
-#[test]
-fn validate_unsigned_current_nonce_metadata() {
-	new_test_ext().execute_with(|| {
-		let (package, signature) = dummy_package();
-
-		assert_ok!(
-			Airdrop::validate_unsigned(
-				TransactionSource::External,
-				&Call::<Test>::airdrop { package, signature }
-			),
-			ValidTransaction::with_tag_prefix("Airdrop")
-				.longevity(1)
-				.and_provides(0u64)
-				.priority(2) // base(0) + (nonce_limit(0 + 2) - nonce(0))
-				.build()
-				.unwrap()
-		);
-	});
-}
-
-#[test]
-fn validate_unsigned_upcoming_nonce_metadata() {
-	new_test_ext().execute_with(|| {
-		let (mut package, _) = dummy_package();
-
-		package.nonce = 1;
-		let signature = sign_package(&package);
-
-		assert_ok!(
-			Airdrop::validate_unsigned(
-				TransactionSource::External,
-				&Call::<Test>::airdrop { package, signature }
-			),
-			ValidTransaction::with_tag_prefix("Airdrop")
-				.longevity(1)
-				.and_provides(1u64)
-				.and_requires(0u64)
-				.priority(1) // base(0) + (nonce_limit(0 + 2) - nonce(1))
-				.build()
-				.unwrap()
 		);
 	});
 }

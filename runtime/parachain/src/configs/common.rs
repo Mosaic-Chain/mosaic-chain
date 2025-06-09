@@ -634,7 +634,6 @@ impl pallet_airdrop::Config for Runtime {
 	type DelegatorNftBindMetadata = AccountId;
 	type NftDelegation = NftDelegation;
 	type VestingSchedule = HoldVesting;
-	type BaseTransactionPriority = params::constant::airdrop::BaseTransactionPriority;
 	type MaxAirdropsInPool = params::constant::airdrop::MaxAirdropsInPool;
 	const MAX_DELEGATOR_NFTS: u32 = params::constant::airdrop::MAX_DELEGATOR_NFTS;
 	type WeightInfo = weights::pallet::airdrop::Weights<Runtime>;
