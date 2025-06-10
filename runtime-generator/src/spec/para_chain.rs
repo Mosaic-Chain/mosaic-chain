@@ -124,7 +124,7 @@ pub fn local_config(
 			members
 		},
 		testnet_accounts(),
-		public_from_seed::<sr25519::Public>("MintingAuthority"),
+		public_from_seed::<sr25519::Public>("MintingAuthority").into(),
 		para_id.into(),
 	)?;
 
@@ -249,7 +249,7 @@ fn genesis(
 	initial_staking_validators: Vec<(AccountId, PermissionType, Balance)>,
 	council_members: Vec<AccountId>,
 	endowed_accounts: Vec<AccountId>,
-	minting_authority: sr25519::Public,
+	minting_authority_id: AccountId,
 	para_id: ParaId,
 ) -> anyhow::Result<serde_json::Value> {
 	let parachain_info =
@@ -283,7 +283,7 @@ fn genesis(
 
 	let nft_staking = pallet_nft_staking::GenesisConfig { initial_staking_validators };
 
-	let airdrop = pallet_airdrop::GenesisConfig { minting_authority, _phantom: PhantomData };
+	let airdrop = pallet_airdrop::GenesisConfig { minting_authority_id };
 
 	let genesis_config = RuntimeGenesisConfig {
 		balances,

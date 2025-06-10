@@ -27,7 +27,6 @@ use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::sr25519;
-use std::marker::PhantomData;
 
 pub type ChainSpec = sc_service::GenericChainSpec;
 
@@ -81,7 +80,7 @@ pub fn local_config(
 			members
 		},
 		testnet_accounts(),
-		public_from_seed::<sr25519::Public>("MintingAuthority"),
+		public_from_seed::<sr25519::Public>("MintingAuthority").into(),
 	)?;
 
 	Ok(Box::new(
@@ -134,7 +133,7 @@ fn genesis(
 	initial_permission_holders: Vec<(AccountId, PermissionType, bool, Balance)>,
 	council_members: Vec<AccountId>,
 	endowed_accounts: Vec<AccountId>,
-	minting_authority: sr25519::Public,
+	minting_authority_id: AccountId,
 ) -> anyhow::Result<serde_json::Value> {
 	let endowed = endowed_accounts.into_iter().map(|k| (k, 100 * MOSAIC));
 
@@ -172,7 +171,7 @@ fn genesis(
 			.collect(),
 	};
 
-	let airdrop = pallet_airdrop::GenesisConfig { minting_authority, _phantom: PhantomData };
+	let airdrop = pallet_airdrop::GenesisConfig { minting_authority_id };
 
 	let genesis_config = RuntimeGenesisConfig {
 		balances,

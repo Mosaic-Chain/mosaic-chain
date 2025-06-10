@@ -71,12 +71,9 @@ pub fn minting_authority() -> sr25519::Pair {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-	airdrop::GenesisConfig::<Test> {
-		minting_authority: minting_authority().public(),
-		..Default::default()
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
+	airdrop::GenesisConfig::<Test> { minting_authority_id: minting_authority().public().into() }
+		.assimilate_storage(&mut t)
+		.unwrap();
 
 	let mut ext: sp_io::TestExternalities = t.into();
 

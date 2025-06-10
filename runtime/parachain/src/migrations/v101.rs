@@ -56,9 +56,9 @@ fn dummy_im_online_key_from_aura(
 	aura.as_slice().try_into().expect("aura id can be cast to ImOnlineId")
 }
 
-pub struct MigrateV100ToV101<Runtime>(PhantomData<Runtime>);
+pub struct MigrateFromV100<Runtime>(PhantomData<Runtime>);
 
-impl MigrateV100ToV101<Runtime> {
+impl MigrateFromV100<Runtime> {
 	fn council_members(
 	) -> BoundedVec<AccountId, <Runtime as pallet_membership::Config<Instance1>>::MaxMembers> {
 		if cfg!(feature = "local") {
@@ -113,8 +113,8 @@ impl MigrateV100ToV101<Runtime> {
 		}
 	}
 
-	fn minting_authority() -> sp_core::sr25519::Public {
-		if cfg!(feature = "local") {
+	fn minting_authority_id() -> AccountId {
+		let public_key = if cfg!(feature = "local") {
 			public_from_seed::<sp_core::sr25519::Public>("//MintingAuthority")
 		} else if cfg!(feature = "mainnet") {
 			public_from_hex::<sp_core::sr25519::Public>(
@@ -124,11 +124,12 @@ impl MigrateV100ToV101<Runtime> {
 			public_from_hex::<sp_core::sr25519::Public>(
 				"0x724057d84b455a2fef18d9d1ddf6a0b524d69954a0bf997a902a64dce6d22d35",
 			)
-		}
+		};
+		public_key.into()
 	}
 }
 
-impl OnRuntimeUpgrade for MigrateV100ToV101<Runtime> {
+impl OnRuntimeUpgrade for MigrateFromV100<Runtime> {
 	fn on_runtime_upgrade() -> Weight {
 		let Some(LastRuntimeUpgradeInfo { spec_version: codec::Compact(old_spec_version), .. }) =
 			frame_system::LastRuntimeUpgrade::<Runtime>::get()
@@ -137,9 +138,9 @@ impl OnRuntimeUpgrade for MigrateV100ToV101<Runtime> {
 			return Weight::zero();
 		};
 
-		if old_spec_version != 100 || VERSION.spec_version != 101 {
+		if old_spec_version > 100 || VERSION.spec_version != 103 {
 			log::error!(
-				"Improper runtime state migration: {} -> {}",
+				"MigrateFromV100 ignored migration: {} -> {}",
 				old_spec_version,
 				VERSION.spec_version
 			);
@@ -161,8 +162,7 @@ impl OnRuntimeUpgrade for MigrateV100ToV101<Runtime> {
 
 		// Airdrop: set minting authority
 		pallet_airdrop::GenesisConfig::<Runtime> {
-			minting_authority: Self::minting_authority(),
-			_phantom: PhantomData,
+			minting_authority_id: Self::minting_authority_id(),
 		}
 		.build();
 
@@ -218,7 +218,7 @@ impl OnRuntimeUpgrade for MigrateV100ToV101<Runtime> {
 			SessionKeys { im_online: dummy_im_online_key_from_aura(&old.aura), aura: old.aura }
 		});
 
-		log::debug!("Runtime upgrade done");
+		log::info!("MigrateFromV100 done");
 
 		// A runtime upgrade clears the transaction pool, and consumes the entire block
 		// to ensure only one version of the runtime used per block.

@@ -8,7 +8,7 @@ use sdk::{
 use super::*;
 use mock::*;
 
-fn dummy_package() -> PackageOf<Test> {
+fn empty_package() -> PackageOf<Test> {
 	Package {
 		account_id: account(0),
 		balance: None,
@@ -35,7 +35,7 @@ fn signed_origin_of_minting_authority() -> <Test as SystemConfig>::RuntimeOrigin
 #[test]
 fn cannot_be_called_by_root() {
 	new_test_ext().execute_with(|| {
-		let package = dummy_package();
+		let package = empty_package();
 
 		assert_noop!(Airdrop::airdrop(RuntimeOrigin::root(), package), DispatchError::BadOrigin);
 	});
@@ -44,7 +44,7 @@ fn cannot_be_called_by_root() {
 #[test]
 fn deposits_event() {
 	new_test_ext().execute_with(|| {
-		let package = dummy_package();
+		let package = empty_package();
 		let account_id = package.account_id.clone();
 
 		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
@@ -56,7 +56,7 @@ fn deposits_event() {
 #[test]
 fn mints_tokens() {
 	new_test_ext().execute_with(|| {
-		let mut package = dummy_package();
+		let mut package = empty_package();
 		package.balance = Some(42);
 
 		Airdrop::airdrop(signed_origin_of_minting_authority(), package)
@@ -72,7 +72,7 @@ fn mints_tokens() {
 #[test]
 fn mints_at_least_ed_on_empty_account() {
 	new_test_ext().execute_with(|| {
-		let package = dummy_package();
+		let package = empty_package();
 		let account_id = package.account_id.clone();
 
 		assert_eq!(MintLog::total_balance(&account_id), 0);
@@ -91,7 +91,7 @@ fn mints_at_least_ed_on_empty_account() {
 #[test]
 fn does_not_mint_extra_if_account_not_empty() {
 	new_test_ext().execute_with(|| {
-		let package = dummy_package();
+		let package = empty_package();
 		let account_id = package.account_id.clone();
 
 		prefund_account_with_ed(&account_id);
@@ -106,7 +106,7 @@ fn does_not_mint_extra_if_account_not_empty() {
 #[test]
 fn mints_delegator_nfts() {
 	new_test_ext().execute_with(|| {
-		let mut package = dummy_package();
+		let mut package = empty_package();
 		package.delegator_nfts = BoundedVec::truncate_from(vec![
 			DelegatorNft { expiration: 1, nominal_value: 100 },
 			DelegatorNft { expiration: 2, nominal_value: 200 },
@@ -135,7 +135,7 @@ fn mints_delegator_nfts() {
 #[test]
 fn mints_permission_nfts() {
 	new_test_ext().execute_with(|| {
-		let mut package = dummy_package();
+		let mut package = empty_package();
 		package.permission_nft =
 			Some(PermissionNft { permission: Permission::DPoS, nominal_value: 100 });
 		let account = package.account_id.clone();
@@ -161,7 +161,7 @@ fn mints_permission_nfts() {
 #[test]
 fn adds_vesting_schedule() {
 	new_test_ext().execute_with(|| {
-		let mut package = dummy_package();
+		let mut package = empty_package();
 		package.vesting = Some(VestingInfo { amount: 101, unlock_per_block: 1, start_block: None });
 		let account = package.account_id.clone();
 
@@ -194,7 +194,7 @@ fn adds_vesting_schedule() {
 #[test]
 fn refuses_invalid_vesting_schedule() {
 	new_test_ext().execute_with(|| {
-		let mut package = dummy_package();
+		let mut package = empty_package();
 		package.vesting = Some(VestingInfo { amount: 101, unlock_per_block: 0, start_block: None });
 
 		assert_noop!(
@@ -208,7 +208,7 @@ fn refuses_invalid_vesting_schedule() {
 fn refuses_signature_not_by_authority() {
 	new_test_ext().execute_with(|| {
 		let pair = sr25519::Pair::from_string("//EvilGenius", None).expect("valid seed");
-		let package = dummy_package();
+		let package = empty_package();
 
 		assert_noop!(
 			Airdrop::airdrop(signed_origin_of(pair), package),
@@ -220,10 +220,11 @@ fn refuses_signature_not_by_authority() {
 #[test]
 fn rotate_key_works() {
 	new_test_ext().execute_with(|| {
-		let key = sr25519::Pair::from_string("//GoodGuy", None).unwrap().public();
-		assert_ok!(Airdrop::rotate_key(RuntimeOrigin::root(), key,));
+		let account_id: AccountId =
+			sr25519::Pair::from_string("//GoodGuy", None).unwrap().public().into();
+		assert_ok!(Airdrop::rotate_key(RuntimeOrigin::root(), account_id.clone()));
 
-		System::assert_last_event(Event::<Test>::KeyRotated { new_key: key }.into());
+		System::assert_last_event(Event::<Test>::KeyRotated { new_account_id: account_id }.into());
 	});
 }
 
@@ -233,7 +234,7 @@ fn rotate_key_ensures_root() {
 		assert_noop!(
 			Airdrop::rotate_key(
 				RuntimeOrigin::signed(account(0)),
-				sr25519::Pair::from_string("//BadGuy", None).unwrap().public()
+				sr25519::Pair::from_string("//BadGuy", None).unwrap().public().into()
 			),
 			DispatchError::BadOrigin
 		);

@@ -22,17 +22,14 @@ pub mod mint_crypto {
 
 use mint_crypto::MintId;
 
-fn minting_authority() -> sr25519::Public {
-	let pair = MintId::generate_pair(Some(DEV_PHRASE.into()));
-	pair.into()
-}
-
-fn minting_authority_account_id<T>() -> T::AccountId
+fn minting_authority_id<T>() -> T::AccountId
 where
 	T: Config,
 	T::AccountId: From<sr25519::Public>,
 {
-	minting_authority().into()
+	let pair = MintId::generate_pair(Some(DEV_PHRASE.into()));
+	let public: sr25519::Public = pair.into();
+	public.into()
 }
 
 fn create_package<T>(delegator_nft_count: u32) -> PackageOf<T>
@@ -74,17 +71,17 @@ mod benchmarks {
 
 	#[benchmark]
 	fn rotate_key() {
-		let public_key = minting_authority();
+		let account_id = minting_authority_id::<T>();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, public_key)
+		_(RawOrigin::Root, account_id)
 	}
 
 	#[benchmark()]
 	fn airdrop(d: Linear<0, { T::MAX_DELEGATOR_NFTS }>) {
 		let package = create_package(d);
 
-		let origin = RawOrigin::Signed(minting_authority_account_id::<T>());
+		let origin = RawOrigin::Signed(minting_authority_id::<T>());
 
 		#[extrinsic_call]
 		Pallet::<T>::airdrop(origin, package)

@@ -11,7 +11,7 @@ use sdk::{frame_support, frame_system, sp_core, sp_runtime, sp_std};
 
 use codec::{Decode, Encode};
 use frame_support::{
-	pallet_prelude::{BuildGenesisConfig, Member, StorageValue},
+	pallet_prelude::{BuildGenesisConfig, Member, StorageValue, StorageVersion},
 	storage::bounded_vec::BoundedVec,
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -42,6 +42,9 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config {
@@ -103,16 +106,17 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type MintingAuthority<T: Config> = StorageValue<_, sr25519::Public>;
+	pub type MintingAuthorityId<T: Config> = StorageValue<_, T::AccountId>;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		MintedPackage { account_id: T::AccountId },
-		KeyRotated { new_key: sr25519::Public },
+		KeyRotated { new_account_id: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -172,20 +176,19 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub minting_authority: sr25519::Public,
-		pub _phantom: PhantomData<T>,
+		pub minting_authority_id: T::AccountId,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { minting_authority: PALLET_ID.into_account_truncating(), _phantom: PhantomData }
+			Self { minting_authority_id: PALLET_ID.into_account_truncating() }
 		}
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			MintingAuthority::<T>::put(self.minting_authority);
+			MintingAuthorityId::<T>::put(self.minting_authority_id.clone());
 		}
 	}
 
@@ -202,7 +205,7 @@ pub mod pallet {
 		pub fn airdrop(origin: OriginFor<T>, package: PackageOf<T>) -> DispatchResult {
 			let authority = ensure_signed(origin)?;
 
-			if authority != Self::minting_authority_account_id() {
+			if authority != Self::minting_authority_id() {
 				return Err(Error::<T>::InvalidSignature.into());
 			}
 
@@ -247,23 +250,19 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::rotate_key())]
-		pub fn rotate_key(origin: OriginFor<T>, key: sr25519::Public) -> DispatchResult {
+		pub fn rotate_key(origin: OriginFor<T>, account_id: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 
-			MintingAuthority::<T>::put(key);
-			Self::deposit_event(Event::<T>::KeyRotated { new_key: key });
+			MintingAuthorityId::<T>::put(account_id.clone());
+			Self::deposit_event(Event::<T>::KeyRotated { new_account_id: account_id });
 
 			Ok(())
 		}
 	}
 
-	impl<T: Config> Pallet<T>
-	where
-		T::AccountId: From<sr25519::Public>,
-	{
-		fn minting_authority_account_id() -> T::AccountId {
-			let public_key = MintingAuthority::<T>::get().expect("pallet initalized properly");
-			public_key.into()
+	impl<T: Config> Pallet<T> {
+		fn minting_authority_id() -> T::AccountId {
+			MintingAuthorityId::<T>::get().expect("pallet initalized properly")
 		}
 	}
 }
