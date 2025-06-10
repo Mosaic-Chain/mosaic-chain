@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2025-06-10
+
+### 🚀 Features
+
+- *ci*: Check dependency licenses, versions and advisories
+- Sentry integration
+
+### 🐛 Bug Fixes
+
+- Sentry sample_rate and pii
+
+### ⚙️ Miscellaneous Tasks
+
+- Flake lock update and pinning polkadot.nix to 2412-3
+- Added wasmtime vulns to deny.toml
+
 ## [0.5.0] - 2025-03-27
 
 ### Runtime Compatibility Changes

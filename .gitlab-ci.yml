@@ -20,7 +20,7 @@ test:
   script:
     - *build-deps
     - rustup component add rustfmt clippy
-    - cargo install --locked cargo-nextest
+    - cargo install --locked cargo-nextest@0.9.97-b.2
     - cargo install --locked cargo-deny@0.17.0
     - cargo install --locked zepter
     - ./scripts/check.sh
