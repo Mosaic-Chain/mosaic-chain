@@ -5,7 +5,6 @@ use sdk::{frame_benchmarking, frame_system, sp_application_crypto, sp_core};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::crypto::DEV_PHRASE;
 use sp_core::sp_std::prelude::*;
 
 use pallet_nft_staking::{Config as NftStakingConfig, PermissionType};
@@ -27,7 +26,7 @@ where
 	T: Config,
 	T::AccountId: From<sr25519::Public>,
 {
-	let pair = MintId::generate_pair(Some(DEV_PHRASE.into()));
+	let pair = MintId::generate_pair(Some("//MintingAuthority".into()));
 	let public: sr25519::Public = pair.into();
 	public.into()
 }
