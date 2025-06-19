@@ -21,6 +21,8 @@ pub mod mint_crypto {
 
 use mint_crypto::MintId;
 
+const METADATA_LEN: usize = 256;
+
 fn minting_authority_id<T>() -> T::AccountId
 where
 	T: Config,
@@ -48,7 +50,7 @@ where
 	let permission_nft = Some(PermissionNft {
 		permission: PermissionType::DPoS.into(),
 		nominal_value: 50u128.into(),
-		metadata: None,
+		metadata: Some(Vec::from([0; METADATA_LEN])),
 	});
 	let delegator_nfts = (0..delegator_nft_count)
 		.map(|i| DelegatorNft { expiration: i, nominal_value: 50u128.into(), metadata: None })
