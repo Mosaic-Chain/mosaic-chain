@@ -25,6 +25,67 @@ test:
     - cargo install --locked zepter
     - ./scripts/check.sh
 
+benchmark:
+  stage: test
+  when: manual
+  image: rust:1.81.0-bookworm
+  before_script:
+    - apt update
+    - apt install jq -y
+    - mkdir -p ~/.ssh
+    - ssh-keygen -t rsa -q -f ~/.ssh/id_rsa -N ""
+    - export GITLAB_CI_PUBLIC_KEY=$(cat ~/.ssh/id_rsa.pub)
+
+    - >
+      curl --fail-with-body \
+        -X POST \
+        -H "Authorization: Bearer $HETZNER_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"mosaic-chain-benchmark-$CI_COMMIT_SHORT_SHA\",\"public_key\":\"$GITLAB_CI_PUBLIC_KEY\"}" \
+        "https://api.hetzner.cloud/v1/ssh_keys" > ./create_ssh_key_response
+    - export HETZNER_SSH_KEY_ID=$(cat ./create_ssh_key_response | jq -r '.ssh_key.id')
+    - >
+      curl --fail-with-body \
+        -H "Authorization: Bearer $HETZNER_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "{ \"name\": \"mosaic-chain-benchmark-$CI_COMMIT_SHORT_SHA\", \"server_type\": \"cpx41\", \"location\": \"nbg1\", \"image\": \"debian-12\", \"ssh_keys\": [ $HETZNER_SSH_KEY_ID ] }" \
+        -X POST \
+        'https://api.hetzner.cloud/v1/servers' > ./create_server_response
+    - export HETZNER_SERVER_ID=$(cat ./create_server_response | jq -r '.server.id')
+    - export HETZNER_SERVER_IP=$(cat ./create_server_response | jq -r '.server.public_net.ipv4.ip')
+    - 'echo "Created server with ID: $HETZNER_SERVER_ID"'
+
+  after_script:
+    - export HETZNER_SSH_KEY_ID=$(cat ./create_ssh_key_response | jq -r '.ssh_key.id')
+    - >
+      curl --fail-with-body \
+        -H "Authorization: Bearer $HETZNER_API_KEY" \
+        -X DELETE \
+        "https://api.hetzner.cloud/v1/ssh_keys/$HETZNER_SSH_KEY_ID"
+    - export HETZNER_SERVER_ID=$(cat ./create_server_response | jq -r '.server.id')
+    - >
+      curl --fail-with-body \
+        -H "Authorization: Bearer $HETZNER_API_KEY" \
+        -X DELETE \
+        "https://api.hetzner.cloud/v1/servers/$HETZNER_SERVER_ID"
+
+  script:
+    - *build-deps
+    - cargo install cargo-deb
+    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant benchmark)
+
+    - ssh-keyscan -H $HETZNER_SERVER_IP >> ~/.ssh/known_hosts
+    - "scp $PKG root@$HETZNER_SERVER_IP:~/benchmark.deb"
+    - ssh root@$HETZNER_SERVER_IP "dpkg --install ~/benchmark.deb && benchmark-runtime"
+    - "scp -r $HETZNER_SERVER_IP:~/weights/* ./runtime/parachain/src/weights/pallet/"
+
+    - git config user.email "update-benchmark-weights-bot@dlabs.hu"
+    - git config user.name "Update Benchmark Weights Bot"
+    - git remote set-url --push origin "https://gitlab-ci:$GITLAB_CI_ACCESS_TOKEN@$CI_SERVER_HOST/$CI_PROJECT_PATH.git"
+    - git add ./runtime/parachain/src/weights/pallet
+    - git commit -m 'Update benchmark weights'
+    - git push origin HEAD:$CI_COMMIT_REF_NAME
+
 .debian-repo-setup:
   stage: release
   image: rust:1.81.0-bookworm

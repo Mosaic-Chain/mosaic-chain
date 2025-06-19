@@ -5,3 +5,4 @@
 - Necessary migrations are properly added to the parachain runtime.
 - New testnet chainspec is generated.
 - Runtime incompatibilities are analyzed with `subwasm diff`.
+- Ensure "benchmark" job is run on CI
