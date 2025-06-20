@@ -35,7 +35,6 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn rotate_key() -> Weight;
 	fn airdrop(d: u32, ) -> Weight;
-	fn validate_unsigned(d: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_airdrop` using the Substrate node and recommended hardware.
@@ -94,21 +93,6 @@ impl<T: sdk::frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((5_u64).saturating_mul(d.into())))
 			.saturating_add(Weight::from_parts(0, 6292).saturating_mul(d.into()))
 	}
-	/// Storage: `Airdrop::Nonce` (r:1 w:0)
-	/// Proof: `Airdrop::Nonce` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Airdrop::MintingAuthority` (r:1 w:0)
-	/// Proof: `Airdrop::MintingAuthority` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
-	/// The range of component `d` is `[0, 16]`.
-	fn validate_unsigned(d: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `165`
-		//  Estimated: `1517`
-		// Minimum execution time: 107_281_000 picoseconds.
-		Weight::from_parts(114_110_855, 1517)
-			// Standard Error: 29_720
-			.saturating_add(Weight::from_parts(175_400, 0).saturating_mul(d.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-	}
 }
 
 // For backwards compatibility and tests.
@@ -165,20 +149,5 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(12_u64))
 			.saturating_add(RocksDbWeight::get().writes((5_u64).saturating_mul(d.into())))
 			.saturating_add(Weight::from_parts(0, 6292).saturating_mul(d.into()))
-	}
-	/// Storage: `Airdrop::Nonce` (r:1 w:0)
-	/// Proof: `Airdrop::Nonce` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Airdrop::MintingAuthority` (r:1 w:0)
-	/// Proof: `Airdrop::MintingAuthority` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
-	/// The range of component `d` is `[0, 16]`.
-	fn validate_unsigned(d: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `165`
-		//  Estimated: `1517`
-		// Minimum execution time: 107_281_000 picoseconds.
-		Weight::from_parts(114_110_855, 1517)
-			// Standard Error: 29_720
-			.saturating_add(Weight::from_parts(175_400, 0).saturating_mul(d.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 }
