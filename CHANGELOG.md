@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2025-06-20
+
+### Runtime Compatibility Changes
+
+In this update `pallet-airdrop` was modified to utilize signed extrinsics instead
+of unsigned ones:
+
+- The `airdrop` call is signed and does not take a `signature` argument.
+- The 'rotate_key' call now takes a single `account_id: T::AccountId` argument.
+- Definition of the `KeyRotated` event changed accordingly to the updates above.
+- `MintingAuthority` and `Nonce` storages are removed and `MintingAuthorityId`
+  is added to store the authority's `AccountId`.
+
+### 🚀 Features
+
+- *airdrop*: Added migrations from v100 and v101
+- *airdrop*: Support setting nft metadata
+- *benchmark*: Benchmark airdropping package with metadata
+- Run benchmarks in ci
+
+### 🐛 Bug Fixes
+
+- *ci*: Cargo nextest dropped support for Rust 1.81 in a patch upgrade
+- *airdrop*: Using the default minting authority seed in benchmarks
+- *airdrop*: Using `Pays` to disable fees for the authorized account
+- *testnet-solo*: Increment runtime version
+- *testnet-solo*: Added runtime migration to executive
+
+### 📚 Documentation
+
+- *airdrop*: Mentioning nft metadata and guide to minting using polkadot.js
+
+### 🧪 Testing
+
+- *airdrop*: Tests for setting nft metadata
+
+### ⚙️ Miscellaneous Tasks
+
+- Ignoring wasmtime-jit-debug advisory
+- Created new testnet chainspec
+
 ## [0.6.0] - 2025-06-10
 
 ### 🚀 Features
