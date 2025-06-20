@@ -67,6 +67,10 @@ pub mod params;
 
 mod weights;
 
+// NOTE: The v101 migrations of the parachain uses feature flags that don't exist for the solochain.
+#[path = "../../parachain/src/migrations/v103.rs"]
+mod migrations;
+
 use params::currency::Balance;
 
 /// An index to a block.
@@ -173,6 +177,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	migrations::MigrateFromV101<Runtime>,
 >;
 
 #[frame_support::runtime]
