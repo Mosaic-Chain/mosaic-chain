@@ -11,7 +11,9 @@ use sdk::{frame_support, frame_system, sp_core, sp_runtime, sp_std};
 
 use codec::{Decode, Encode};
 use frame_support::{
-	pallet_prelude::{BuildGenesisConfig, Member, StorageValue, StorageVersion},
+	pallet_prelude::{
+		BuildGenesisConfig, DispatchResultWithPostInfo, Member, Pays, StorageValue, StorageVersion,
+	},
 	storage::bounded_vec::BoundedVec,
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -201,8 +203,7 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::airdrop(package.delegator_nfts.len().try_into().unwrap_or(T::MAX_DELEGATOR_NFTS))
 		)]
-		#[pallet::feeless_if(|_: &OriginFor<T>,_: &PackageOf<T>| -> bool { true })]
-		pub fn airdrop(origin: OriginFor<T>, package: PackageOf<T>) -> DispatchResult {
+		pub fn airdrop(origin: OriginFor<T>, package: PackageOf<T>) -> DispatchResultWithPostInfo {
 			let authority = ensure_signed(origin)?;
 
 			if authority != Self::minting_authority_id() {
@@ -245,7 +246,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::MintedPackage { account_id: package.account_id });
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(1)]
