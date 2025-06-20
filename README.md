@@ -72,7 +72,7 @@ cargo doc --workspace --open
 ## Releasing
 
 1. `cargo b -r -p runtime-generator --all-features`
-2. `./target/release/runtime-generator srtool build solo-local-fast > "chainspecs/testnet/chainspec-$(date +%s).json"`
+2. `./target/release/runtime-generator srtool build solo-local > "chainspecs/testnet/chainspec-$(date +%s).json"`
 3. `./scripts/release.sh`
 
 ## Solo-chain
