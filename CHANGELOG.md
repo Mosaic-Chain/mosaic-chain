@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2025-07-01
+
+### 🐛 Bug Fixes
+
+- *airdrop*: Removed old weight for validate_unsigned
+
 ## [0.7.0] - 2025-06-20
 
 ### Runtime Compatibility Changes
