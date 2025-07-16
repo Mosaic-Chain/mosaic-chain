@@ -15,7 +15,7 @@ mod benchmarks {
 		let superset: Vec<<T as Config>::ValidatorId> =
 			(0..n).map(|i| account("validator", i, 0)).collect();
 
-		DoubleBucketMap::<T>::clear_all(3000);
+		DoubleBucketMap::<T>::clear_all();
 
 		#[block]
 		{

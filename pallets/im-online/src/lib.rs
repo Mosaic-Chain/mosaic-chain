@@ -684,8 +684,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn rotate_keys() {
-		Keys::<T>::clear_all(350);
-		MissingKeys::<T>::clear_all(350);
+		Keys::<T>::clear_all();
+		MissingKeys::<T>::clear_all();
 
 		for id in T::ValidatorSet::validators() {
 			let keys = pallet_session::NextKeys::<T>::get(&id);
@@ -747,8 +747,8 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		// Remove all received heartbeats and number of authored blocks from the
 		// current session, they have already been processed and won't be needed
 		// anymore.
-		ReceivedHeartbeats::<T>::clear_all_prefix(&session_index, 350);
-		AuthoredBlocks::<T>::clear_all_prefix(&session_index, 350);
+		ReceivedHeartbeats::<T>::clear_all_prefix(&session_index);
+		AuthoredBlocks::<T>::clear_all_prefix(&session_index);
 
 		if offenders.is_empty() {
 			Self::deposit_event(Event::<T>::AllGood);
