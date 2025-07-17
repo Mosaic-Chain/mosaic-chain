@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2025-07-17
+
+### 🚀 Features
+
+- Added code substitute in a new devnet chainspec
+
+### 🐛 Bug Fixes
+
+- Fixed clear_all bug related to multiple iterations in a single block
+
 ## [0.7.1] - 2025-07-01
 
 ### 🐛 Bug Fixes
