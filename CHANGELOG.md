@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2025-07-21
+
+### 🚀 Features
+
+- *node*: Providing symlinks to the latest chainspec in deb packages
+
+### 📚 Documentation
+
+- *adr*: Clear_all devnet stall
+
 ## [0.8.0] - 2025-07-17
 
 ### 🚀 Features
