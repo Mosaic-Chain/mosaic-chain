@@ -131,7 +131,7 @@ unused = 'deny'
 unknown-registry = "warn"
 unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = ["https://github.com/paritytech/polkadot-sdk?tag=polkadot-stable2412-3"]
+allow-git = ["https://github.com/Mosaic-Chain/polkadot-sdk?branch=unsafe-warp-sync-2412-3"]
 
 [sources.allow-org]
 #github = ["wigy_opensource_developer"]
