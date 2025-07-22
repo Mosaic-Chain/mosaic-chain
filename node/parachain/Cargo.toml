@@ -34,10 +34,10 @@ suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
 features = ["dev-spec"]
 assets = [
 	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain-devnet/changelog.md", "644"],
-	["../../chainspecs/devnet/devnet-live-1752679127-raw.json", "usr/share/mosaic-chain-devnet/chainspec/devnet-spec-1752679127.json", "644"],
-	["../../chainspecs/devnet/para-latest.json", "usr/share/mosaic-chain-devnet/chainspec/para-latest.json", "644"],
-	["../../chainspecs/paseo/paseo-live-1728985302-raw.json", "usr/share/mosaic-chain-devnet/chainspec/paseo-spec-1728985302.json", "644"],
-	["../../chainspecs/paseo/relay-latest.json", "usr/share/mosaic-chain-devnet/chainspec/relay-latest.json", "644"],
+	["../../chainspecs/devnet/devnet-spec-1752679127.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	["../../chainspecs/devnet/para-latest.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	["../../chainspecs/paseo/paseo-spec-1728985302.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	["../../chainspecs/paseo/relay-latest.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
 	["target/release/mosaic-chain", "usr/bin/mosaic-chain-devnet", "755"]
 ]
 
