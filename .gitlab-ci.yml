@@ -129,10 +129,13 @@ debian-mainnet:
   stage: release
   image: docker:stable
   services:
-    - docker:dind
+    - name: docker:dind
+      alias: docker
   variables:
     GCP_URL: europe-docker.pkg.dev
     GCP_REGISTRY: $GCP_URL/mosaicchan-devnet/docker-staging-registry
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ''
   script:
     # Build GitLab images
     - docker build -f Dockerfile.testnet-solo-local -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG -t $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
