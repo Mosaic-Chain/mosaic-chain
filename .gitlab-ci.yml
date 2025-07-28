@@ -22,7 +22,7 @@ test:
     - rustup component add rustfmt clippy
     - cargo install --locked cargo-nextest@0.9.97-b.2
     - cargo install --locked cargo-deny@0.17.0
-    - cargo install --locked zepter
+    - cargo install --locked zepter@1.78.2
     - ./scripts/check.sh
 
 benchmark:

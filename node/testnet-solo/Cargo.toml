@@ -14,12 +14,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [package.metadata.deb]
 name = "mosaic-testnet-solo"
-depends = "ca-certificates"
+depends = ["ca-certificates", "libstdc++6", "libgcc-s1", "libc6"]
 suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
-conflicts = "mosaic-testnet-solo-rc"
+extended-description = "Mosaic solochain node"
+section = "net"
+features = ["dev-spec"]
+preserve-symlinks = true
 assets = [
   ["target/release/mosaic-testnet-solo", "usr/bin/", "755" ],
-	["../../chainspecs/testnet/*", "usr/share/mosaic-testnet-solo/chainspec", "644" ],
+	["../../chainspecs/testnet/spec-1739953051.json", "usr/share/mosaic-testnet-solo/chainspec/", "644" ],
+	["../../chainspecs/testnet/solo-latest.json", "usr/share/mosaic-testnet-solo/chainspec/", "644" ]
 ]
 
 [[bin]]
