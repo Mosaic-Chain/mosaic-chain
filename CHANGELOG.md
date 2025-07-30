@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2025-07-30
+
+### 🚀 Features
+
+- *sync*: Using unsafe warp sync from our SDK fork
+
+### 🐛 Bug Fixes
+
+- *ci*: Docker-in-docker fix for new gitlab runner config
+
 ## [0.9.2] - 2025-07-28
 
 ### 🐛 Bug Fixes
