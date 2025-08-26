@@ -5,6 +5,7 @@ variables:
 
 stages:
   - test
+  - publish
   - release
 
 .build-deps: &build-deps
@@ -85,77 +86,123 @@ benchmark:
     - git add ./runtime/parachain/src/weights/pallet
     - git commit -m 'Update benchmark weights'
     - git push origin HEAD:$CI_COMMIT_REF_NAME
-
-.debian-repo-setup:
-  stage: release
-  image: rust:1.81.0-bookworm
-  before_script:
-    - *build-deps
-    - apt install apt-transport-https ca-certificates gnupg curl -y
-    - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
-    - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-    - apt update -y && apt install google-cloud-cli -y
-    - cargo install cargo-deb
-    - gcloud auth activate-service-account --key-file $GCP_STAGING_ARTIFACT_WRITE_JSON_KEY
-    - gcloud config set core/project mosaicchan-devnet
-    - gcloud config set artifacts/location europe
-    - gcloud config set artifacts/repository apt-staging-repository
-
-debian-testnet:
-  extends: .debian-repo-setup
-  only:
-    - testnet
-  script:
-    - PKG=$(cargo deb -p mosaic-testnet-solo-node --profile release)
-    - gcloud artifacts apt upload apt-staging-repository --source $PKG
-
-debian-devnet:
-  extends: .debian-repo-setup
-  only:
-    - devnet
-  script:
-    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant devnet)
-    - gcloud artifacts apt upload apt-staging-repository --source $PKG
-
-debian-mainnet:
-  extends: .debian-repo-setup
-  only:
-    - mainnet
-  script:
-    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant mainnet)
-    - gcloud artifacts apt upload apt-staging-repository --source $PKG
-
+  
 .docker:
-  stage: release
   image: docker:stable
   services:
     - name: docker:dind
       alias: docker
   variables:
-    GCP_URL: europe-docker.pkg.dev
-    GCP_REGISTRY: $GCP_URL/mosaicchan-devnet/docker-staging-registry
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ''
-  script:
-    # Build GitLab images
-    - docker build -f Dockerfile.testnet-solo-local -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG -t $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+    DOCKER_REGISTRY: europe-docker.pkg.dev/mosaicchain-general/docker-registry
+  before_script:
+    - cat $GCP_ARTIFACT_REGISTRY_WRITE_JSON_KEY | docker login -u _json_key --password-stdin https://europe-docker.pkg.dev
 
-    # Login to GitLab registry
-    - docker login -u $CI_REGISTRY_USER -p $CI_JOB_TOKEN $CI_REGISTRY
+.debian:
+  image: rust:1.81-bookworm
+  before_script:
+   - *build-deps
+   - apt install apt-transport-https ca-certificates gnupg curl -y
+   - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+   - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+   - apt update -y && apt install google-cloud-cli -y
+   - cargo install cargo-deb
+   - gcloud auth activate-service-account --key-file $GCP_ARTIFACT_REGISTRY_WRITE_JSON_KEY
+   - gcloud config set core/project mosaicchain-general
+   - gcloud config set artifacts/location europe
+   # Doing this so enables versioning them separately and let's us reuse cargo pkgid instead of looking into the workspace's Cargo.toml
+   - DEBIAN_VERSION_SOLO="$(cargo pkgid -p mosaic-testnet-solo-node | cut -d'@' -f2).$CI_PIPELINE_IID+$CI_COMMIT_SHORT_SHA"
+   - DEBIAN_VERSION_PARA="$(cargo pkgid -p mosaic-chain-node | cut -d'@' -f2).$CI_PIPELINE_IID+$CI_COMMIT_SHORT_SHA"
 
-    # Push GitLab image
-    - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG
-
-    # Login to GCP registry
-    - docker login -u _json_key --password-stdin https://$GCP_URL <$GCP_STAGING_ARTIFACT_WRITE_JSON_KEY
-
-    # Push GCP image
-    - docker push $GCP_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
-
-solo-local-docker:
+publish-docker:
   extends: .docker
+  stage: publish
+  needs:
+    - test
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == 'true'
+  script:
+    - docker build -f Dockerfile.testnet-solo-local -t $DOCKER_REGISTRY/mosaic-chain-solo-local:$CI_COMMIT_SHORT_SHA -t $DOCKER_REGISTRY/mosaic-chain-solo-local:latest .
+    - docker push $DOCKER_REGISTRY/mosaic-chain-solo-local:$CI_COMMIT_SHORT_SHA
+    - docker push $DOCKER_REGISTRY/mosaic-chain-solo-local:latest
+
+publish-debian:
+  extends: .debian
+  stage: publish
+  needs:
+    - test
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == 'true'
+  script:
+    # solo
+    - PKG_SOLO=$(cargo deb -p mosaic-testnet-solo-node --profile release --deb-version "$DEBIAN_VERSION_SOLO")
+    - gcloud artifacts apt upload apt-canary-repository --source $PKG_SOLO
+
+    # para
+    - PKG_PARA=$(cargo deb -p mosaic-chain-node --profile release --deb-version "$DEBIAN_VERSION_PARA")
+    - gcloud artifacts apt upload apt-canary-repository --source $PKG_PARA
+
+.release-docker:
+  extends: .docker
+  stage: release
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == 'true'
+      when: manual
+    - when: never
+  needs:
+    - publish-docker
+  script:
+    - docker pull $DOCKER_REGISTRY/mosaic-chain-solo-local:$CI_COMMIT_SHORT_SHA
+    - docker tag $DOCKER_REGISTRY/mosaic-chain-solo-local:$CI_COMMIT_SHORT_SHA $DOCKER_REGISTRY/mosaic-chain-solo-local:$TAG
+    - docker push $DOCKER_REGISTRY/mosaic-chain-solo-local:$TAG
+
+.release-debian:
+  extends: .debian
+  stage: release
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == 'true'
+      when: manual
+    - when: never
+  needs:
+    - publish-debian
+  script:
+    - ARTIFACT_LIST=$(gcloud artifacts files list --repository=apt-canary-repository --format="value(FILE)")
+
+    # solo
+    - PKG_SOLO=$(echo "$ARTIFACT_LIST" | grep "pool/mosaic-testnet-solo_$DEBIAN_VERSION_SOLO")
+    - '[ -z "$PKG_SOLO" ] && echo "No matching APT package found." && exit 1'
+    - FILENAME_SOLO=$(basename "$PKG_SOLO")
+    - gcloud artifacts files download --repository=apt-canary-repository --destination="./" --location=europe --local-filename="$FILENAME_SOLO" "$PKG_SOLO"
+    - gcloud artifacts apt upload $DEBIAN_REPOSITORY --source="./$FILENAME_SOLO"
+
+    # para
+    - PKG_PARA=$(echo "$ARTIFACT_LIST" | grep "pool/mosaic-chain-node_$DEBIAN_VERSION_PARA")
+    - '[ -z "$PKG_PARA" ] && echo "No matching APT package found." && exit 1'
+    - FILENAME_PARA=$(basename "$PKG_PARA")
+    - gcloud artifacts files download --repository=apt-canary-repository --destination="./" --location=europe --local-filename="$FILENAME_PARA" "$PKG_PARA"
+    - gcloud artifacts apt upload $DEBIAN_REPOSITORY --source="./$FILENAME_PARA"
+
+release-docker-testnet:
+  extends: .release-docker
   variables:
-    IMAGE_NAME: mosaic-chain-solo-local
-    IMAGE_TAG: rc
-  only:
-    - testnet
+    TAG: testnet
+
+release-docker-devnet:
+  extends: .release-docker
+  needs:
+    - release-docker-testnet
+  variables:
+    TAG: devnet
+
+release-debian-testnet:
+  extends: .release-debian
+  variables:
+    DEBIAN_REPOSITORY: apt-testnet-repository
+    
+release-debian-devnet:
+  extends: .release-debian
+  needs:
+    - release-debian-testnet
+  variables:
+    DEBIAN_REPOSITORY: apt-devnet-repository

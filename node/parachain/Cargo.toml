@@ -17,6 +17,16 @@ depends = ["ca-certificates", "libstdc++6", "libgcc-s1", "libc6"]
 extended-description = "Mosaic parachain node"
 section = "net"
 preserve-symlinks = true
+suggests = "mosaic-indexer, mosaic-admin-backend, mosaic-announcer"
+assets = [
+	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain-devnet/changelog.md", "644"],
+	["../../chainspecs/devnet/devnet-spec-1752679127.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	["../../chainspecs/devnet/para-latest.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	["../../chainspecs/paseo/paseo-spec-1728985302.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	["../../chainspecs/paseo/relay-latest.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
+	# TODO: once releasing to mainnet inculde chainspecs here
+	["target/release/mosaic-chain", "usr/bin/mosaic-chain", "755"]
+]
 
 [package.metadata.deb.variants.benchmark]
 name = "mosaic-chain-benchmark"
@@ -26,27 +36,6 @@ assets = [
 	["../../scripts/benchmark-runtime-weights.hbs", "usr/share/mosaic-chain-benchmark/", "644"],
 	["../../scripts/benchmark-runtime.sh", "usr/bin/benchmark-runtime", "755"],
 	["target/release/mosaic-chain", "usr/bin/mosaic-chain-benchmark", "755"]
-]
-
-[package.metadata.deb.variants.devnet]
-name = "mosaic-chain-devnet"
-suggests = "mosaic-explorer-rc, mosaic-admin-rc, mosaic-announcer-rc"
-features = ["dev-spec"]
-assets = [
-	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain-devnet/changelog.md", "644"],
-	["../../chainspecs/devnet/devnet-spec-1752679127.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
-	["../../chainspecs/devnet/para-latest.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
-	["../../chainspecs/paseo/paseo-spec-1728985302.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
-	["../../chainspecs/paseo/relay-latest.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
-	["target/release/mosaic-chain", "usr/bin/mosaic-chain-devnet", "755"]
-]
-
-[package.metadata.deb.variants.mainnet]
-name = "mosaic-chain"
-suggests = "mosaic-explorer, mosaic-admin, mosaic-announcer"
-assets = [
-	["../../CHANGELOG.md", "usr/share/doc/mosaic-chain/changelog.md", "644"],
-	["target/release/mosaic-chain", "usr/bin/mosaic-chain", "755"]
 ]
 
 [[bin]]

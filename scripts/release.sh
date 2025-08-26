@@ -14,14 +14,14 @@ confirm() {
     done
 }
 
-develop="develop"
+branch="main"
 
 confirm "I have checked docs/release/checklist.md"
 
-# Check current branch is develop
+# Check current branch is correct
 
-if [ "$(git rev-parse --abbrev-ref HEAD)" != "$develop" ]; then
-  echo "Current branch is not $develop. Please check out that branch to make a release."
+if [ "$(git rev-parse --abbrev-ref HEAD)" != "$branch" ]; then
+  echo "Current branch is not $branch. Please check out that branch to make a release."
   exit 1
 fi
 
@@ -29,11 +29,11 @@ fi
 
 echo "Querying remote to compare with local state..."
 
-origin=$(git ls-remote origin $develop | awk '{ print $1 }')
-local=$(git rev-parse $develop)
+origin=$(git ls-remote origin $branch | awk '{ print $1 }')
+local=$(git rev-parse $branch)
 
 if [ "$origin" != "$local" ]; then
-    echo "ERROR: local $develop's latest commit $local differs from remote $develop's $origin."
+    echo "ERROR: local $branch's latest commit $branch differs from remote $branch's $origin."
     exit 2
 fi
 
@@ -95,6 +95,4 @@ echo "Pushing new tag..."
 git push --tags
 
 echo -e "\nAll is DONE\n"
-echo -e "- Create a merge request in GitLab from $develop to testnet/devnet/mainnet."
-echo -e "- Merge it."
 
