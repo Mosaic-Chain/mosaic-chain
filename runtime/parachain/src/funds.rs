@@ -8,7 +8,7 @@ use frame_support::{
 use frame_system::EnsureWithSuccess;
 use sp_runtime::traits::IdentityLookup;
 
-use super::{params, weights, AccountId, Balances, Runtime, RuntimeEvent, RuntimeHoldReason};
+use super::{params, weights, AccountId, Balances, Runtime, RuntimeHoldReason};
 
 macro_rules! impl_fund {
 	($fund:ident, $instance:ident, $pallet_id:expr) => {
@@ -36,7 +36,6 @@ macro_rules! impl_fund {
 			type Fungible = Balances;
 			type ApproveOrigin = $fund::FundOrigin;
 			type RejectOrigin = $fund::FundOrigin;
-			type RuntimeEvent = RuntimeEvent;
 			type RuntimeHoldReason = RuntimeHoldReason;
 			type OnSlash = ();
 			type ProposalBond = $fund::ProposalBond;

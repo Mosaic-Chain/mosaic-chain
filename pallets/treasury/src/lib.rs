@@ -195,6 +195,10 @@ pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, Paymen
 /// Index of an approved treasury spend.
 pub type SpendIndex = u32;
 
+#[expect(
+	clippy::useless_conversion,
+	reason = "pallet macro tries to convert PostDispatchInfo to itself"
+)]
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -217,10 +221,6 @@ pub mod pallet {
 
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 
 		type RuntimeHoldReason: From<HoldReason<I>>;
 

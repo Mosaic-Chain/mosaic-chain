@@ -16,7 +16,7 @@ pub fn exec(Cli { image, tag, subcmd }: Cli) -> anyhow::Result<()> {
 }
 
 fn pull(image: &str, tag: &str) -> anyhow::Result<()> {
-	log::debug!("Pulling docker image: {}:{}", image, tag);
+	log::debug!("Pulling docker image: {image}:{tag}");
 
 	let status = Command::new("sh")
 		.arg("-c")

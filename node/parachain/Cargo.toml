@@ -55,10 +55,51 @@ sentry = { workspace = true }
 # Local
 mosaic-chain-runtime = { workspace = true }
 
-# TODO: once procmacros are compatible with umbrella crate remove this
-sc-tracing = { workspace = true }
-
-sdk = { workspace = true, features = ["frame-benchmarking", "frame-benchmarking-cli", "pallet-transaction-payment-rpc", "sc-basic-authorship", "sc-chain-spec", "sc-cli", "sc-client-api", "sc-offchain", "sc-consensus", "sc-executor", "sc-network", "sc-network-sync", "sc-rpc", "sc-service", "sc-sysinfo", "sc-telemetry", "sc-transaction-pool", "sc-transaction-pool-api", "sp-api", "sp-block-builder", "sp-blockchain", "sp-consensus-aura", "sp-core", "sp-keystore", "sp-io", "sp-runtime", "sp-timestamp", "substrate-frame-rpc-system", "substrate-prometheus-endpoint", "polkadot-cli", "polkadot-primitives", "staging-xcm", "cumulus-client-cli", "cumulus-client-collator", "cumulus-client-consensus-aura", "cumulus-client-consensus-common", "cumulus-client-consensus-proposer", "cumulus-client-service", "cumulus-primitives-core", "cumulus-primitives-parachain-inherent", "cumulus-relay-chain-interface"] }
+sdk = { workspace = true, features = [
+	"frame-benchmarking",
+	"frame-benchmarking-cli",
+	"pallet-transaction-payment-rpc",
+	"sc-tracing",
+	"sc-basic-authorship",
+	"sc-chain-spec",
+	"sc-cli",
+	"sc-client-api",
+	"sc-offchain",
+	"sc-consensus",
+	"sc-executor",
+	"sc-network",
+	"sc-network-sync",
+	"sc-rpc",
+	"sc-service",
+	"sc-sysinfo",
+	"sc-telemetry",
+	"sc-transaction-pool",
+	"sc-transaction-pool-api",
+	"sp-api",
+	"sp-block-builder",
+	"sp-blockchain",
+	"sp-consensus-aura",
+	"sp-core",
+	"sp-keystore",
+	"sp-io",
+	"sp-runtime",
+	"sp-timestamp",
+	"substrate-frame-rpc-system",
+	"substrate-prometheus-endpoint",
+	"polkadot-cli",
+	"polkadot-primitives",
+	"staging-xcm",
+	"cumulus-client-cli",
+	"cumulus-client-collator",
+	"cumulus-client-bootnodes",
+	"cumulus-client-consensus-aura",
+	"cumulus-client-consensus-common",
+	"cumulus-client-consensus-proposer",
+	"cumulus-client-service",
+	"cumulus-primitives-core",
+	"cumulus-primitives-parachain-inherent",
+	"cumulus-relay-chain-interface"
+]}
 
 [build-dependencies]
 sdk = { workspace = true, features = ["substrate-build-script-utils"] }

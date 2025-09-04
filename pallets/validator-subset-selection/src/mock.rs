@@ -110,11 +110,11 @@ impl pallet_session::Config for Test {
 	type SessionManager = ValidatorSubsetSelection;
 	type SessionHandler = MockSessionHandler;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
 impl pallet_validator_subset_selection::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorSuperset = Superset;
 	type SubsetSize = SubsetSize;

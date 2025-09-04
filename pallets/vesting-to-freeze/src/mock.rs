@@ -52,7 +52,6 @@ impl pallet_balances::Config for Test {
 }
 
 impl vesting_to_freeze::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Balance = Balance;
 	type Fungible = Balances;

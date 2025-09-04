@@ -262,7 +262,10 @@ fn genesis(
 
 	let endowed = endowed_accounts.into_iter().map(|k| (k, 10 * MOSAIC));
 
-	let balances = pallet_balances::GenesisConfig { balances: endowed.chain(funds()).collect() };
+	let balances = pallet_balances::GenesisConfig {
+		balances: endowed.chain(funds()).collect(),
+		dev_accounts: None,
+	};
 
 	let staking_incentive =
 		pallet_staking_incentive::GenesisConfig { incentive_pool: 500_000_000 * MOSAIC };

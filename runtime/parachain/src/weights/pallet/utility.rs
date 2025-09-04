@@ -83,4 +83,12 @@ impl<T: sdk::frame_system::Config> WeightInfo for Weights<T> {
 			// Standard Error: 7_166
 			.saturating_add(Weight::from_parts(4_044_664, 0).saturating_mul(c.into()))
 	}
+
+fn dispatch_as_fallible() -> Weight {
+	Default::default()
+    }
+
+fn if_else() -> Weight {
+	Default::default()
+    }
 }

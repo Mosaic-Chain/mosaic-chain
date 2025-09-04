@@ -64,6 +64,7 @@ impl pallet_nfts::Config for Test {
 	type Features = ();
 	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
+	type BlockNumberProvider = System;
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Test>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
@@ -74,7 +75,6 @@ parameter_types! {
 }
 
 impl nft_permission::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = nft_permission::weights::SubstrateWeight<Test>;
 	type PalletId = NftPermissionPalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;

@@ -38,9 +38,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config {
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-
 		type Balance: Member
 			+ Parameter
 			+ AtLeast32BitUnsigned
@@ -245,6 +242,10 @@ pub mod pallet {
 		};
 		($x:expr) => {
 			if Fuse::<T>::get() {
+				#[allow(
+					clippy::unused_unit,
+					reason = "sometimes we have to explicitly specify `()` as the return value"
+				)]
 				return $x;
 			}
 		};

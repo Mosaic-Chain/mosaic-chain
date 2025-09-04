@@ -15,7 +15,7 @@ pub struct Builder<'a> {
 	pub no_cache: bool,
 }
 
-impl<'a> Builder<'a> {
+impl Builder<'_> {
 	// Canonical representation of project's path
 	fn base_path(&self) -> anyhow::Result<PathBuf> {
 		self.path
@@ -86,7 +86,7 @@ impl<'a> RuntimeBuilder for Builder<'a> {
 			runtime_dir = runtime_dir.display(),
 			image = self.image,
 			tag = self.tag,
-			as_root = (!self.no_root).then_some("-u root").unwrap_or_default()
+			as_root = if self.no_root { Default::default() } else { "-u root" }
 		);
 
 		log::debug!("command = {command:?}");

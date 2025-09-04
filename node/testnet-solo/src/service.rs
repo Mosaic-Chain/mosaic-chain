@@ -31,7 +31,7 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::result_large_err)]
 pub fn new_partial(
 	config: &Configuration,
 ) -> Result<
@@ -138,6 +138,7 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
+#[allow(clippy::result_large_err)]
 pub fn new_full<
 	N: sc_network::NetworkBackend<Block, <Block as sp_runtime::traits::Block>::Hash>,
 >(
@@ -182,7 +183,7 @@ pub fn new_full<
 		Vec::default(),
 	));
 
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -342,8 +343,6 @@ pub fn new_full<
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 	}
-
-	network_starter.start_network();
 
 	Ok(task_manager)
 }

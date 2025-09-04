@@ -162,4 +162,8 @@ impl<T: sdk::frame_system::Config> WeightInfo for Weights<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+
+fn set_service_head() -> Weight {
+    Default::default()
+	}
 }

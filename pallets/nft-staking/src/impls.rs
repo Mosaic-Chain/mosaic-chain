@@ -70,7 +70,7 @@ impl<T: Config> ValidatorSet<T::AccountId> for SlashableValidators<T> {
 				let converted_id = T::ValidatorIdOf::convert(validator_id.clone())
 					.expect("caller address can be converted to validator id");
 
-				let drafted = drafted_validators.iter().any(|id| converted_id == *id);
+				let drafted = drafted_validators.contains(&converted_id);
 
 				let has_committed_self_contract = Contracts::<T>::contains_key((
 					StorageLayer::Committed,

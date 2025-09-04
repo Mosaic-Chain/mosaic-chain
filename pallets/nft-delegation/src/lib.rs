@@ -2,26 +2,26 @@
 // Expect lints caused by procmacros
 #![expect(clippy::must_use_candidate, clippy::cast_possible_truncation)]
 
-/// # pallet-nft-delegation
-///
-/// The pallet is a runtime module for managing non-fungible tokens (NFTs)
-/// representing delegation rights in a staking system. It allows for minting, binding,
-/// unbinding, and slashing these delegation NFTs. Additionally, it handles expiration checks
-/// for bound tokens and provides an extensible `OnNftExpire` trait for custom logic
-/// when an NFT expires.
-///
-/// ## Module Features
-///
-/// - Minting delegation NFTs with specified expiration and nominal value.
-/// - Binding and unbinding delegation NFTs to validators.
-/// - Slashing bound delegation NFTs based on a proportion.
-/// - Expiration checks for bound delegation NFTs.
-///
-/// ## Usage
-///
-/// Users can mint delegation NFTs, bind them to validators, unbind them when necessary,
-/// and slash them if needed. The module automatically checks for NFT expiration during
-/// each session change.
+//! # pallet-nft-delegation
+//!
+//! The pallet is a runtime module for managing non-fungible tokens (NFTs)
+//! representing delegation rights in a staking system. It allows for minting, binding,
+//! unbinding, and slashing these delegation NFTs. Additionally, it handles expiration checks
+//! for bound tokens and provides an extensible `OnNftExpire` trait for custom logic
+//! when an NFT expires.
+//!
+//! ## Module Features
+//!
+//! - Minting delegation NFTs with specified expiration and nominal value.
+//! - Binding and unbinding delegation NFTs to validators.
+//! - Slashing bound delegation NFTs based on a proportion.
+//! - Expiration checks for bound delegation NFTs.
+//!
+//! ## Usage
+//!
+//! Users can mint delegation NFTs, bind them to validators, unbind them when necessary,
+//! and slash them if needed. The module automatically checks for NFT expiration during
+//! each session change.
 
 #[cfg(test)]
 mod mock;
@@ -74,10 +74,6 @@ pub mod pallet {
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config + NftsConfig {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-
 		/// The id of the pallet from witch the collection owner's address is derived.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -183,7 +179,17 @@ pub mod pallet {
 	}
 
 	#[derive(
-		Debug, PartialEq, Eq, Copy, Clone, TypeInfo, Encode, Decode, PalletError, MaxEncodedLen,
+		Debug,
+		PartialEq,
+		Eq,
+		Copy,
+		Clone,
+		TypeInfo,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		PalletError,
+		MaxEncodedLen,
 	)]
 	#[repr(u8)]
 	pub enum AttributeKey {

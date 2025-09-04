@@ -2,7 +2,7 @@ use core::ops::Add;
 
 use sdk::{frame_support, sp_runtime, sp_staking::SessionIndex};
 
-use codec::{Codec, MaxEncodedLen};
+use codec::{Codec, DecodeWithMemTracking, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::{Decode, Encode, TypeInfo},
 	sp_runtime::RuntimeDebug,
@@ -25,6 +25,7 @@ pub const MAX_NFTS_PER_CONTRACT: u32 = 5;
 	Eq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -159,7 +160,18 @@ pub enum ValidatorState {
 	Chilled(SessionIndex),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Debug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum ChillReason {
 	/// The validator chose to chill a bit
 	Manual,
@@ -169,7 +181,18 @@ pub enum ChillReason {
 	Disqualified,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Debug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum KickReason {
 	/// The validator chose to kick the staker
 	Manual,

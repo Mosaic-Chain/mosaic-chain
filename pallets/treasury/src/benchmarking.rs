@@ -92,8 +92,8 @@ fn setup_pot_account<T: Config<I>, I: 'static>() {
 	let _ = T::Fungible::set_balance(&pot_account, value);
 }
 
-fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+fn assert_last_event<T: Config<I>, I: 'static>(generic_event: T::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_last_event(generic_event);
 }
 
 // Create the arguments for the `spend` dispatchable.

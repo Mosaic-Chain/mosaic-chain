@@ -2,15 +2,15 @@
   description = "Development shell with rust and additional tooling";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     polkadot-overlay = {
-      # 2412-3
-      url = "github:andresilva/polkadot.nix/9f6aa99b30c21469d58ba226b9bfc85e594c499e";
+      # 2506-1
+      url = "github:andresilva/polkadot.nix/282edc2ce11c2934237e379a778ad1a6978715f0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

@@ -31,36 +31,35 @@ authors = ["Mosaic Team"]
 license = "Apache-2.0 OR (GPL-3.0-or-later WITH Classpath-exception-2.0)"
 
 [workspace.dependencies]
-sdk = { package = "polkadot-sdk", git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "unsafe-warp-sync-2412-3", default-features = false }
-substrate-wasm-builder = { package = "substrate-wasm-builder", git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "unsafe-warp-sync-2412-3", default-features = false }
+sdk = { package = "polkadot-sdk", git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "unsafe-warp-sync-2506-1", default-features = false }
+substrate-wasm-builder = { package = "substrate-wasm-builder", git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "unsafe-warp-sync-2506-1", default-features = false }
 
 # TODO: once procmacros are compatible with umbrella crate remove this
-cumulus-pallet-parachain-system = { git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "unsafe-warp-sync-2412-3", default-features = false }
-sc-tracing = { git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "unsafe-warp-sync-2412-3", default-features = false }
+cumulus-pallet-parachain-system = { git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "unsafe-warp-sync-2506-1", default-features = false }
 
-log = { version = "0.4.21", default-features = false }
+log = { version = "0.4.22", default-features = false }
 env_logger = { version = "0.11.5", default-features = false }
-serde = { version = "1.0.203", features = ["derive"], default-features = false }
-serde_json = { version = "1.0.117", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-clap = { version = "4.5.1" }
+serde = { version = "1.0.214", features = ["derive"], default-features = false }
+serde_json = { version = "1.0.132", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.7.5", default-features = false }
+clap = { version = "4.5.13" }
 color-print = { version = "0.3.4" }
-futures = { version = "0.3.30" }
+futures = { version = "0.3.31" }
 hex-literal = { version = "0.4.1", default-features = false }
 impl-trait-for-tuples = { version = "0.2.2" }
 jsonrpsee = { version = "0.24.3" }
-scale-info = { version = "2.11.1", default-features = false }
+scale-info = { version = "2.11.6", default-features = false }
 smallvec = { version = "1.11.2", default-features = false }
 srtool-lib = { version = "0.12.0" }
 ctrlc = { version = "3.4.4", default-features = false }
 cargo_metadata = { version = "0.18.1", default-features = false }
 anyhow = { version = "1.0.86" }
-docify = { version = "0.2.8" }
+docify = { version = "0.2.9" }
 inventory = { version = "0.3.15" }
 rstest = { version = "0.22.0" }
 rstest_reuse = { version = "0.7.0" }
 delegate = { version = "0.13.1" }
-enumflags2 = { version = "0.7.10" }
+enumflags2 = { version = "0.7.11" }
 sentry = { version = "0.38.1" }
 
 # Local

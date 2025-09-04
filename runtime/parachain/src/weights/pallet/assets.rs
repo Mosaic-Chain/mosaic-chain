@@ -504,4 +504,16 @@ impl<T: sdk::frame_system::Config> WeightInfo for Weights<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
+
+fn total_issuance() -> Weight {
+	Default::default()
+            }
+
+fn balance() -> Weight {
+	Default::default()
+            }
+
+fn allowance() -> Weight {
+	Default::default()
+            }
 }

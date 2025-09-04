@@ -64,8 +64,8 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::{
-		Blake2_128Concat, BuildGenesisConfig, DispatchResultWithPostInfo, Hooks, IsType,
-		StorageMap, TypeInfo,
+		Blake2_128Concat, BuildGenesisConfig, DispatchResultWithPostInfo, Hooks, StorageMap,
+		TypeInfo,
 	},
 	storage::bounded_vec::BoundedVec,
 	traits::{
@@ -139,16 +139,16 @@ impl<T: Config> Get<u32> for MaxVestingSchedulesGet<T> {
 	}
 }
 
+#[expect(
+	clippy::useless_conversion,
+	reason = "pallet macro tries to convert PostDispatchInfo to itself"
+)]
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config {
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-
 		type RuntimeHoldReason: From<HoldReason> + VariantCount;
 
 		type Balance: Parameter
@@ -654,7 +654,7 @@ impl<T: Config> Pallet<T> {
 		let schedules: BoundedVec<ScheduleOf<T>, MaxVestingSchedulesGet<T>> =
 			schedules.try_into().map_err(|_| Error::<T>::AtMaxVestingSchedules)?;
 
-		if schedules.len() == 0 {
+		if schedules.is_empty() {
 			Vesting::<T>::remove(who);
 		} else {
 			Vesting::<T>::insert(who, schedules);

@@ -18,6 +18,10 @@ pub use weights::WeightInfo;
 
 type AccountIdLookupOf<T> = <<T as sdk::frame_system::Config>::Lookup as StaticLookup>::Source;
 
+#[expect(
+	clippy::useless_conversion,
+	reason = "pallet macro tries to convert PostDispatchInfo to itself"
+)]
 #[sdk::frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -30,10 +34,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-
 		/// Because this pallet can do any calls, it depends on the runtime's definition of a call.
 		type RuntimeCall: Parameter
 			+ UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>

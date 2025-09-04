@@ -2,7 +2,7 @@ use sp_runtime::{ArithmeticError, TokenError};
 
 use super::*;
 
-#[derive(TypeInfo, Encode, Decode, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Permission {
 	PoS,
 	DPoS,

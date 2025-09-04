@@ -187,7 +187,7 @@ impl OnRuntimeUpgrade for MigrateFromV100<Runtime> {
 
 		let period = 25 * MINUTES; // from v100
 		let current_block = System::block_number();
-		let current_session_end = ((current_block + period - 1) / period) * period;
+		let current_session_end = current_block.div_ceil(period) * period;
 
 		pallet_validator_subset_selection::CurrentSessionEnd::<Runtime>::put(current_session_end);
 

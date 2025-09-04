@@ -2,7 +2,7 @@ use sdk::{
 	cumulus_pallet_aura_ext, cumulus_pallet_xcmp_queue, cumulus_primitives_core,
 	cumulus_primitives_storage_weight_reclaim, frame_support, frame_system, pallet_balances,
 	pallet_message_queue, pallet_transaction_payment, parachains_common, polkadot_runtime_common,
-	sp_runtime, staging_parachain_info,
+	sp_core, sp_runtime, staging_parachain_info,
 };
 
 use codec::Encode;
@@ -10,6 +10,7 @@ use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{derive_impl, traits::TransformOrigin, weights::constants::RocksDbWeight};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+use sp_core::ConstU32;
 use sp_runtime::{generic::Era, SaturatedConversion};
 
 use crate::{
@@ -120,6 +121,9 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = weights::pallet::parachain_system::Weights<Runtime>;
 
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+
+	// TODO: consider setting it to a slightly higher value to help reduce forks on the parachain side.
+	type RelayParentOffset = ConstU32<0>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -140,6 +144,8 @@ where
 			.unwrap_or(2) as u64;
 		let current_block = System::block_number().saturated_into::<u64>().saturating_sub(1);
 		let era = Era::mortal(period, current_block);
+
+		#[expect(deprecated, reason = "not using cumulus-pallet-weight-reclaim yet")]
 		let extra = (
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -153,7 +159,7 @@ where
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
-				log::warn!("Unable to create signed payload: {:?}", e);
+				log::warn!("Unable to create signed payload: {e:?}");
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;

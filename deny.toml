@@ -17,7 +17,7 @@ ignore = [
     "RUSTSEC-2023-0091", # `wasmtime` miscompilation of wasm `i64x2.shr_s` instruction with constant input on x86\_64
     "RUSTSEC-2024-0442", # safe code can leak memory in `wasmtime-jit-debug`
     "RUSTSEC-2025-0057", # `fxhash` is unmaintained
-    "RUSTSEC-2025-0055"  #
+    "RUSTSEC-2025-0055", #
 ]
 
 [licenses]
@@ -28,6 +28,7 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "CC0-1.0",
+    "CDLA-Permissive-2.0",
     "MIT",
     "MIT-0",
     "ISC",
@@ -108,7 +109,7 @@ skip = [
     { name = "windows-core" },
     { name = "yamux" },
     { name = "hostname" },
-    { name = "windows-result" }
+    { name = "windows-result" },
 ]
 skip-tree = [
     # duplicate mess
@@ -135,7 +136,7 @@ unused = 'deny'
 unknown-registry = "warn"
 unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = ["https://github.com/Mosaic-Chain/polkadot-sdk?branch=unsafe-warp-sync-2412-3"]
+allow-git = ["https://github.com/Mosaic-Chain/polkadot-sdk?branch=unsafe-warp-sync-2506-1"]
 
 [sources.allow-org]
 #github = ["wigy_opensource_developer"]

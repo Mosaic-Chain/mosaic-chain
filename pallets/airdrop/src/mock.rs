@@ -45,7 +45,6 @@ parameter_types! {
 pub const MAX_DELEGATOR_NFTS: u32 = 2;
 
 impl airdrop::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type PermissionType = Permission;
 	type ItemId = ItemId;

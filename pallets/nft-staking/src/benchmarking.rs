@@ -218,10 +218,6 @@ where
 	}
 }
 
-#[expect(
-	clippy::multiple_bound_locations,
-	reason = "The benchmarks attribute macro injects T: NftStakingConfig which conflicts with any T: .."
-)]
 #[benchmarks(
 	where
 		T: BalancesConfig<Balance = <T as NftStakingConfig>::Balance> + SessionConfig + NftDelegationConfig<ItemId = <T as NftStakingConfig>::ItemId>,
@@ -922,9 +918,8 @@ mod benchmarks {
 				OffenceDetails { offender, reporters: vec![] }
 			})
 			.collect::<SpVec<_>>();
-		let slash_fraction = core::iter::repeat(Perbill::from_percent(1))
-			.take(c as usize)
-			.collect::<SpVec<_>>();
+		let slash_fraction =
+			core::iter::repeat_n(Perbill::from_percent(1), c as usize).collect::<SpVec<_>>();
 
 		#[block]
 		{

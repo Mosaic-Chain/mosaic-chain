@@ -18,7 +18,7 @@ use sdk::{frame_support, frame_system, pallet_offences, pallet_session, sp_runti
 
 use core::num::NonZeroU32;
 
-use codec::Codec;
+use codec::{Codec, HasCompact};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -69,10 +69,6 @@ pub mod pallet {
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config + SessionConfig + pallet_offences::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Used for the nominal value of permission tokens
@@ -80,6 +76,8 @@ pub mod pallet {
 			+ Member
 			+ sp_runtime::traits::AtLeast32BitUnsigned
 			+ Codec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize

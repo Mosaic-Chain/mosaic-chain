@@ -115,6 +115,7 @@ impl pallet_session::Config for Test {
 	type SessionManager = session::DummySessionManager<AccountId, (NftDelegationHandler, Staking)>;
 	type SessionHandler = session::EmptySessionHandler;
 	type Keys = session::MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
@@ -129,7 +130,6 @@ impl super::BenchmarkHelper<Test> for BenchmarkHelper {
 }
 
 impl pallet_nft_staking::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
 	type ItemId = ItemId;

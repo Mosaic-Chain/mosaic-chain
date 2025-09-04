@@ -124,6 +124,7 @@ macro_rules! construct_async_run {
 }
 
 /// Parse command line arguments into service configuration.
+#[allow(clippy::result_large_err)]
 pub fn run() -> Result<()> {
 	let cli = Cli::from_args();
 
@@ -183,7 +184,7 @@ pub fn run() -> Result<()> {
 					&polkadot_cli,
 					config.tokio_handle.clone(),
 				)
-				.map_err(|err| format!("Relay chain argument error: {}", err))?;
+				.map_err(|err| format!("Relay chain argument error: {err}"))?;
 
 				cmd.run(config, polkadot_config)
 			})
@@ -231,7 +232,9 @@ pub fn run() -> Result<()> {
 					let partials = new_partial(&config)?;
 					let db = partials.backend.expose_db();
 					let storage = partials.backend.expose_storage();
-					cmd.run(config, partials.client.clone(), db, storage)
+					let shared_cache = partials.backend.expose_shared_trie_cache();
+
+					cmd.run(config, partials.client.clone(), db, storage, shared_cache)
 				}),
 				BenchmarkCmd::Machine(cmd) =>
 					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
@@ -280,13 +283,13 @@ pub fn run() -> Result<()> {
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
-						.map_err(|err| format!("Relay chain argument error: {}", err))?;
+						.map_err(|err| format!("Relay chain argument error: {err}"))?;
 
 				info!("Parachain Account: {parachain_account}");
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match config.network.network_backend {
-        			Some(sc_network::config::NetworkBackendType::Libp2p) | None =>
+        			sc_network::config::NetworkBackendType::Libp2p =>
         				crate::service::start_parachain_node::<sc_network::NetworkWorker<_, _>>(
         					config,
         					polkadot_config,
@@ -294,7 +297,7 @@ pub fn run() -> Result<()> {
         					id,
         					hwbench
         				).await.map(|r| r.0).map_err(Into::into),
-					Some(sc_network::config::NetworkBackendType::Litep2p) =>
+					sc_network::config::NetworkBackendType::Litep2p =>
 						crate::service::start_parachain_node::<sc_network::Litep2pNetworkBackend>(
 							config,
 							polkadot_config,

@@ -9,16 +9,13 @@ mod tests;
 
 use sdk::{frame_support, frame_system, sp_core, sp_runtime, sp_std};
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	pallet_prelude::{
 		BuildGenesisConfig, DispatchResultWithPostInfo, Member, Pays, StorageValue, StorageVersion,
 	},
 	storage::bounded_vec::BoundedVec,
-	traits::{
-		fungible::{Inspect, Mutate},
-		IsType,
-	},
+	traits::fungible::{Inspect, Mutate},
 	PalletId, Parameter,
 };
 use frame_system::pallet_prelude::*;
@@ -41,6 +38,10 @@ mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
+#[expect(
+	clippy::useless_conversion,
+	reason = "pallet macro tries to convert PostDispatchInfo to itself"
+)]
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -50,8 +51,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config {
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 		type Balance: Member + Parameter + AtLeast32BitUnsigned;
 		type PermissionType: Member + Parameter;
 		type ItemId: Clone + core::fmt::Debug;
@@ -136,21 +135,21 @@ pub mod pallet {
 		MaxDelegatorNftsGet<T>,
 	>;
 
-	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
+	#[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, Eq)]
 	pub struct PermissionNft<PermissionType, Balance> {
 		pub permission: PermissionType,
 		pub nominal_value: Balance,
 		pub metadata: Option<Vec<u8>>,
 	}
 
-	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
+	#[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, Eq)]
 	pub struct DelegatorNft<Balance> {
 		pub expiration: SessionIndex,
 		pub nominal_value: Balance,
 		pub metadata: Option<Vec<u8>>,
 	}
 
-	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
+	#[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, Eq)]
 	pub struct VestingInfo<Balance, BlockNumber> {
 		pub amount: Balance,
 		pub unlock_per_block: Balance,
@@ -165,7 +164,7 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(TypeInfo, Encode, Decode, Clone, Debug, PartialEq, Eq)]
+	#[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, Eq)]
 	pub struct Package<AccountId, Balance, PermissionType, BlockNumber, MaxDelegatorNfts: Get<u32>> {
 		pub account_id: AccountId,
 		pub balance: Option<Balance>,
@@ -277,7 +276,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		fn minting_authority_id() -> T::AccountId {
-			MintingAuthorityId::<T>::get().expect("pallet initalized properly")
+			MintingAuthorityId::<T>::get().expect("pallet initialized properly")
 		}
 	}
 }

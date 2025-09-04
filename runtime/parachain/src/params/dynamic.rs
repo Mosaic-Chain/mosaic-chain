@@ -1,6 +1,6 @@
 use sdk::{frame_support, pallet_parameters, sp_runtime};
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::num::NonZeroU32;
 use frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
 use scale_info::TypeInfo;
@@ -13,7 +13,9 @@ use super::{currency, time};
 
 pub use imp::*;
 
-#[derive(Debug, Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
+#[derive(
+	Debug, Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, PartialEq, Eq,
+)]
 pub struct PaymentRatio {
 	pub validator: u32,
 	pub treasury: u32,

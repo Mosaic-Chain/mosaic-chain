@@ -60,7 +60,6 @@ where
 	PackageOf::<T> { account_id, balance, vesting, permission_nft, delegator_nfts }
 }
 
-#[expect(clippy::multiple_bound_locations)]
 #[benchmarks(where
     T: NftStakingConfig<Balance = <T as Config>::Balance>,
 	<T as NftStakingConfig>::Balance: From<u128>,

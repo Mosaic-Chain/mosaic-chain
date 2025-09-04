@@ -78,10 +78,6 @@ pub mod pallet {
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config + NftsConfig {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-
 		/// The id of the pallet from witch the collection owner's address is derived.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -145,7 +141,17 @@ pub mod pallet {
 	}
 
 	#[derive(
-		Debug, PartialEq, Eq, Copy, Clone, TypeInfo, Encode, Decode, PalletError, MaxEncodedLen,
+		Debug,
+		PartialEq,
+		Eq,
+		Copy,
+		Clone,
+		TypeInfo,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		PalletError,
+		MaxEncodedLen,
 	)]
 	#[repr(u8)]
 	pub enum AttributeKey {

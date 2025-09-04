@@ -10,16 +10,17 @@ use sp_runtime::BuildStorage;
 use crate as doas;
 
 // Logger module to track execution.
+#[expect(
+	clippy::useless_conversion,
+	reason = "pallet macro tries to convert PostDispatchInfo to itself"
+)]
 #[frame_support::pallet]
 pub mod logger {
 	use sdk::frame_support::pallet_prelude::*;
 	use sdk::frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: sdk::frame_system::Config {
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-	}
+	pub trait Config: sdk::frame_system::Config {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -99,12 +100,9 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 }
 
-impl logger::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-}
+impl logger::Config for Test {}
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type EnsureOrigin = EnsurePrivileged;
 	type WeightInfo = ();
@@ -117,7 +115,7 @@ pub struct EnsurePrivileged;
 impl EnsureOrigin<RuntimeOrigin> for EnsurePrivileged {
 	type Success = ();
 	fn try_origin(origin: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		if !origin.clone().into_signer().is_some_and(|s| s == PRIVILEGED_ACCOUNT) {
+		if origin.clone().into_signer().is_some_and(|s| s != PRIVILEGED_ACCOUNT) {
 			return Err(origin);
 		}
 

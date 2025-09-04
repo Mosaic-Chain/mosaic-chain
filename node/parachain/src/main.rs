@@ -8,6 +8,7 @@ mod command;
 mod rpc;
 mod service;
 
+#[allow(clippy::result_large_err)]
 fn main() -> sdk::sc_cli::Result<()> {
 	command::run()
 }

@@ -88,7 +88,7 @@ use sdk::{
 	sp_runtime, sp_staking, sp_std,
 };
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -226,7 +226,7 @@ impl<BlockNumber: sp_std::fmt::Debug> sp_std::fmt::Debug for OffchainErr<BlockNu
 }
 
 /// Heartbeat which is sent/received.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Heartbeat<BlockNumber, AuthorityKey>
 where
 	BlockNumber: PartialEq + Eq + Decode + Encode,
@@ -281,10 +281,6 @@ pub mod pallet {
 			+ Ord
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
-
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 
 		/// A type for retrieving the validators supposed to be online in a session.
 		type ValidatorSet: ValidatorSetWithIdentification<
@@ -414,17 +410,14 @@ pub mod pallet {
 					if let Err(e) = res {
 						log::debug!(
 							target: "runtime::im-online",
-							"Skipping heartbeat at {:?}: {:?}",
-							now,
-							e,
+							"Skipping heartbeat at {now:?}: {e:?}",
 						);
 					}
 				}
 			} else {
 				log::trace!(
 					target: "runtime::im-online",
-					"Skipping heartbeat at {:?}. Not a validator.",
-					now,
+					"Skipping heartbeat at {now:?}. Not a validator.",
 				);
 			}
 		}
@@ -598,13 +591,10 @@ impl<T: Config> Pallet<T> {
 			let call = prepare_heartbeat()?;
 			log::info!(
 				target: "runtime::im-online",
-				"Reporting im-online at block: {:?} (session: {:?}): {:?}",
-				block_number,
-				session_index,
-				call,
+				"Reporting im-online at block: {block_number:?} (session: {session_index:?}): {call:?}",
 			);
 
-			SubmitTransaction::<T, Call<T>>::submit_transaction(T::create_inherent(call.into()))
+			SubmitTransaction::<T, Call<T>>::submit_transaction(T::create_bare(call.into()))
 				.map_err(|()| OffchainErr::SubmitTransaction)?;
 
 			Ok(())

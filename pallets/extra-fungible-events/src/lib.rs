@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sdk::frame_support::{
-	pallet_prelude::{DispatchError, DispatchResult, Encode, IsType, TypeInfo},
+	pallet_prelude::{DispatchError, DispatchResult, Encode, TypeInfo},
 	traits::{
 		fungible::{
 			hold::DoneSlash, Balanced, BalancedHold, Credit, Debt, Dust, Inspect, InspectFreeze,
@@ -22,9 +22,6 @@ mod pallet {
 
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config {
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
-
 		type RuntimeHoldReason: Clone + core::fmt::Debug + PartialEq + Encode + TypeInfo + 'static;
 		type Fungible: Inspect<Self::AccountId>
 			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;

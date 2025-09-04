@@ -10,7 +10,6 @@ use sdk::{
 
 const UNIT: u128 = 10u128.pow(18); // 1 MOS = 10^18 tile
 
-#[expect(clippy::multiple_bound_locations)]
 #[benchmarks(where
     <T as Config>::Balance: From<u128>,
 	T: BalancesConfig<Balance = <T as Config>::Balance>

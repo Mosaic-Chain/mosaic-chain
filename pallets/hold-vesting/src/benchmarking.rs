@@ -90,7 +90,6 @@ where
 	Ok(total_locked)
 }
 
-#[expect(clippy::multiple_bound_locations)]
 #[benchmarks(where
 	T: BalancesConfig<Balance = <T as Config>::Balance>,
 	<T as BalancesConfig>::RuntimeHoldReason: From<crate::HoldReason>,

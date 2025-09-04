@@ -6,11 +6,12 @@ use sdk::*;
 // std
 use std::{sync::Arc, time::Duration};
 
-use cumulus_client_cli::CollatorOptions;
 // Local Runtime Types
 use mosaic_chain_runtime::{opaque::Block, Hash, RuntimeApi};
 
 // Cumulus Imports
+use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
+use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_consensus_proposer::Proposer;
@@ -29,7 +30,7 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::NetworkBlock;
+use sc_network::{NetworkBackend, NetworkBlock};
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -58,6 +59,7 @@ pub type Service = PartialComponents<
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
+#[allow(clippy::result_large_err)]
 pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error> {
 	let telemetry = config
 		.telemetry_endpoints
@@ -148,33 +150,39 @@ async fn start_node_impl<
 	let parachain_config = prepare_node_config(parachain_config);
 
 	let params = new_partial(&parachain_config)?;
+	let prometheus_registry = parachain_config.prometheus_registry().cloned();
 	let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
 	let net_config = sc_network::config::FullNetworkConfiguration::<_, _, N>::new(
 		&parachain_config.network,
-		parachain_config.prometheus_registry().cloned(),
+		prometheus_registry.clone(),
 	);
 
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 	let mut task_manager = params.task_manager;
 
-	let (relay_chain_interface, collator_key) = build_relay_chain_interface(
-		polkadot_config,
-		&parachain_config,
-		telemetry_worker_handle,
-		&mut task_manager,
-		collator_options.clone(),
-		hwbench.clone(),
-	)
-	.await
-	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+	let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
+	let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
+	let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
+	let parachain_public_addresses = parachain_config.network.public_addresses.clone();
+
+	let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
+		build_relay_chain_interface(
+			polkadot_config,
+			&parachain_config,
+			telemetry_worker_handle,
+			&mut task_manager,
+			collator_options.clone(),
+			hwbench.clone(),
+		)
+		.await
+		.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
 	let validator = parachain_config.role.is_authority();
-	let prometheus_registry = parachain_config.prometheus_registry().cloned();
 	let transaction_pool = params.transaction_pool.clone();
 	let import_queue_service = params.import_queue.service();
 
-	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -185,6 +193,9 @@ async fn start_node_impl<
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
 			sybil_resistance_level: CollatorSybilResistance::Resistant, // because of Aura
+			metrics: sc_network::NetworkWorker::<Block, Hash>::register_notification_metrics(
+				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+			),
 		})
 		.await?;
 
@@ -246,8 +257,7 @@ async fn start_node_impl<
 		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, false) {
 			Err(err) if validator => {
 				log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
-				err
+				"⚠️  The hardware does not meet the minimal requirements {err} for role 'Authority'.",
 			);
 			},
 			_ => {},
@@ -289,12 +299,29 @@ async fn start_node_impl<
 		relay_chain_slot_duration,
 		recovery_handle: Box::new(overseer_handle.clone()),
 		sync_service: sync_service.clone(),
+		prometheus_registry: prometheus_registry.as_ref(),
 	})?;
+
+	start_bootnode_tasks(StartBootnodeTasksParams {
+		embedded_dht_bootnode: collator_options.embedded_dht_bootnode,
+		dht_bootnode_discovery: collator_options.dht_bootnode_discovery,
+		para_id,
+		task_manager: &mut task_manager,
+		relay_chain_interface: relay_chain_interface.clone(),
+		relay_chain_fork_id,
+		relay_chain_network,
+		request_receiver: paranode_rx,
+		parachain_network: network,
+		advertise_non_global_ips,
+		parachain_genesis_hash: client.chain_info().genesis_hash,
+		parachain_fork_id,
+		parachain_public_addresses,
+	});
 
 	if validator {
 		start_consensus(
 			client.clone(),
-			backend.clone(),
+			backend,
 			block_import,
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|t| t.handle()),
@@ -310,12 +337,11 @@ async fn start_node_impl<
 		)?;
 	}
 
-	start_network.start_network();
-
 	Ok((task_manager, client))
 }
 
 /// Build the import queue for the parachain runtime.
+#[allow(clippy::result_large_err)]
 fn build_import_queue(
 	client: Arc<ParachainClient>,
 	block_import: ParachainBlockImport,
@@ -342,7 +368,7 @@ fn build_import_queue(
 	))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::result_large_err)]
 fn start_consensus(
 	client: Arc<ParachainClient>,
 	backend: Arc<ParachainBackend>,
@@ -399,6 +425,7 @@ fn start_consensus(
 		collator_service,
 		authoring_duration: Duration::from_millis(1500),
 		reinitialize: false,
+		max_pov_percentage: None,
 	};
 
 	let fut = aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _>(

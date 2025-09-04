@@ -5,7 +5,7 @@ use sdk::{
 	pallet_transaction_payment, pallet_utility, sp_core, sp_runtime, sp_staking,
 };
 
-use codec::{Compact, Decode, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, InstanceFilter, LinearStoragePrice,
@@ -48,6 +48,7 @@ impl pallet_assets::Config for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type Freezer = ();
+	type Holder = ();
 	type Extra = ();
 	type CallbackHandle = ();
 
@@ -103,7 +104,6 @@ impl pallet_balances::Config for Runtime {
 }
 
 impl pallet_extra_fungible_events::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Fungible = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
@@ -205,13 +205,13 @@ impl pallet_nfts::Config for Runtime {
 	type Features = ();
 	type OffchainSignature = Signature;
 	type OffchainPublic = <Signature as Verify>::Signer;
+	type BlockNumberProvider = System;
 	type WeightInfo = weights::pallet::nfts::Weights<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = NftsBenchmarkHelper;
 }
 
 impl pallet_nft_permission::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type PalletId = params::constant::nft_permission::PalletId;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
@@ -222,7 +222,6 @@ impl pallet_nft_permission::Config for Runtime {
 }
 
 impl pallet_nft_delegation::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type PalletId = params::constant::nft_delegation::PalletId;
 	type MaxExpirationsPerSession = params::constant::nft_delegation::MaxExpirationsPerSession;
 	type CurrentSession = CurrentSession;
@@ -253,7 +252,6 @@ impl pallet_nft_staking::BenchmarkHelper<Runtime> for NftStakingBenchmarkHelper 
 }
 
 impl pallet_nft_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Fungible = FungibleWrapper;
 	type NftDelegationHandler = NftDelegation;
@@ -305,6 +303,8 @@ impl pallet_identity::Config for Runtime {
 	type UsernameGracePeriod = params::constant::identity::UsernameGracePeriod;
 	type SubAccountDeposit = params::dynamic::identity::SubAccountDeposit;
 	type WeightInfo = weights::pallet::identity::Weights<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_scheduler::Config for Runtime {
@@ -317,6 +317,7 @@ impl pallet_scheduler::Config for Runtime {
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type MaxScheduledPerBlock = params::constant::scheduler::MaxScheduledPerBlock;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 	type WeightInfo = weights::pallet::scheduler::Weights<Runtime>;
 }
 
@@ -338,7 +339,6 @@ impl pallet_preimage::Config for Runtime {
 }
 
 impl pallet_validator_subset_selection::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorSuperset = pallet_nft_staking::SelectableValidators<Self>;
 	type SubsetSize = params::dynamic::validator_subset_selection::SubsetSize;
@@ -357,6 +357,7 @@ impl pallet_session::Config for Runtime {
 	type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
 	type WeightInfo = weights::pallet::session::Weights<Runtime>;
+	type DisablingStrategy = ();
 }
 
 // TODO: figure out how to be more generic over the id tuple
@@ -375,6 +376,7 @@ impl pallet_offences::Config for Runtime {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -503,6 +505,7 @@ impl pallet_proxy::Config for Runtime {
 	type ProxyDepositFactor = params::dynamic::proxy::DepositFactor;
 	type AnnouncementDepositBase = params::dynamic::proxy::AnnouncementDepositBase;
 	type AnnouncementDepositFactor = params::dynamic::proxy::AnnouncementDepositFactor;
+	type BlockNumberProvider = System;
 	type WeightInfo = weights::pallet::proxy::Weights<Runtime>;
 }
 
@@ -521,11 +524,11 @@ impl pallet_recovery::Config for Runtime {
 	type ConfigDepositBase = params::dynamic::recovery::ConfigDepositBase;
 	type FriendDepositFactor = params::dynamic::recovery::FriendDepositFactor;
 	type RecoveryDeposit = params::dynamic::recovery::RecoveryDeposit;
+	type BlockNumberProvider = System;
 	type WeightInfo = weights::pallet::recovery::Weights<Runtime>;
 }
 
 impl pallet_doas::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type EnsureOrigin = collectives::CouncilOrigin;
 	type WeightInfo = weights::pallet::doas::Weights<Runtime>;
@@ -548,8 +551,8 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
-		UncheckedExtrinsic::new_bare(call)
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Self::Extrinsic::new_bare(call)
 	}
 }
 
@@ -605,7 +608,6 @@ impl ReportOffence<AccountId, IdTuple, ImOnlineOffence> for ImOnlineReporter {
 
 impl pallet_im_online::Config for Runtime {
 	type AuthorityKey = ImOnlineId;
-	type RuntimeEvent = RuntimeEvent;
 	type ValidatorSet = pallet_nft_staking::SlashableValidators<Self>;
 	type ReportUnresponsiveness = ImOnlineReporter;
 	type UnsignedPriority = params::constant::im_online::UnsignedPriority;
@@ -625,7 +627,6 @@ impl sp_core::Get<SessionIndex> for CurrentSession {
 }
 
 impl pallet_airdrop::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type PermissionType = pallet_nft_staking::PermissionType;
 	type ItemId = <Self as pallet_nfts::Config>::ItemId;
@@ -640,7 +641,6 @@ impl pallet_airdrop::Config for Runtime {
 }
 
 impl pallet_hold_vesting::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Balance = Balance;
 	type Fungible = FungibleWrapper;
@@ -652,7 +652,6 @@ impl pallet_hold_vesting::Config for Runtime {
 }
 
 impl pallet_vesting_to_freeze::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Balance = Balance;
 	type Fungible = FungibleWrapper;
@@ -678,7 +677,6 @@ impl Convert<Balance, FixedU128> for BalanceToScore {
 }
 
 impl pallet_staking_incentive::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type Fungible = FungibleWrapper;
 	type VestingSchedule = HoldVesting;

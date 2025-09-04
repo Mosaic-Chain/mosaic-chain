@@ -15,23 +15,23 @@ stages:
   - apt upgrade -y
   - apt install build-essential git librocksdb-dev libsnappy-dev libclang-dev clang g++-multilib protobuf-compiler -y
   - rustup target add wasm32-unknown-unknown
-  - rustup component add rust-src --toolchain 1.81.0-x86_64-unknown-linux-gnu
+  - rustup component add rust-src --toolchain 1.88.0-x86_64-unknown-linux-gnu
 
 test:
   stage: test
-  image: rust:1.81.0-bookworm
+  image: rust:1.88.0-bookworm
   script:
     - *build-deps
     - rustup component add rustfmt clippy
-    - cargo install --locked cargo-nextest@0.9.97-b.2
-    - cargo install --locked cargo-deny@0.17.0
-    - cargo install --locked zepter@1.78.2
+    - cargo install --locked cargo-nextest@0.9.103
+    - cargo install --locked cargo-deny@0.18.4
+    - cargo install --locked zepter@1.82.1
     - ./scripts/check.sh
 
 benchmark:
   stage: test
   when: manual
-  image: rust:1.81.0-bookworm
+  image: rust:1.88.0-bookworm
   before_script:
     - apt update
     - apt install jq -y
@@ -102,7 +102,7 @@ benchmark:
     - cat $GCP_ARTIFACT_REGISTRY_WRITE_JSON_KEY | docker login -u _json_key --password-stdin https://europe-docker.pkg.dev
 
 .debian:
-  image: rust:1.81-bookworm
+  image: rust:1.88.0-bookworm
   before_script:
    - *build-deps
    - apt install apt-transport-https ca-certificates gnupg curl -y

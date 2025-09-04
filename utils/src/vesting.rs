@@ -1,4 +1,4 @@
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sdk::frame_support::{
 	dispatch::DispatchResult,
@@ -9,7 +9,18 @@ use sdk::frame_support::{
 	traits::fungible::Inspect,
 };
 
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct Schedule<Balance, BlockNumber> {
 	pub locked: Balance,
 	pub per_block: Balance,

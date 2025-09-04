@@ -12,7 +12,7 @@ pub struct Builder<'a> {
 	pub override_build_opts: Option<Cow<'a, str>>,
 }
 
-impl<'a> Builder<'a> {
+impl Builder<'_> {
 	// Canonical representation of project's path
 	fn manifest_path(&self) -> anyhow::Result<PathBuf> {
 		self.path
@@ -22,7 +22,7 @@ impl<'a> Builder<'a> {
 	}
 }
 
-impl<'a> RuntimeBuilder for Builder<'a> {
+impl RuntimeBuilder for Builder<'_> {
 	fn build(&self, package: &str, build_opts: Option<&str>) -> anyhow::Result<Vec<u8>> {
 		let build_opts = if let Some(opts) = self.override_build_opts.as_deref() {
 			Cow::Borrowed(opts)

@@ -11,8 +11,8 @@ use sdk::{
 };
 
 fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
-	let re: <T as Config>::RuntimeEvent = generic_event.into();
-	SystemPallet::<T>::assert_last_event(re.into());
+	let re: T::RuntimeEvent = generic_event.into();
+	SystemPallet::<T>::assert_last_event(re);
 }
 
 #[benchmarks(where <T as Config>::RuntimeCall: From<SystemCall<T>>)]

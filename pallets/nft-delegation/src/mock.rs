@@ -72,6 +72,7 @@ impl pallet_nfts::Config for Test {
 	type Features = ();
 	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
+	type BlockNumberProvider = System;
 	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Test>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
@@ -139,6 +140,7 @@ impl pallet_session::Config for Test {
 	type SessionManager = DummySessionManager<AccountId, NftDelegation>;
 	type SessionHandler = OtherSessionHandler;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
 
@@ -188,7 +190,6 @@ impl sp_core::Get<SessionIndex> for CurrentSession {
 }
 
 impl nft_delegation::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type PalletId = NftPermissionPalletId;
 	type CurrentSession = CurrentSession;
 	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;

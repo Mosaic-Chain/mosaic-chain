@@ -23,7 +23,7 @@ use frame_support::{
 	},
 	traits::{
 		fungible::{Inspect, InspectFreeze, MutateFreeze},
-		IsType, VariantCount, VariantCountOf,
+		VariantCount, VariantCountOf,
 	},
 	BoundedVec, Parameter, Twox64Concat,
 };
@@ -38,8 +38,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: sdk::frame_system::Config {
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as sdk::frame_system::Config>::RuntimeEvent>;
 		type RuntimeFreezeReason: From<FreezeReason> + VariantCount;
 		type Balance: Parameter
 			+ Copy
