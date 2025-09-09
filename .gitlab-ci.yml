@@ -6,7 +6,9 @@ variables:
 stages:
   - test
   - publish
-  - release
+  - release-testnet
+  - release-devnet
+  - release-mainnet
 
 .build-deps: &build-deps
   - apt update -y
@@ -145,7 +147,6 @@ publish-debian:
 
 .release-docker:
   extends: .docker
-  stage: release
   rules:
     - if: $CI_COMMIT_REF_PROTECTED == 'true'
       when: manual
@@ -159,7 +160,6 @@ publish-debian:
 
 .release-debian:
   extends: .debian
-  stage: release
   rules:
     - if: $CI_COMMIT_REF_PROTECTED == 'true'
       when: manual
@@ -185,24 +185,56 @@ publish-debian:
 
 release-docker-testnet:
   extends: .release-docker
+  stage: release-testnet
   variables:
     TAG: testnet
+  environment:
+    name: testnet
 
 release-docker-devnet:
   extends: .release-docker
+  stage: release-devnet
   needs:
     - release-docker-testnet
   variables:
     TAG: devnet
+  environment:
+    name: devnet
+
+release-docker-mainnet:
+  extends: .release-docker
+  stage: release-mainnet
+  needs:
+    - release-docker-devnet
+  variables:
+    TAG: mainnet
+  environment:
+    name: mainnet
 
 release-debian-testnet:
   extends: .release-debian
+  stage: release-testnet
   variables:
     DEBIAN_REPOSITORY: apt-testnet-repository
+  environment:
+    name: testnet
     
 release-debian-devnet:
   extends: .release-debian
+  stage: release-devnet
   needs:
     - release-debian-testnet
   variables:
     DEBIAN_REPOSITORY: apt-devnet-repository
+  environment:
+    name: devnet
+
+release-debian-mainnet:
+  extends: .release-debian
+  stage: release-mainnet
+  needs:
+    - release-debian-devnet
+  variables:
+    DEBIAN_REPOSITORY: apt-mainnet-repository
+  environment:
+    name: mainnet
