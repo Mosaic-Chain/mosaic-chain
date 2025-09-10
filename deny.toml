@@ -33,11 +33,11 @@ allow = [
     "MIT-0",
     "ISC",
     "Unicode-3.0",
-    "OpenSSL",
     "Zlib",
     # copyleft:
-    "GPL-3.0",                              # this makes our nodes GPL-3.0, too
-    "GPL-3.0 WITH Classpath-exception-2.0", # like LGPL, but legally simpler
+    "GPL-3.0-or-later",                              # this makes our nodes GPL-3.0, too
+    "GPL-3.0-only",                              # this makes our nodes GPL-3.0, too
+    "GPL-3.0-or-later WITH Classpath-exception-2.0", # like LGPL, but legally simpler
     "MPL-2.0",                              # other source code files can use any license
 ]
 confidence-threshold = 0.8
