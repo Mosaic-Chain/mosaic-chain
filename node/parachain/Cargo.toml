@@ -24,7 +24,10 @@ assets = [
 	["../../chainspecs/devnet/para-latest.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
 	["../../chainspecs/paseo/paseo-spec-1728985302.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
 	["../../chainspecs/paseo/relay-latest.json", "usr/share/mosaic-chain-devnet/chainspec/", "644"],
-	# TODO: once releasing to mainnet inculde chainspecs here
+	["../../chainspecs/mainnet/mainnet-spec-1758032512.json", "usr/share/mosaic-chain-mainnet/chainspec/", "644"],
+	["../../chainspecs/mainnet/para-latest.json", "usr/share/mosaic-chain-mainnet/chainspec/", "644"],
+	["../../chainspecs/polkadot/polkadot-spec-1740216906.json", "usr/share/mosaic-chain-mainnet/chainspec/", "644"],
+	["../../chainspecs/polkadot/relay-latest.json", "usr/share/mosaic-chain-mainnet/chainspec/", "644"],
 	["target/release/mosaic-chain", "usr/bin/mosaic-chain", "755"]
 ]
 
