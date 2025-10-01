@@ -49,10 +49,10 @@
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-// #[cfg(test)]
-// mod mock;
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 //pub mod migrations;
 pub mod weights;
@@ -237,12 +237,8 @@ pub mod pallet {
 			// * who - Account which we are generating vesting configuration for
 			// * begin - Block when the account will start to vest
 			// * length - Number of blocks from `begin` until fully vested
-			// * liquid - Number of units which can be spent before vesting begins
-			for &(ref who, begin, length, liquid) in self.vesting.iter() {
-				let balance = T::Fungible::balance(who);
-				assert!(!balance.is_zero(), "Currencies must be init'd before vesting");
-				// Total genesis `balance` minus `liquid` equals funds locked for vesting
-				let locked = balance.saturating_sub(liquid + T::Fungible::minimum_balance());
+			// * locked - Number of units locked in the schedule
+			for &(ref who, begin, length, locked) in self.vesting.iter() {
 				let length_as_balance = T::BlockNumberToBalance::convert(length).max(One::one());
 
 				// div_ceil
