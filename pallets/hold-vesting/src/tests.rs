@@ -287,6 +287,35 @@ fn liquid_funds_should_transfer_with_delayed_vesting() {
 }
 
 #[test]
+fn liquid_funds_should_transfer_with_unknown_starting_block_schedule() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		// Account 3 has schedule not yet started
+		let user3_vesting_schedule = Schedule::new(
+			ED * 5,
+			// Vesting over 20 blocks
+			ED / 4,
+			None,
+		);
+		assert_ok!(Vesting::vested_transfer(
+			RawOrigin::Signed(13).into(),
+			3,
+			user3_vesting_schedule
+		));
+		assert_eq!(VestingStorage::<Test>::get(3).unwrap(), vec![user3_vesting_schedule]);
+
+		let user3_free_balance = Balances::free_balance(3);
+
+		// Account 3 has free balance
+		assert_eq!(user3_free_balance, ED * 30);
+		// Account 3 has liquid funds
+		assert_eq!(Vesting::vesting_balance(&3), Some(ED * 5));
+
+		// Account 3 can still send liquid funds
+		assert_ok!(Balances::transfer_allow_death(Some(3).into(), 12, ED * 30 - ED));
+	});
+}
+
+#[test]
 fn vested_transfer_works() {
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let user3_free_balance = Balances::free_balance(3);
@@ -981,6 +1010,19 @@ fn merge_schedules_throws_proper_errors() {
 
 		// It is a storage noop with no errors if the indexes are the same.
 		assert_storage_noop!(Vesting::merge_schedules(Some(2).into(), 0, 0).unwrap());
+
+		// Can't merge schedules where the starting block is unknown for any of the schedules
+		let sched1 = Schedule::new(
+			ED * 20,
+			ED, // 20 block duration.
+			None,
+		);
+		Vesting::vested_transfer(Some(13).into(), 2, sched1).unwrap();
+		assert_eq!(VestingStorage::<Test>::get(2).unwrap(), vec![sched0, sched0, sched1]);
+		assert_noop!(
+			Vesting::merge_schedules(Some(2).into(), 1, 2),
+			Error::<Test>::NoDefiniteStartingBlock
+		);
 	});
 }
 
@@ -1106,6 +1148,10 @@ fn vesting_info_ending_block_as_balance_works() {
 		),
 		0
 	);
+
+	// Return `None` if starting block is unknown
+	let unknown_start_block = Schedule::new(256u32, 1u32, None);
+	assert_eq!(unknown_start_block.ending_block_as_balance::<Identity>(), None);
 }
 
 #[test]
@@ -1229,4 +1275,139 @@ fn vested_transfer_impl_works() {
 			Error::<Test>::InvalidScheduleParams
 		);
 	});
+}
+
+#[test]
+fn set_starting_block_works() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		// account 3 has schedule not yet started
+		let sched = Schedule::new(
+			ED * 5,
+			ED, // Vesting over 5 blocks
+			None,
+		);
+
+		assert_ok!(Vesting::vested_transfer(RawOrigin::Signed(13).into(), 3, sched));
+		assert_eq!(VestingStorage::<Test>::get(3).unwrap(), vec![sched]);
+
+		// successfully set start to 10
+		assert_ok!(Vesting::start_vesting_schedule(RawOrigin::Root.into(), 3, 0, 10));
+		assert_eq!(
+			VestingStorage::<Test>::get(3).unwrap(),
+			vec![Schedule { starting_block: Some(10), ..sched }]
+		);
+
+		// on block 10 the schedule is started
+		System::set_block_number(10);
+		assert_eq!(Vesting::vesting_balance(&3).unwrap(), ED * 5);
+
+		// on block 11 some amount unlocks
+		System::set_block_number(11);
+		assert_eq!(Vesting::vesting_balance(&3).unwrap(), ED * 4);
+
+		// on block 15 all unlocks
+		System::set_block_number(15);
+		assert_eq!(Vesting::vesting_balance(&3).unwrap(), 0);
+		vest_and_assert_no_vesting::<Test>(3);
+	})
+}
+
+#[test]
+fn set_starting_block_works_retroactively() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		// account 3 has schedule not yet started
+		let sched = Schedule::new(
+			ED * 10,
+			ED / 2, // Vesting over 20 blocks
+			None,
+		);
+
+		assert_ok!(Vesting::vested_transfer(RawOrigin::Signed(13).into(), 3, sched));
+		assert_eq!(VestingStorage::<Test>::get(3).unwrap(), vec![sched]);
+
+		// on block 10 nothing is unlocked
+		System::set_block_number(10);
+		assert_eq!(Vesting::vesting_balance(&3).unwrap(), ED * 10);
+
+		// successfully set start to 0
+		assert_ok!(Vesting::start_vesting_schedule(RawOrigin::Root.into(), 3, 0, 0));
+		assert_eq!(
+			VestingStorage::<Test>::get(3).unwrap(),
+			vec![Schedule { starting_block: Some(0), ..sched }]
+		);
+
+		// on block 10 some unlocks
+		assert_eq!(Vesting::vesting_balance(&3).unwrap(), ED * 5);
+
+		// on block 20 all unlocks
+		System::set_block_number(20);
+		assert_eq!(Vesting::vesting_balance(&3).unwrap(), 0);
+		vest_and_assert_no_vesting::<Test>(3);
+	})
+}
+
+#[test]
+fn set_starting_block_fails_if_already_started() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		// account 1 has schedule already started
+		let sched = Schedule::new(
+			ED * 5,
+			ED / 2, // Vesting over 10 blocks
+			Some(0),
+		);
+		assert_eq!(VestingStorage::<Test>::get(1).unwrap(), vec![sched]);
+
+		// failed to set start to 10
+		assert_noop!(
+			Vesting::start_vesting_schedule(RawOrigin::Root.into(), 1, 0, 10),
+			Error::<Test>::StartingBlockAlreadySet
+		);
+	})
+}
+
+#[test]
+fn set_starting_block_fails_if_schedule_index_is_invalid() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		// account 1 has one schedule
+		let sched = Schedule::new(
+			ED * 5,
+			ED / 2, // Vesting over 10 blocks
+			Some(0),
+		);
+		assert_eq!(VestingStorage::<Test>::get(1).unwrap(), vec![sched]);
+
+		// failed to set start of schedule 1
+		assert_noop!(
+			Vesting::start_vesting_schedule(RawOrigin::Root.into(), 1, 1, 10),
+			Error::<Test>::InvalidScheduleParams
+		);
+
+		// account 3 has no schedule
+		assert_eq!(VestingStorage::<Test>::get(3), None);
+
+		// failed to set start of non-existing schedule
+		assert_noop!(
+			Vesting::start_vesting_schedule(RawOrigin::Root.into(), 3, 0, 10),
+			Error::<Test>::NotVesting
+		);
+	})
+}
+
+#[test]
+fn set_starting_block_fails_if_caller_is_not_root() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		// account 1 has one schedule
+		let sched = Schedule::new(
+			ED * 5,
+			ED / 2, // Vesting over 10 blocks
+			Some(0),
+		);
+		assert_eq!(VestingStorage::<Test>::get(1).unwrap(), vec![sched]);
+
+		// failed to set start of schedule 0 with signed origin
+		assert_noop!(
+			Vesting::start_vesting_schedule(RawOrigin::Signed(1).into(), 1, 0, 10),
+			DispatchError::BadOrigin
+		);
+	})
 }
