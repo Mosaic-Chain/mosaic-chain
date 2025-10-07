@@ -7,7 +7,7 @@ use sdk::{
 
 use frame_support::{
 	pallet_prelude::BuildGenesisConfig,
-	traits::{fungible::Mutate, OnRuntimeUpgrade},
+	traits::{fungible::Mutate, Currency, OnRuntimeUpgrade},
 	weights::Weight,
 };
 
@@ -64,15 +64,14 @@ impl MigrateFromV100<Runtime> {
 		if cfg!(feature = "local") {
 			Self::accounts()
 		} else {
-			// NOTE: these are the addresses collected from the members of the polkadot
-			// admin multisig.
+			// NOTE: these are the addresses collected from the members of the polkadot admin multisig with a single change so far.
 			[
-				"0x56635c6ed226344060eae9313b47472ef7bdc4ca9e4d3eb8ccee73badfe1ec42",
-				"0xa04ed7f7003af5b1f2cdc596c58ef31a58d2a12899f8e2b0ebe0ea10b5dcfa72",
-				"0xaa3c8082e71c64e4652e2e5b11d0f1b8aa0dcab0e48bfbc6aa395978630acf48",
-				"0xb4dd5b7a774828c2a267175a43347d0b06c28cdb9fd4443954ca167e07a1af2b",
-				"0x6efe1c45d2ad830ff71c16c26e005b6d0f6f40feadb72cfa6e010a9541444b77",
-				"0x269230f6b7087977655840a851769f109af8a28a7c2900604805141025b7d123",
+				"0x56635c6ed226344060eae9313b47472ef7bdc4ca9e4d3eb8ccee73badfe1ec42", // 12xGdoQw4upCDrc9PJjJ6pDeDx3Kyo3fa6AMa62pbTw7ZaKv
+				"0xa04ed7f7003af5b1f2cdc596c58ef31a58d2a12899f8e2b0ebe0ea10b5dcfa72", // 14dC5pCtc7mvRZuUZA5d4R1uxd7w2T8Pj8HsuWJ92ESgRDU6
+				"0xaa3c8082e71c64e4652e2e5b11d0f1b8aa0dcab0e48bfbc6aa395978630acf48", // 14rD7ZxsoCpFUxt8vJgJBNGqmgtAQHnrXVH9rWifYXzf3Rs3
+				"0x002ed320b65f57d09a25fcc3b5d4b925b18624385e6d6d25402f294c524fc274", // 11Eumj1Eh3XmtH9TmRbmzhVBy2WKavuhyjN8mpvooy7aDE1
+				"0x6efe1c45d2ad830ff71c16c26e005b6d0f6f40feadb72cfa6e010a9541444b77", // 13WXkj5AFU2Wvmxz9DTba6qLsHHGayKbnqLGTfxoKUzTUVjY
+				"0x269230f6b7087977655840a851769f109af8a28a7c2900604805141025b7d123", // 1saFMaLSrzaG4sC7n2eaZhm2QT4fFWopBM1j4rMNNZ76pM3
 			]
 			.into_iter()
 			.map(account_from_hex)
@@ -90,22 +89,24 @@ impl MigrateFromV100<Runtime> {
 				.collect()
 		} else if cfg!(feature = "mainnet") {
 			[
-				"0x1ee256f0b5b975c51b62e199ae1796b342d9337aa2b1dbc9777d44107446ae1d",
-				"0x5e4c345149989cfdba0f452e5e2e132901d85ad513269fdc06a77bf205d0cf67",
-				"0xdc6b9379f2f366ea7a60dae93db47b479dfa4def30962c40428167b225e9285c",
-				"0x6ebbc72a185b1b4ebc38ca63ce142a667b816a54dcc94ed25dcdb022cecce13a",
+				"0x1ee256f0b5b975c51b62e199ae1796b342d9337aa2b1dbc9777d44107446ae1d", // moUsZ8AWgmwApRnXfHC7oJhgfi2CzXb5bJXSsCg4vFzamzQk3
+				"0x5e4c345149989cfdba0f452e5e2e132901d85ad513269fdc06a77bf205d0cf67", // moWJhb9Eb3AtUG7gbWBmEDJpUcrLns7Q5Vv8ypHJyqc1dk14U
+				"0xdc6b9379f2f366ea7a60dae93db47b479dfa4def30962c40428167b225e9285c", // moZA4wc7i9fg1UUXgNqBvLjqzwMfgcdXtNRb4jqu7orX9Q5WF
+				"0x6ebbc72a185b1b4ebc38ca63ce142a667b816a54dcc94ed25dcdb022cecce13a", // moWgFVwy5rtmxswNLfZ1ziHbDg8k4uBsecswYHs7ee2VwL5C8
+				"0x28a9d8a7d66659dce3fe72f9c72f75ab728d4774f128027fca95f98d3b438457", // moV6NpaevBMyszJ3ocuFcQaszTiyFrspWucBa3xyJ4kBNhMnc
+				"0xf835e5158dbdc17ce689e8d7d749a17336412258091546433cf92b6597fdc61d", // moZnWLTvzRswenRyAd6n5iUxWVmG5JnaLG4RHWPQUuzW4Dksf
 			]
 			.into_iter()
 			.map(account_from_hex)
 			.collect()
 		} else {
 			[
-				"0x40dfa76970d4764caf433a9fab6d182e1e4d930e708e1c4f2037745126f4c368",
-				"0xecf63d434c813fead2bd9f609505a4f4c2458353038b1c207d71ef4247457316",
-				"0x94ceb7088b35c85435a29912a8a5e6245fe3b8b8dd448f2fefcdd3688f86f55a",
-				"0x720122b86ea8eded8598ed8daf51ccd02bfd437cc5a521d9fa54f4e21e38ea39",
-				"0xfedf595419ad6922807543d56ed10b1ef306558b27e562b770392b7c25e12132",
-				"0xc87afa66b5d934ffa2d486953ce9da7dc3648317855821b462072628506e3e0e",
+				"0x40dfa76970d4764caf433a9fab6d182e1e4d930e708e1c4f2037745126f4c368", // moVe7xKYuGDLQhvyVsbMjnY7hAE4SGFmAvtdDa5zgxb85hsEq
+				"0xecf63d434c813fead2bd9f609505a4f4c2458353038b1c207d71ef4247457316", // moZXku9wvKst9GPifSgTnypigKUbgaJ1Q7evALkrNMp8NgJkZ
+				"0x94ceb7088b35c85435a29912a8a5e6245fe3b8b8dd448f2fefcdd3688f86f55a", // moXYAwmDPVhp41gkXM4HrkqqR9uhER1KbSYQVfXWhRjXLUY2P
+				"0x720122b86ea8eded8598ed8daf51ccd02bfd437cc5a521d9fa54f4e21e38ea39", // moWkYFHUHPtaA2vfoeuUofYqSPiCKodRm2jfBZMCz8HCSajwQ
+				"0xfedf595419ad6922807543d56ed10b1ef306558b27e562b770392b7c25e12132", // moZwExkjX5A3A7TKFCYHP9JQSgELcVQaNFkxvsAxdJw8gQ3tx
+				"0xc87afa66b5d934ffa2d486953ce9da7dc3648317855821b462072628506e3e0e", // moYhvZRxdxzkcrJqyv2M6gpYr6dYAERiP2bPYkk7ZZYT1a1wV
 			]
 			.into_iter()
 			.map(account_from_hex)
@@ -118,11 +119,11 @@ impl MigrateFromV100<Runtime> {
 			public_from_seed::<sp_core::sr25519::Public>("//MintingAuthority")
 		} else if cfg!(feature = "mainnet") {
 			public_from_hex::<sp_core::sr25519::Public>(
-				"0xca494ec6c3f000a1ad37c0fd8ef176007a54480c5328cdd1003f4ec1324d1927",
+				"0xca494ec6c3f000a1ad37c0fd8ef176007a54480c5328cdd1003f4ec1324d1927", // 15aET5dW9PTmdXgsYvTrYdhGD99p51p3tdazxxBJLJUWuTuv
 			)
 		} else {
 			public_from_hex::<sp_core::sr25519::Public>(
-				"0x724057d84b455a2fef18d9d1ddf6a0b524d69954a0bf997a902a64dce6d22d35",
+				"0x724057d84b455a2fef18d9d1ddf6a0b524d69954a0bf997a902a64dce6d22d35", // 13aoaDmrfJGjXi9rheCVvdwSAmQXVnVErw2QjdshVDMDTU1Y
 			)
 		};
 		public_key.into()
@@ -145,6 +146,16 @@ impl OnRuntimeUpgrade for MigrateFromV100<Runtime> {
 				VERSION.spec_version
 			);
 			return Weight::zero();
+		}
+
+		// Endow council members
+		for account in Self::council_members() {
+			Balances::mint_into(&account, 100 * MOSAIC).unwrap();
+		}
+
+		// Endow initial validator NFT owners
+		for account in Self::accounts() {
+			let _ = Balances::make_free_balance_be(&account, 100 * MOSAIC);
 		}
 
 		// Endow funds
