@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2025-10-07
+
+### 🚀 Features
+
+- Upgraded polkadot-sdk to 2506-1 and the rust toolchain to 1.88
+- *cli*: Max_pending_out is configurable
+- Added mainnet chainspecs
+- *migration*: V101 migration endows council members
+
+### 🐛 Bug Fixes
+
+- Cargo-deny patch version broke the build
+
+### ⚙️ Miscellaneous Tasks
+
+- Implemented improved deployment
+- Mainnet deployment
+- Added exceptions to deny.toml
+
 ## [0.10.0] - 2025-07-30
 
 ### 🚀 Features

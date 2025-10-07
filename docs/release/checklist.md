@@ -1,6 +1,6 @@
 # Release Checklist
 
-- Using the latest version of branch `develop`.
+- Using the latest version of branch `main`.
 - Appropriate fields of `RuntimeVersion` instance are bumped for the parachain runtime.
 - Necessary migrations are properly added to the parachain runtime.
 - New testnet chainspec is generated.
