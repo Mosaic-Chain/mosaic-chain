@@ -1,5 +1,5 @@
 {
-  "name": "Mosaic",
+  "name": "Mosaic Chain",
   "id": "mosaic",
   "chainType": "Live",
   "bootNodes": [
@@ -19,7 +19,7 @@
   "telemetryEndpoints": null,
   "protocolId": "mosaic-chain",
   "properties": {
-    "ss58Format": 14998,
+    "ss58Format": 0,
     "tokenDecimals": 18,
     "tokenSymbol": "MOS"
   },
