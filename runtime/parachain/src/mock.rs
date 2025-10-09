@@ -2,8 +2,8 @@
 #![allow(non_camel_case_types)]
 
 use sdk::{
-	frame_support, frame_system, pallet_balances, pallet_collective, pallet_membership, sp_core,
-	sp_io, sp_runtime,
+	frame_support, frame_system, pallet_balances, pallet_collective, pallet_membership,
+	pallet_offences, pallet_session, sp_core, sp_io, sp_runtime, sp_std,
 };
 
 use frame_support::{
@@ -15,12 +15,16 @@ use frame_support::{
 use frame_system::{EventRecord, Phase};
 use sp_core::{bounded_vec, ConstU128, ConstU32, H256};
 use sp_runtime::{
-	traits::{AccountIdLookup, BlakeTwo256, IdentifyAccount, Verify},
-	BuildStorage, MultiSignature,
+	traits::{AccountIdLookup, BlakeTwo256, ConvertInto},
+	BuildStorage, Perbill,
 };
+use sp_std::num::NonZeroU32;
+use utils::mocking;
 
-pub type Signature = MultiSignature;
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub type AccountId = u64;
+pub type Balance = u128;
+pub type ItemId = u64;
+
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // this is needed, otherwise fmt will remove the :: from ::<Instance1>
@@ -33,10 +37,20 @@ frame_support::construct_runtime!(
 		TestCouncilCollective: pallet_collective::<Instance1>,
 		TestCouncilCollectiveMembership: pallet_membership::<Instance1>,
 		DoAs: pallet_doas,
+		Offences: pallet_offences,
+		Session: pallet_session,
+		HoldVesting: pallet_hold_vesting,
+		VestingToFreeze: pallet_vesting_to_freeze,
+		NftStaking: pallet_nft_staking,
 	}
 );
 
-pub type Balance = u128;
+impl mocking::MockConfig for Test {
+	type AccountId = AccountId;
+	type ItemId = ItemId;
+	type Balance = Balance;
+	type PermissionType = pallet_nft_staking::PermissionType;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -131,12 +145,115 @@ impl pallet_doas::Config for Test {
 	type WeightInfo = ();
 }
 
-pub fn account(id: u64) -> AccountId {
-	let id_as_bytes = id.to_ne_bytes();
-	let zeros: [u8; 24] = [0; 24];
-	let ret: [u8; 32] = [&id_as_bytes[..], &zeros[..]].concat().try_into().unwrap();
+impl pallet_offences::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type IdentificationTuple = AccountId;
+	type OnOffenceHandler = NftStaking;
+}
 
-	ret.into()
+impl pallet_session::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = Self::AccountId;
+	type ValidatorIdOf = ConvertInto;
+	type ShouldEndSession = mocking::session::AlwaysEndSession;
+	type NextSessionRotation = ();
+	type SessionManager = mocking::session::DummySessionManager<
+		Test,
+		(mocking::nft_delegation_handler::NftDelegationExpiry<Test, NftStaking>, NftStaking),
+	>;
+	type SessionHandler = mocking::session::EmptySessionHandler<Test>;
+	type Keys = mocking::MockSessionKeys;
+	type DisablingStrategy = ();
+	type WeightInfo = ();
+}
+
+impl pallet_balances::Config for Test {
+	type Balance = Balance;
+	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
+	type ExistentialDeposit = ConstU128<1>;
+	type AccountStore = System;
+	type WeightInfo = ();
+	type MaxLocks = ();
+	type MaxReserves = ConstU32<50>;
+	type ReserveIdentifier = [u8; 8];
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<50>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type DoneSlashHandler = ();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_nft_staking::BenchmarkHelper<Test> for BenchmarkHelper {
+	fn id_tuple_from_account(acc: AccountId) -> AccountId {
+		acc
+	}
+}
+
+parameter_types! {
+	pub const MinimumCommission: Perbill = Perbill::from_percent(1);
+	pub const MinimumStakingAmount: Balance = 10;
+	pub const MinimumStakingPeriod: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(200) }; // approx. 1 week
+	pub const NominalValueThreshold: Perbill = Perbill::from_percent(80);
+	pub const MaximumStakePercentage: Perbill = Perbill::from_percent(15);
+	pub const MaximumContractsPerValidator: u32 = 1000;
+	pub const MaximumBoundValidators: u32 = 4000;
+	pub const SlackingPeriod: u32 = 5;
+	pub const ContributionPercentage: Perbill = Perbill::from_percent(20);
+}
+
+impl pallet_nft_staking::Config for Test {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Balance = Balance;
+	type ItemId = ItemId;
+	type Fungible = Balances;
+	type NftStakingHandler = mocking::nft_staking_handler::NftStakingHandler<Test>;
+	type NftDelegationHandler = mocking::nft_delegation_handler::NftDelegationHandler<Test>;
+	type SlackingPeriod = SlackingPeriod;
+	type NominalValueThreshold = NominalValueThreshold;
+	type MinimumStakingPeriod = MinimumStakingPeriod;
+	type MinimumCommissionRate = MinimumCommission;
+	type MinimumStakingAmount = MinimumStakingAmount;
+	type MaximumStakePercentage = MaximumStakePercentage;
+	type MaximumContractsPerValidator = MaximumContractsPerValidator;
+	type MaximumBoundValidators = MaximumBoundValidators;
+	type SessionReward = mocking::session::SessionRewardInstance;
+	type Hooks = ();
+	type OffenderToValidatorId = ConvertInto;
+	type ContributionPercentage = ContributionPercentage;
+	type ContributionDestination = ();
+	type WeightInfo = ();
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchmarkHelper;
+}
+
+impl pallet_hold_vesting::Config for Test {
+	type BlockNumberToBalance = ConvertInto;
+	type Balance = Balance;
+	type Fungible = Balances;
+	type MinVestedTransfer = ConstU128<50>;
+	type BlockNumberProvider = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WeightInfo = ();
+	const MAX_VESTING_SCHEDULES: u32 = 3;
+}
+
+impl pallet_vesting_to_freeze::Config for Test {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type Balance = Balance;
+	type Fungible = Balances;
+	type VestingSchedule = HoldVesting;
+	type BlockNumberToBalance = ConvertInto;
+	type BlockNumberProvider = System;
+	type MaxFrozenSchedules = ConstU32<3>;
+	type MaxFreezes = ConstU32<5>;
+	type MaxVestingSchedules = ConstU32<3>;
+	type WeightInfo = ();
 }
 
 pub const ALICE: u64 = 1;
@@ -150,30 +267,16 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 		balances: pallet_balances::GenesisConfig::default(),
 		test_council_collective: Default::default(),
 		test_council_collective_membership: pallet_membership::GenesisConfig {
-			members: bounded_vec![account(ALICE), account(BOB), account(CHARLIE)],
+			members: bounded_vec![ALICE, BOB, CHARLIE],
 			phantom: Default::default(),
 		},
+		nft_staking: pallet_nft_staking::GenesisConfig::default(),
+		session: pallet_session::GenesisConfig::default(),
+		hold_vesting: pallet_hold_vesting::GenesisConfig::default(),
 	}
 	.build_storage()
 	.unwrap()
 	.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU128<1>;
-	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ConstU32<50>;
-	type ReserveIdentifier = [u8; 8];
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
-	type DoneSlashHandler = ();
 }

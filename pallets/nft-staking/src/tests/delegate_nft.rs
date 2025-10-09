@@ -50,7 +50,7 @@ fn staking_period_resets(mut ext: TestExternalities) {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
 
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(50));
+		run_until::<AllPalletsWithSystem, Test>(ToSession(50));
 
 		Staking::delegate_nft(
 			delegator.origin,
@@ -256,7 +256,7 @@ fn item_does_not_exist(mut ext: TestExternalities) {
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		);
-		assert_noop!(res, NftDeleationHandlerError::TokenDoesNotExist);
+		assert_noop!(res, NftDelegationHandlerError::TokenDoesNotExist);
 	});
 }
 
@@ -273,7 +273,7 @@ fn item_wrong_owner(mut ext: TestExternalities) {
 			MinimumStakingPeriod::get().into(),
 			MinimumCommission::get(),
 		);
-		assert_noop!(res, NftDeleationHandlerError::WrongOwner);
+		assert_noop!(res, NftDelegationHandlerError::WrongOwner);
 	});
 }
 
@@ -300,7 +300,7 @@ fn item_already_bound(mut ext: TestExternalities) {
 			MinimumCommission::get(),
 		);
 
-		assert_noop!(res, NftDeleationHandlerError::AlreadyBound);
+		assert_noop!(res, NftDelegationHandlerError::AlreadyBound);
 	});
 }
 

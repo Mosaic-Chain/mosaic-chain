@@ -17,21 +17,15 @@ fn expiry_works(mut ext: TestExternalities) {
 		)
 		.expect("could delegate nft");
 
-		run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(expiry));
+		run_until::<AllPalletsWithSystem, Test>(ToSession::current_plus::<Test>(expiry));
 
 		assert_current_validator_stake!(
 			&validator.account_id,
 			Some(TotalValidatorStake { total_stake, .. }) if total_stake == NOMINAL_VALUE
 		);
 
-		assert_current_contract!(&validator.account_id, &delegator.account_id,
-			Some(Contract {
-				stake: Stake {
-					delegated_nfts,
-					..
-				},
-				..
-			}) if delegated_nfts.is_empty());
+		// Contract is cleaned up in `on_idle`
+		assert!(Staking::current_contract(&validator.account_id, &delegator.account_id).is_none());
 
 		System::assert_has_event(
 			Event::<Test>::NftUndelegated {
@@ -41,8 +35,6 @@ fn expiry_works(mut ext: TestExternalities) {
 			}
 			.into(),
 		);
-
-		next_session();
 
 		assert!(!NftDelegationHandler::is_bound(&delegator.delegator_nft));
 	});
@@ -66,7 +58,7 @@ fn expires_even_when_contract_is_binding(mut ext: TestExternalities) {
 		.expect("could delegate nft");
 
 		// Almost expires
-		run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(expiry - 1));
+		run_until::<AllPalletsWithSystem, Test>(ToSession::current_plus::<Test>(expiry - 1));
 
 		// Update contract
 		Staking::delegate_currency(

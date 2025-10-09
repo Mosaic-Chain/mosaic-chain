@@ -69,7 +69,7 @@ fn minimum_staking_period_resets(
 		let validator = BindParams::default().permission(permission).mint().bind();
 		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
+		run_until::<AllPalletsWithSystem, Test>(ToSession(session));
 
 		let res = Staking::self_stake_currency(validator.origin, MinimumStakingAmount::get());
 		assert_ok!(res, ());

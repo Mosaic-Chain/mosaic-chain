@@ -34,7 +34,7 @@ fn nft_does_not_exist(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let origin = origin(0);
 		let res = Staking::bind_validator(origin, 42);
-		assert_noop!(res, StakingHandlerError::TokenDoesNotExist);
+		assert_noop!(res, NftStakingHandlerError::TokenDoesNotExist);
 	});
 }
 
@@ -48,7 +48,7 @@ fn wrong_owner(mut ext: TestExternalities) {
 			.expect("could mint permission nft");
 
 		let res = Staking::bind_validator(alice, nft);
-		assert_noop!(res, StakingHandlerError::WrongOwner);
+		assert_noop!(res, NftStakingHandlerError::WrongOwner);
 	});
 }
 

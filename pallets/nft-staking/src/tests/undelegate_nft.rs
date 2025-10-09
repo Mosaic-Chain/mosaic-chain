@@ -76,7 +76,9 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 
 		// is_slacking = current_index - chill_index > SlackingPeriod
 		// => slacking since session `current` + `SlackingPeriod` + 1
-		run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(SlackingPeriod::get() + 1));
+		run_until::<AllPalletsWithSystem, Test>(ToSession::current_plus::<Test>(
+			SlackingPeriod::get() + 1,
+		));
 
 		let res = Staking::undelegate_nft(
 			delegator.origin,
@@ -218,7 +220,7 @@ fn binding_contract(
 		)
 		.expect("could delegate nft");
 
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
+		run_until::<AllPalletsWithSystem, Test>(ToSession(session));
 
 		let res = Staking::undelegate_nft(
 			delegator.origin,

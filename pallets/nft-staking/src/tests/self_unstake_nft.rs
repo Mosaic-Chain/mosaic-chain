@@ -110,7 +110,7 @@ fn self_contract_is_binding(
 		Staking::self_stake_nft(validator.origin.clone(), delegation_details.delegator_nft)
 			.expect("could stake nft");
 
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
+		run_until::<AllPalletsWithSystem, Test>(ToSession(session));
 
 		let res = Staking::self_unstake_nft(validator.origin, delegation_details.delegator_nft);
 		assert_noop!(res, Error::<Test>::EarlyUnstake);

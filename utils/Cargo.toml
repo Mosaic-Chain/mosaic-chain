@@ -9,7 +9,7 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdk = { workspace = true, features = [ "frame-support", "sp-staking", "frame-system", "sp-runtime" ] }
+sdk = { workspace = true, features = [ "frame-support", "sp-staking", "frame-system", "sp-runtime", "sp-std", "sp-application-crypto", "pallet-session" ] }
 impl-trait-for-tuples = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }

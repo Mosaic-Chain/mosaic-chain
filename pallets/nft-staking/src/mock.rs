@@ -1,30 +1,29 @@
-mod nft_delegation_handler;
-mod nft_staking_handler;
-mod session;
-
-pub use nft_delegation_handler::{
-	Error as NftDeleationHandlerError, NftDelegationHandler, NftDelegationHandlerStore,
-};
-pub use nft_staking_handler::{Error as StakingHandlerError, NftStakingHandler};
-pub use session::{MockSessionKeys, SessionReward, SessionRewardInstance, ToSession, ValidatorSet};
-
 use sdk::{
 	frame_support, frame_system, pallet_balances, pallet_offences, pallet_session, sp_core, sp_io,
 	sp_runtime, sp_staking, sp_std,
 };
 
-use frame_support::{derive_impl, pallet_prelude::*, traits::ValidatorSet as _};
-use pallet_session::SessionManager;
+use frame_support::{derive_impl, traits::ValidatorSet as _};
 use sp_core::ConstU128;
 use sp_runtime::{
 	traits::{parameter_types, ConvertInto},
 	BuildStorage, Perbill,
 };
 
-use sp_std::num::NonZeroU32;
-use utils::traits::SessionHook;
+pub use utils::{
+	mocking::{self, MockConfig, NftDelegationHandlerError, NftStakingHandlerError, SessionReward},
+	run_until::ToSession,
+};
 
-use crate::{self as pallet_nft_staking, SlashableValidators};
+use sp_std::num::NonZeroU32;
+
+use crate::{self as pallet_nft_staking, PermissionType, SlashableValidators};
+
+// To avoid changes in all other files:
+pub type NftStakingHandler = mocking::NftStakingHandler<Test>;
+pub type NftDelegationHandler = mocking::NftDelegationHandler<Test>;
+pub type NftDelegationHandlerStore = mocking::NftDelegationHandlerStore<Test>;
+pub type ValidatorSet = mocking::ValidatorSet<Test>;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type ItemId = u32;
@@ -43,6 +42,13 @@ frame_support::construct_runtime!(
 // pub type AccountPublic = <Signature as Verify>::Signer;
 pub type AccountId = <Test as frame_system::Config>::AccountId;
 pub type Balance = u128;
+
+impl MockConfig for Test {
+	type AccountId = AccountId;
+	type ItemId = ItemId;
+	type Balance = Balance;
+	type PermissionType = PermissionType;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -110,11 +116,12 @@ impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = Self::AccountId;
 	type ValidatorIdOf = ConvertInto;
-	type ShouldEndSession = session::AlwaysEndSession;
+	type ShouldEndSession = mocking::AlwaysEndSession;
 	type NextSessionRotation = ();
-	type SessionManager = session::DummySessionManager<AccountId, (NftDelegationHandler, Staking)>;
-	type SessionHandler = session::EmptySessionHandler;
-	type Keys = session::MockSessionKeys;
+	type SessionManager =
+		mocking::DummySessionManager<Test, (mocking::NftDelegationExpiry<Test, Staking>, Staking)>;
+	type SessionHandler = mocking::EmptySessionHandler<Test>;
+	type Keys = mocking::MockSessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
 }
@@ -144,7 +151,7 @@ impl pallet_nft_staking::Config for Test {
 	type MaximumStakePercentage = MaximumStakePercentage;
 	type MaximumContractsPerValidator = MaximumContractsPerValidator;
 	type MaximumBoundValidators = MaximumBoundValidators;
-	type SessionReward = SessionRewardInstance;
+	type SessionReward = mocking::SessionRewardInstance;
 	type Hooks = ();
 	type OffenderToValidatorId = ConvertInto;
 	type ContributionPercentage = ContributionPercentage;
@@ -161,8 +168,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let predefined_keys = (0..16)
 		.map(|n| {
 			let account = n;
-
-			let keys = MockSessionKeys { dummy: n.into() };
+			let keys = mocking::MockSessionKeys::from_index(n);
 			(account, account, keys)
 		})
 		.collect::<Vec<_>>();

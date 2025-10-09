@@ -159,7 +159,7 @@ fn binding_contract(
 			MinimumCommission::get(),
 		)
 		.expect("could delegate currency");
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
+		run_until::<AllPalletsWithSystem, Test>(ToSession(session));
 
 		let res = Staking::kick(validator.origin, delegator.account_id);
 		assert_noop!(res, Error::<Test>::EarlyKick);

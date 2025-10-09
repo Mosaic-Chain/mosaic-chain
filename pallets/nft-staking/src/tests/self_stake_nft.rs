@@ -55,7 +55,7 @@ fn minimum_staking_period_resets(
 		let validator = BindParams::default().permission(permission).mint().bind();
 		let delegation_details = EndowParams::default().account_id(validator.account_id).endow();
 
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
+		run_until::<AllPalletsWithSystem, Test>(ToSession(session));
 
 		let res = Staking::self_stake_nft(validator.origin, delegation_details.delegator_nft);
 		assert_ok!(res, ());
@@ -103,7 +103,7 @@ fn item_does_not_exist(mut ext: TestExternalities, permission: PermissionType) {
 		let validator = BindParams::default().permission(permission).mint().bind();
 
 		let res = Staking::self_stake_nft(validator.origin, 42);
-		assert_noop!(res, NftDeleationHandlerError::TokenDoesNotExist);
+		assert_noop!(res, NftDelegationHandlerError::TokenDoesNotExist);
 	});
 }
 
@@ -114,7 +114,7 @@ fn wrong_owner(mut ext: TestExternalities, permission: PermissionType) {
 		let delegation_details = EndowParams::default().endow();
 
 		let res = Staking::self_stake_nft(validator.origin, delegation_details.delegator_nft);
-		assert_noop!(res, NftDeleationHandlerError::WrongOwner);
+		assert_noop!(res, NftDelegationHandlerError::WrongOwner);
 	});
 }
 
@@ -164,7 +164,7 @@ fn item_already_bound(mut ext: TestExternalities, permission: PermissionType) {
 			.expect("could stake delegation_details.delegator_nft");
 
 		let res = Staking::self_stake_nft(validator.origin, delegation_details.delegator_nft);
-		assert_noop!(res, NftDeleationHandlerError::AlreadyBound);
+		assert_noop!(res, NftDelegationHandlerError::AlreadyBound);
 	});
 }
 

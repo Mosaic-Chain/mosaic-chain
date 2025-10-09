@@ -73,7 +73,7 @@ fn contract_is_binding(
 		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get())
 			.expect("could stake currency");
 
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(session));
+		run_until::<AllPalletsWithSystem, Test>(ToSession(session));
 
 		let res = Staking::self_unstake_currency(validator.origin, MinimumStakingAmount::get());
 		assert_noop!(res, Error::<Test>::EarlyUnstake);

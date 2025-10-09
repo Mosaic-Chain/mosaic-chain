@@ -22,7 +22,7 @@ fn add_schedule(who: AccountId, s: Schedule<Balance, BlockNumberFor<Test>>) {
 }
 
 fn run_to_block(index: BlockNumberFor<Test>) {
-	run_until::<AllPalletsWithoutSystem, Test>(ToBlock(index));
+	run_until::<AllPalletsWithSystem, Test>(ToBlock(index));
 }
 
 fn origin(who: AccountId) -> RuntimeOrigin {

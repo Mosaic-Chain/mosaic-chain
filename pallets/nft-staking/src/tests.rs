@@ -201,15 +201,14 @@ fn origin(account: AccountId) -> RuntimeOrigin {
 
 /// Run to the session after the minimum staking period expires, so that contracts can be unstaked from.
 fn skip_min_staking_period() {
-	let until = ToSession::current_plus(MinimumStakingPeriod::get().get());
-	run_until::<AllPalletsWithoutSystem, _>(until);
-	<Staking as frame_support::traits::Hooks<_>>::on_idle(0, frame_support::weights::Weight::MAX);
+	run_until::<AllPalletsWithSystem, Test>(ToSession::current_plus::<Test>(
+		MinimumStakingPeriod::get().get(),
+	));
 }
 
 /// Skip to the next session
 fn next_session() {
-	run_until::<AllPalletsWithoutSystem, _>(ToSession::current_plus(1));
-	<Staking as frame_support::traits::Hooks<_>>::on_idle(0, frame_support::weights::Weight::MAX);
+	run_until::<AllPalletsWithSystem, Test>(ToSession::current_plus::<Test>(1));
 }
 
 #[macro_export]

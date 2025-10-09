@@ -116,11 +116,7 @@ fn self_contract_is_binding(mut ext: TestExternalities, permission: PermissionTy
 		let validator = BindParams::default().permission(permission).mint().bind();
 
 		let midpoint = u32::from(MinimumStakingPeriod::get()) / 2;
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(midpoint));
-		<Staking as frame_support::traits::Hooks<_>>::on_idle(
-			0,
-			frame_support::weights::Weight::MAX,
-		);
+		run_until::<AllPalletsWithSystem, Test>(ToSession(midpoint));
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 

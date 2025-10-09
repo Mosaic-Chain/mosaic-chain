@@ -58,7 +58,7 @@ fn staking_period_resets(mut ext: TestExternalities) {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
 
-		run_until::<AllPalletsWithoutSystem, _>(ToSession(50));
+		run_until::<AllPalletsWithSystem, Test>(ToSession(50));
 
 		Staking::delegate_currency(
 			delegator.origin,

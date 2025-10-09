@@ -259,7 +259,7 @@ fn expiration_works() {
 			NftDelegation::bind(&owner, &item, account(42)).unwrap();
 		}
 
-		run_until::<AllPalletsWithoutSystem, Test>(|| {
+		run_until::<AllPalletsWithSystem, Test>(|| {
 			let session = Session::current_index();
 			if session >= 11 {
 				return false;
@@ -296,12 +296,12 @@ fn status_change_works() {
 		assert_ok!(NftDelegation::status_of(&item), Status::Inactive { expiration: 10 });
 
 		// nth session = n+1 block
-		run_until::<AllPalletsWithoutSystem, Test>(ToBlock(11));
+		run_until::<AllPalletsWithSystem, Test>(ToBlock(11));
 
 		NftDelegation::bind(&owner, &item, account(42)).unwrap();
 		assert_ok!(NftDelegation::status_of(&item), Status::Active { expires_on: 20 });
 
-		run_until::<AllPalletsWithoutSystem, Test>(Blocks(10u32));
+		run_until::<AllPalletsWithSystem, Test>(Blocks(10u32));
 
 		assert_ok!(NftDelegation::status_of(&item), Status::Expired { expired_on: 20 });
 	});
@@ -319,7 +319,7 @@ fn expires_even_if_unbound() {
 		assert_ok!(NftDelegation::status_of(&item), Status::Active { expires_on: 10 });
 
 		NftDelegation::unbind(&owner, &item).unwrap();
-		run_until::<AllPalletsWithoutSystem, Test>(Blocks(11u32));
+		run_until::<AllPalletsWithSystem, Test>(Blocks(11u32));
 		assert_ok!(NftDelegation::status_of(&item), Status::Expired { expired_on: 10 });
 	});
 }

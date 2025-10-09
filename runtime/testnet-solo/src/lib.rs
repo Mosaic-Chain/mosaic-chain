@@ -47,7 +47,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 mod mock;
 
 #[cfg(test)]
-#[path = "../../parachain/src/tests.rs"]
+#[path = "../../parachain/src/tests/mod.rs"]
 mod tests;
 
 #[path = "../../parachain/src/charge_transaction.rs"]

@@ -109,7 +109,7 @@ fn item_does_not_exist(mut ext: TestExternalities) {
 		let origin = origin(0);
 
 		let res = Staking::topup(origin, 42, 100);
-		assert_noop!(res, StakingHandlerError::TokenDoesNotExist);
+		assert_noop!(res, NftStakingHandlerError::TokenDoesNotExist);
 	});
 }
 
