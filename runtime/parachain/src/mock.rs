@@ -8,7 +8,7 @@ use sdk::{
 
 use frame_support::{
 	parameter_types,
-	traits::{ConstU64, EitherOfDiverse},
+	traits::{ConstU64, EitherOfDiverse, ValidatorSet},
 	weights::Weight,
 };
 
@@ -143,6 +143,38 @@ impl pallet_doas::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type EnsureOrigin = pallet_collective::EnsureProportionAtLeast<AccountId, TestCouncil, 2, 3>;
 	type WeightInfo = ();
+}
+
+pub struct Offence {
+	pub offenders: Vec<AccountId>,
+	pub session: utils::SessionIndex,
+	pub slash_fraction: Perbill,
+}
+
+impl sdk::sp_staking::offence::Offence<AccountId> for Offence {
+	const ID: sdk::sp_staking::offence::Kind = *b"mos-test-offence";
+
+	type TimeSlot = utils::SessionIndex;
+
+	fn offenders(&self) -> Vec<AccountId> {
+		self.offenders.clone()
+	}
+
+	fn session_index(&self) -> utils::SessionIndex {
+		self.session
+	}
+
+	fn validator_set_count(&self) -> u32 {
+		pallet_nft_staking::SlashableValidators::<Test>::validators().len() as u32
+	}
+
+	fn time_slot(&self) -> Self::TimeSlot {
+		self.session
+	}
+
+	fn slash_fraction(&self, _offenders_count: u32) -> Perbill {
+		self.slash_fraction
+	}
 }
 
 impl pallet_offences::Config for Test {
