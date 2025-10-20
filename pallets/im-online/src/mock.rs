@@ -1,0 +1,192 @@
+use sdk::{frame_support, frame_system, pallet_authorship, sp_io, sp_runtime, sp_staking};
+
+use frame_support::{derive_impl, parameter_types, traits::ConstU64, weights::Weight};
+
+use sp_runtime::{
+	testing::{TestXt, UintAuthorityId},
+	traits::ConvertInto,
+	BuildStorage, Permill,
+};
+
+use sp_staking::{
+	offence::{OffenceError, ReportOffence},
+	SessionIndex,
+};
+
+use crate as imonline;
+use crate::Config;
+
+type Block = frame_system::mocking::MockBlock<Runtime>;
+
+frame_support::construct_runtime!(
+	pub enum Runtime {
+		System: frame_system,
+		Session: pallet_session,
+		ImOnline: imonline,
+		Historical: pallet_session::historical,
+	}
+);
+
+parameter_types! {
+	pub static Validators: Option<Vec<u64>> = Some(vec![
+		1,
+		2,
+		3,
+	]);
+}
+
+pub struct TestSessionManager;
+impl pallet_session::SessionManager<u64> for TestSessionManager {
+	fn new_session(_new_index: SessionIndex) -> Option<Vec<u64>> {
+		Validators::mutate(|l| l.take())
+	}
+	fn end_session(_: SessionIndex) {}
+	fn start_session(_: SessionIndex) {}
+}
+
+impl pallet_session::historical::SessionManager<u64, u64> for TestSessionManager {
+	fn new_session(_new_index: SessionIndex) -> Option<Vec<(u64, u64)>> {
+		Validators::mutate(|l| {
+			l.take().map(|validators| validators.iter().map(|v| (*v, *v)).collect())
+		})
+	}
+	fn end_session(_: SessionIndex) {}
+	fn start_session(_: SessionIndex) {}
+}
+
+/// An extrinsic type used for tests.
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
+type IdentificationTuple = (u64, u64);
+type Offence = crate::UnresponsivenessOffence<IdentificationTuple>;
+
+parameter_types! {
+	pub static Offences: Vec<(Vec<u64>, Offence)> = vec![];
+}
+
+/// A mock offence report handler.
+pub struct OffenceHandler;
+impl ReportOffence<u64, IdentificationTuple, Offence> for OffenceHandler {
+	fn report_offence(reporters: Vec<u64>, offence: Offence) -> Result<(), OffenceError> {
+		Offences::mutate(|l| l.push((reporters, offence)));
+		Ok(())
+	}
+
+	fn is_known_offence(_offenders: &[IdentificationTuple], _time_slot: &SessionIndex) -> bool {
+		false
+	}
+}
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut result: sp_io::TestExternalities = t.into();
+	// Set the default keys, otherwise session will discard the validator.
+	result.execute_with(|| {
+		for i in 1..=6 {
+			System::inc_providers(&i);
+			assert_eq!(Session::set_keys(RuntimeOrigin::signed(i), i.into(), vec![]), Ok(()));
+		}
+	});
+	result
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Runtime {
+	type Block = Block;
+}
+
+parameter_types! {
+	pub const Period: u64 = 1;
+	pub const Offset: u64 = 0;
+}
+
+impl pallet_session::Config for Runtime {
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager =
+		pallet_session::historical::NoteHistoricalRoot<Runtime, TestSessionManager>;
+	type SessionHandler = (ImOnline,);
+	type ValidatorId = u64;
+	type ValidatorIdOf = ConvertInto;
+	type Keys = UintAuthorityId;
+	type RuntimeEvent = RuntimeEvent;
+	type NextSessionRotation = TestNextSessionRotation;
+	type DisablingStrategy = ();
+	type WeightInfo = ();
+}
+
+impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type FullIdentification = u64;
+	type FullIdentificationOf = ConvertInto;
+}
+
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = ();
+	type EventHandler = ImOnline;
+}
+
+parameter_types! {
+	pub static MockCurrentSessionProgress: Option<Option<Permill>> = None;
+}
+
+parameter_types! {
+	pub static MockAverageSessionLength: Option<u64> = None;
+}
+
+pub struct TestNextSessionRotation;
+
+impl frame_support::traits::EstimateNextSessionRotation<u64> for TestNextSessionRotation {
+	fn average_session_length() -> u64 {
+		// take the mock result if any and return it
+		let mock = MockAverageSessionLength::mutate(|p| p.take());
+
+		mock.unwrap_or(pallet_session::PeriodicSessions::<Period, Offset>::average_session_length())
+	}
+
+	fn estimate_current_session_progress(now: u64) -> (Option<Permill>, Weight) {
+		let (estimate, weight) =
+			pallet_session::PeriodicSessions::<Period, Offset>::estimate_current_session_progress(
+				now,
+			);
+
+		// take the mock result if any and return it
+		let mock = MockCurrentSessionProgress::mutate(|p| p.take());
+
+		(mock.unwrap_or(estimate), weight)
+	}
+
+	fn estimate_next_session_rotation(now: u64) -> (Option<u64>, Weight) {
+		pallet_session::PeriodicSessions::<Period, Offset>::estimate_next_session_rotation(now)
+	}
+}
+
+impl Config for Runtime {
+	type AuthorityKey = UintAuthorityId;
+	type ValidatorSet = Historical;
+	type ReportUnresponsiveness = OffenceHandler;
+	type UnsignedPriority = ConstU64<{ 1 << 20 }>;
+	type WeightInfo = ();
+}
+
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Self::Extrinsic::new_bare(call)
+	}
+}
+
+pub fn advance_session() {
+	let now = System::block_number().max(1);
+	System::set_block_number(now + 1);
+	Session::rotate_session();
+	assert_eq!(Session::current_index(), (now / Period::get()) as u32);
+}

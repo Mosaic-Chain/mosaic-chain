@@ -78,14 +78,17 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-// pub mod migration;
-// mod mock;
-// mod tests;
+
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 pub mod weights;
 
 use sdk::{
-	frame_support, frame_system, pallet_authorship, pallet_session, sp_application_crypto, sp_io,
-	sp_runtime, sp_staking, sp_std,
+	frame_support, frame_system, pallet_authorship, sp_application_crypto, sp_io, sp_runtime,
+	sp_staking, sp_std,
 };
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};

@@ -37,6 +37,9 @@ substrate-wasm-builder = { package = "substrate-wasm-builder", git = "https://gi
 # TODO: once procmacros are compatible with umbrella crate remove this
 cumulus-pallet-parachain-system = { git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "private-address-range", default-features = false }
 
+# TODO: once the umbrella crate does not disable default features / let's the historical feature be set remove this.
+pallet-session = { package = "pallet-session", git = "https://github.com/Mosaic-Chain/polkadot-sdk", branch = "private-address-range", default-features = false }
+
 log = { version = "0.4.22", default-features = false }
 env_logger = { version = "0.11.5", default-features = false }
 serde = { version = "1.0.214", features = ["derive"], default-features = false }

@@ -22,20 +22,30 @@ sdk = { workspace = true, features = [
 		"sp-staking",
 		"sp-std",
 		"pallet-authorship",
-		"pallet-session"
 ]}
 
+pallet-session = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 scale-info = { workspace = true, default-features = false, features = ["derive", "serde"] }
 utils = { workspace = true }
 
+[dev-dependencies]
+pallet-session = { workspace = true, default-features = false, features = [ "historical" ] }
+
 [features]
 default = [ "std" ]
-std = [ "codec/std", "log/std", "scale-info/std", "sdk/std", "utils/std" ]
+std = [
+	"codec/std",
+	"log/std",
+	"pallet-session/std",
+	"scale-info/std",
+	"sdk/std",
+	"utils/std",
+]
 runtime-benchmarks = [
 	"sdk/frame-benchmarking",
 	"sdk/runtime-benchmarks",
 	"utils/runtime-benchmarks",
 ]
-try-runtime = [ "sdk/try-runtime" ]
+try-runtime = [ "pallet-session/try-runtime", "sdk/try-runtime" ]

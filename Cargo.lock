@@ -9216,6 +9216,7 @@ name = "pallet-im-online"
 version = "27.0.0"
 dependencies = [
  "log",
+ "pallet-session",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
