@@ -159,9 +159,31 @@ impl frame_support::traits::EstimateNextSessionRotation<u64> for TestNextSession
 	}
 }
 
+parameter_types! {
+	pub static MockSlashableValidators: Option<Vec<u64>> = None;
+}
+
+impl frame_support::traits::ValidatorSet<u64> for MockSlashableValidators {
+	type ValidatorId = u64;
+	type ValidatorIdOf = ConvertInto;
+
+	fn session_index() -> SessionIndex {
+		Session::current_index()
+	}
+
+	fn validators() -> Vec<Self::ValidatorId> {
+		Self::mutate(|v| v.take()).unwrap_or_else(Historical::validators)
+	}
+}
+
+impl frame_support::traits::ValidatorSetWithIdentification<u64> for MockSlashableValidators {
+	type Identification = u64;
+	type IdentificationOf = ConvertInto;
+}
+
 impl Config for Runtime {
 	type AuthorityKey = UintAuthorityId;
-	type ValidatorSet = Historical;
+	type ValidatorSet = MockSlashableValidators;
 	type ReportUnresponsiveness = OffenceHandler;
 	type UnsignedPriority = ConstU64<{ 1 << 20 }>;
 	type WeightInfo = ();

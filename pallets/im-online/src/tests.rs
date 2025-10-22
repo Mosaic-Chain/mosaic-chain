@@ -35,23 +35,25 @@ fn test_unresponsiveness_slash_fraction() {
 	);
 }
 
+#[allow(clippy::type_complexity)]
+fn assert_single_offence(
+	offences: &[(Vec<u64>, UnresponsivenessOffence<(u64, u64)>)],
+	session_index: SessionIndex,
+	validator_set_count: u32,
+	expected_offenders: &[(u64, u64)],
+) {
+	let offence = &offences[0].1;
+	let mut offenders = offence.offenders.clone();
+	offenders.sort_by_key(|(i, _)| *i);
+
+	assert_eq!(offence.session_index, session_index);
+	assert_eq!(offence.validator_set_count, validator_set_count);
+	assert_eq!(offenders, expected_offenders);
+}
+
 #[test]
 fn should_report_offline_validators() {
 	new_test_ext().execute_with(|| {
-		#[allow(clippy::type_complexity)]
-		let assert_single_offence = |offences: Vec<(Vec<u64>, UnresponsivenessOffence<(u64, u64)>)>,
-		                       session_index,
-		                       validator_set_count,
-		                       expected_offenders| {
-			let offence = offences[0].1.clone();
-			let mut offenders = offence.offenders;
-			offenders.sort_by_key(|(i, _)| *i);
-
-			assert_eq!(offence.session_index, session_index);
-			assert_eq!(offence.validator_set_count, validator_set_count);
-			assert_eq!(offenders, expected_offenders);
-		};
-
 		// given
 		let block = 1;
 		System::set_block_number(block);
@@ -68,7 +70,7 @@ fn should_report_offline_validators() {
 
 		// then
 		let offences = Offences::take();
-		assert_single_offence(offences, 2, 3, vec![(1, 1), (2, 2), (3, 3)]);
+		assert_single_offence(&offences, 2, 3, &[(1, 1), (2, 2), (3, 3)]);
 
 		// should not report when heartbeat is sent
 		for v in validators.into_iter().take(4) {
@@ -78,7 +80,7 @@ fn should_report_offline_validators() {
 
 		// then
 		let offences = Offences::take();
-		assert_single_offence(offences, 3, 6, vec![(5, 5), (6, 6)]);
+		assert_single_offence(&offences, 3, 6, &[(5, 5), (6, 6)]);
 	});
 }
 
@@ -130,6 +132,35 @@ fn should_mark_online_validator_when_heartbeat_is_received() {
 		assert!(ImOnline::is_online(&1.into()));
 		assert!(!ImOnline::is_online(&2.into()));
 		assert!(ImOnline::is_online(&3.into()));
+	});
+}
+
+#[test]
+fn should_handle_heartbeats_of_validator_outside_active_set() {
+	new_test_ext().execute_with(|| {
+		Validators::mutate(|l| *l = Some(vec![1, 2, 3]));
+		advance_session(); // [1, 2, 3] scheduled
+		MockSlashableValidators::mutate(|v| *v = Some(vec![1, 2, 3, 4, 5, 6]));
+		advance_session(); // [1, 2, 3] active and [1, 2, 3, 4, 5, 6] slashable
+
+		assert_eq!(Session::current_index(), 2);
+		assert_eq!(Session::validators(), vec![1, 2, 3]);
+
+		assert!(!ImOnline::is_online(&4.into()));
+		assert!(!ImOnline::is_online(&5.into()));
+		assert!(!ImOnline::is_online(&6.into()));
+
+		heartbeat(1, 2, 4.into()).unwrap();
+		heartbeat(1, 2, 6.into()).unwrap();
+
+		assert!(ImOnline::is_online(&4.into()));
+		assert!(!ImOnline::is_online(&5.into()));
+		assert!(ImOnline::is_online(&6.into()));
+
+		advance_session();
+
+		let offences = Offences::take();
+		assert_single_offence(&offences, 2, 6, &[(1, 1), (2, 2), (3, 3), (5, 5)]);
 	});
 }
 
