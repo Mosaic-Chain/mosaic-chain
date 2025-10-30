@@ -15,11 +15,16 @@ codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 utils = { workspace = true }
 
+[dev-dependencies]
+sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
+pallet-hold-vesting = { workspace = true }
+
 [features]
 default = [ "std" ]
-std = [ "sdk/std", "utils/std" ]
-try-runtime = [ "sdk/try-runtime" ]
+std = [ "pallet-hold-vesting/std", "sdk/std", "utils/std" ]
+try-runtime = [ "pallet-hold-vesting/try-runtime", "sdk/try-runtime" ]
 runtime-benchmarks = [
+	"pallet-hold-vesting/runtime-benchmarks",
 	"sdk/pallet-balances",
 	"sdk/runtime-benchmarks",
 	"utils/runtime-benchmarks",

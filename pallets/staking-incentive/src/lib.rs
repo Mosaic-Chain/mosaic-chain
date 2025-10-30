@@ -4,6 +4,11 @@
 mod benchmarking;
 pub mod weights;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 use sdk::{frame_support, frame_system, sp_arithmetic};
 
 use frame_support::{
@@ -103,7 +108,7 @@ pub mod pallet {
 
 	pub type PayoutFor<T> = Payout<BlockNumberFor<T>, <T as Config>::Balance>;
 
-	#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(Debug, Default, Clone, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	pub struct Score<BlockNumber> {
 		pub active: FixedU128,
 		pub passive: FixedU128,
@@ -282,6 +287,16 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(
+				T::PerBlockMultiplier::get() > One::one(),
+				"`PerBlockBultiplier` must be greater than 1"
+			);
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
@@ -358,7 +373,7 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
-		fn trip_fuse() {
+		pub(super) fn trip_fuse() {
 			Fuse::<T>::put(true);
 			Self::deposit_event(Event::<T>::FuseTripped);
 		}
@@ -549,6 +564,12 @@ pub mod pallet {
 
 			Some(ratio * score.gained())
 		}
+
+		#[cfg(test)]
+		pub(super) fn current_score_of(account_id: &T::AccountId) -> Score<BlockNumberFor<T>> {
+			Self::on_action(account_id, |_, _, _| {});
+			Accounts::<T>::get(account_id).score
+		}
 	}
 
 	impl<T: Config, ItemId> StakingHooks<T::AccountId, T::Balance, ItemId> for Pallet<T> {
@@ -574,29 +595,5 @@ pub mod pallet {
 			ensure_fuse!({});
 			Self::unstake_action(account_id, amount);
 		}
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	#[test]
-	fn numerical_stability() {
-		let stake1 = FixedU128::from_rational(1, 1);
-		let multiplier = FixedU128::from_float(1.000_000_140_19); // ~2x every year
-
-		let mut score1 =
-			Score { active: stake1, passive: Zero::zero(), base: stake1, last_update: 0u32 };
-
-		let mut score2 = score1.clone();
-
-		// about 8 years
-		for block in 1..=8 * 5_259_600 {
-			score1.update_active(block, multiplier, SignedRounding::High); // round high as global score does
-		}
-
-		score2.update_active(8 * 5_259_600, multiplier, SignedRounding::Low); // round low as account's score does
-
-		assert!((score2.active / score1.active) > FixedU128::from_rational(999_999, 1_000_000));
 	}
 }
