@@ -319,7 +319,7 @@ pub mod pallet {
 					Payout { block, amount: amount.clone(), score_cut_to, total_effective_score };
 
 				let index: u32 = Payouts::<T>::mutate(|ps| match ps.try_push(payout) {
-					Ok(_) => Ok(ps.len() as u32),
+					Ok(_) => Ok(ps.len() as u32 - 1),
 					Err(_) => Err(Error::<T>::MaxPayoutsReached),
 				})?;
 
@@ -334,7 +334,6 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::reset_fuse())]
-
 		pub fn reset_fuse(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Fuse::<T>::put(false);
@@ -344,7 +343,6 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::update_and_claim(4))]
-
 		pub fn update_and_claim(origin: OriginFor<T>) -> DispatchResult {
 			ensure_fuse!();
 			let who = ensure_signed(origin)?;
@@ -375,11 +373,17 @@ pub mod pallet {
 			// Clone score so if fuse is tripped we can discard changes
 			let mut score = account_data.score.clone();
 
-			let total_payout: T::Balance =
-				payouts.into_iter().skip(account_data.claimed_payouts as usize).fold(
+			let total_payout: T::Balance = payouts
+				.into_iter()
+				.enumerate()
+				.skip(account_data.claimed_payouts as usize)
+				.fold(
 					Zero::zero(),
 					|total_payout,
-					 Payout { block, amount, score_cut_to, total_effective_score }| {
+					 (
+						payout_index,
+						Payout { block, amount, score_cut_to, total_effective_score },
+					)| {
 						score.update_active(
 							block,
 							T::PerBlockMultiplier::get(),
@@ -393,6 +397,12 @@ pub mod pallet {
 						let payout = ratio.into_perbill() * amount; // multiplying by c in [0, 1] cannot overflow
 
 						score.cut(score_cut_to);
+
+						Self::deposit_event(Event::<T>::Claim {
+							account: account_id.clone(),
+							amount: payout.clone(),
+							payout_index: payout_index as u32,
+						});
 
 						total_payout.saturating_add(payout)
 					},
@@ -486,7 +496,7 @@ pub mod pallet {
 				// The first action must be a stake so we disregard this event and refrain from
 				// further updating the score
 				let Some(first_action) = account.first_action else {
-					frame_support::sp_runtime::print("ERROR: on_unstake was called before first on_stake in pallet_staking_incentive");
+					frame_support::sp_runtime::print("WARNING: on_unstake was called before first on_stake in pallet_staking_incentive");
 					return;
 				};
 
