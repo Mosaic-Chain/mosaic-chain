@@ -188,4 +188,9 @@ impl<T: sdk::frame_system::Config> WeightInfo for Weights<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	// TODO: benchmark
+	fn set_proposal_metadata() -> Weight {
+		Default::default()
+	}
 }

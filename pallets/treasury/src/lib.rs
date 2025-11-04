@@ -103,7 +103,7 @@ use frame_support::{
 			Balanced, BalancedHold, Credit, Debt, Inspect, InspectHold, Mutate, MutateHold,
 		},
 		tokens::{ConversionFromAssetBalance, Pay, PaymentStatus, Precision, Preservation},
-		Get, Imbalance, OnUnbalanced,
+		Get, Imbalance, OnUnbalanced, QueryPreimage, StorePreimage,
 	},
 	weights::Weight,
 	PalletId,
@@ -297,6 +297,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type PayoutPeriod: Get<BlockNumberFor<Self>>;
 
+		/// The preimage provider used for proposal metadata.
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
@@ -322,6 +325,11 @@ pub mod pallet {
 		Proposal<T::AccountId, BalanceOf<T, I>>,
 		OptionQuery,
 	>;
+
+	/// Optional metadata associated with a proposal (eg.: textual description or IPFS CID)
+	#[pallet::storage]
+	pub type ProposalMetadata<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, ProposalIndex, T::Hash, OptionQuery>;
 
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
@@ -410,6 +418,8 @@ pub mod pallet {
 		/// A spend was processed and removed from the storage. It might have been successfully
 		/// paid or it may have expired.
 		SpendProcessed { index: SpendIndex },
+		/// Metadata has been associated with a proposal.
+		ProposalMetadataSet { proposal_index: ProposalIndex, preimage: T::Hash },
 	}
 
 	/// Error for the treasury pallet.
@@ -440,6 +450,8 @@ pub mod pallet {
 		NotAttempted,
 		/// The payment has neither failed nor succeeded yet.
 		Inconclusive,
+		/// The metadata preimage does not exist.
+		PreimageNotExist,
 	}
 
 	#[pallet::hooks]
@@ -489,10 +501,6 @@ pub mod pallet {
 		/// Emits [`Event::Proposed`] if successful.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::propose_spend())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`propose_spend` will be removed in February 2024. Use `spend` instead."
-		)]
 		pub fn propose_spend(
 			origin: OriginFor<T>,
 			#[pallet::compact] value: BalanceOf<T, I>,
@@ -530,10 +538,6 @@ pub mod pallet {
 		/// Emits [`Event::Rejected`] if successful.
 		#[pallet::call_index(1)]
 		#[pallet::weight((T::WeightInfo::reject_proposal(), DispatchClass::Operational))]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`reject_proposal` will be removed in February 2024. Use `spend` instead."
-		)]
 		pub fn reject_proposal(
 			origin: OriginFor<T>,
 			#[pallet::compact] proposal_id: ProposalIndex,
@@ -542,6 +546,9 @@ pub mod pallet {
 
 			let proposal =
 				<Proposals<T, I>>::take(proposal_id).ok_or(Error::<T, I>::InvalidIndex)?;
+
+			<ProposalMetadata<T, I>>::remove(proposal_id);
+
 			let value = proposal.bond;
 			let imbalance =
 				T::Fungible::slash(&HoldReason::Proposal.into(), &proposal.proposer, value).0;
@@ -573,10 +580,6 @@ pub mod pallet {
 		/// No events are emitted from this dispatch.
 		#[pallet::call_index(2)]
 		#[pallet::weight((T::WeightInfo::approve_proposal(T::MaxApprovals::get()), DispatchClass::Operational))]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "`approve_proposal` will be removed in February 2024. Use `spend` instead."
-		)]
 		pub fn approve_proposal(
 			origin: OriginFor<T>,
 			#[pallet::compact] proposal_id: ProposalIndex,
@@ -916,6 +919,30 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::AssetSpendVoided { index });
 			Ok(())
 		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::set_proposal_metadata())]
+		pub fn set_proposal_metadata(
+			origin: OriginFor<T>,
+			proposal_id: ProposalIndex,
+			preimage: T::Hash,
+		) -> DispatchResult {
+			let proposer = ensure_signed(origin)?;
+
+			let proposal =
+				<Proposals<T, I>>::get(proposal_id).ok_or(Error::<T, I>::InvalidIndex)?;
+
+			ensure!(proposal.proposer == proposer, Error::<T, I>::InsufficientPermission);
+			ensure!(T::Preimages::len(&preimage).is_some(), Error::<T, I>::PreimageNotExist);
+
+			<ProposalMetadata<T, I>>::insert(proposal_id, preimage);
+			Self::deposit_event(Event::<T, I>::ProposalMetadataSet {
+				proposal_index: proposal_id,
+				preimage,
+			});
+
+			Ok(())
+		}
 	}
 }
 
@@ -957,6 +984,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					if p.value <= budget_remaining {
 						budget_remaining -= p.value;
 						<Proposals<T, I>>::remove(index);
+						<ProposalMetadata<T, I>>::remove(index);
 
 						// return their deposit.
 						let res = T::Fungible::release(

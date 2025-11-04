@@ -21,12 +21,12 @@ use sdk::{frame_support, frame_system, pallet_balances, pallet_utility, sp_io, s
 
 use core::{cell::RefCell, marker::PhantomData};
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, IdentityLookup},
+	traits::{BadOrigin, Dispatchable, Hash, IdentityLookup},
 	BuildStorage,
 };
 
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
+	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	pallet_prelude::Pays,
 	parameter_types,
 	traits::{
@@ -173,6 +173,51 @@ impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
 	fn ensure_successful(_: u32) {}
 }
 
+pub struct TestPreimage;
+
+impl frame_support::traits::QueryPreimage for TestPreimage {
+	type H = <Test as frame_system::Config>::Hashing;
+
+	fn len(hash: &<Self::H as sdk::sp_core::Hasher>::Out) -> Option<u32> {
+		(*hash != preimage(0)).then_some(42)
+	}
+
+	fn fetch(
+		_hash: &<Self::H as sdk::sp_core::Hasher>::Out,
+		_len: Option<u32>,
+	) -> frame_support::traits::FetchResult {
+		unimplemented!()
+	}
+
+	fn is_requested(_hash: &<Self::H as sdk::sp_core::Hasher>::Out) -> bool {
+		unimplemented!()
+	}
+
+	fn request(_hash: &<Self::H as sdk::sp_core::Hasher>::Out) {
+		unimplemented!()
+	}
+
+	fn unrequest(_hash: &<Self::H as sdk::sp_core::Hasher>::Out) {
+		unimplemented!()
+	}
+}
+
+// Needed for tests in benchmarks
+impl frame_support::traits::StorePreimage for TestPreimage {
+	const MAX_LENGTH: usize = 42;
+
+	fn note(
+		bytes: std::borrow::Cow<[u8]>,
+	) -> Result<<Self::H as sdk::sp_core::Hasher>::Out, DispatchError> {
+		// preimage(0) should never be noted
+		Ok(preimage(1 + bytes[0] as u32))
+	}
+}
+
+fn preimage(idx: u32) -> <Test as frame_system::Config>::Hash {
+	<Test as frame_system::Config>::Hashing::hash(&idx.to_le_bytes())
+}
+
 impl Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Fungible = pallet_balances::Pallet<Test>;
@@ -196,6 +241,7 @@ impl Config for Test {
 	type Paymaster = TestPay;
 	type BalanceConverter = MulBy<ConstU64<2>>;
 	type PayoutPeriod = SpendPayoutPeriod;
+	type Preimages = TestPreimage;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -1140,6 +1186,66 @@ fn try_state_spends_invariant_3_works() {
 		assert_eq!(
 			Treasury::do_try_state(),
 			Err(Other("Spend cannot expire before it becomes valid."))
+		);
+	});
+}
+
+#[test]
+fn set_proposal_metadata_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let proposer = 0;
+
+		assert_ok!(Treasury::propose_spend(RuntimeOrigin::signed(proposer), 1, 3));
+
+		let metadata = preimage(1);
+		let proposal_index = 0;
+
+		assert_ok!(Treasury::set_proposal_metadata(
+			RuntimeOrigin::signed(proposer),
+			proposal_index,
+			metadata
+		));
+		System::assert_last_event(
+			Event::<Test>::ProposalMetadataSet { proposal_index, preimage: metadata }.into(),
+		);
+
+		assert_eq!(ProposalMetadata::<Test>::get(proposal_index), Some(metadata));
+	});
+}
+
+#[test]
+fn set_proposal_metadata_fails_if_proposal_does_not_exist() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_err!(
+			Treasury::set_proposal_metadata(RuntimeOrigin::signed(0), 0, preimage(1)),
+			Error::<Test>::InvalidIndex
+		);
+	});
+}
+
+#[test]
+fn set_proposal_metadata_fails_if_proposer_is_wrong() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_ok!(Treasury::propose_spend(RuntimeOrigin::signed(0), 1, 3));
+
+		assert_err!(
+			Treasury::set_proposal_metadata(RuntimeOrigin::signed(1), 0, preimage(1)),
+			Error::<Test>::InsufficientPermission
+		);
+	});
+}
+
+#[test]
+fn set_proposal_metadata_fails_if_preimage_does_not_exist() {
+	ExtBuilder::default().build().execute_with(|| {
+		let proposer = 0;
+
+		assert_ok!(Treasury::propose_spend(RuntimeOrigin::signed(proposer), 1, 3));
+
+		// Preimage 0 does not exist in our tests
+		assert_err!(
+			Treasury::set_proposal_metadata(RuntimeOrigin::signed(proposer), 0, preimage(0)),
+			Error::<Test>::PreimageNotExist
 		);
 	});
 }

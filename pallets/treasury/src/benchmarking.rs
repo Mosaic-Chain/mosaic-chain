@@ -60,6 +60,7 @@ where
 }
 
 const SEED: u32 = 0;
+type PreimageHash<T> = <T as frame_system::Config>::Hash;
 
 // Create the pre-requisite information needed to create a treasury `propose_spend`.
 fn setup_proposal<T: Config<I>, I: 'static>(
@@ -73,11 +74,19 @@ fn setup_proposal<T: Config<I>, I: 'static>(
 	(caller, value, beneficiary_lookup)
 }
 
+fn note_preimage<T: Config<I>, I: 'static>() -> PreimageHash<T> {
+	use core::sync::atomic::{AtomicU8, Ordering};
+	use sp_std::borrow::Cow;
+	// note a new preimage on every function invoke.
+	static COUNTER: AtomicU8 = AtomicU8::new(0);
+	let data = Cow::from(vec![COUNTER.fetch_add(1, Ordering::Relaxed)]);
+	<T as Config<I>>::Preimages::note(data).unwrap()
+}
+
 // Create proposals that are approved for use in `on_initialize`.
 fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'static str> {
 	for i in 0..n {
 		let (caller, value, lookup) = setup_proposal::<T, I>(i);
-		#[allow(deprecated)]
 		Treasury::<T, I>::propose_spend(RawOrigin::Signed(caller).into(), value, lookup)?;
 		let proposal_id = <ProposalCount<T, I>>::get() - 1;
 		Approvals::<T, I>::try_append(proposal_id).unwrap();
@@ -148,10 +157,12 @@ mod benchmarks {
 		let (caller, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
 		#[allow(deprecated)]
 		Treasury::<T, _>::propose_spend(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller.clone()).into(),
 			value,
 			beneficiary_lookup,
 		)?;
+		let metadata = note_preimage::<T, I>();
+		Treasury::<T, I>::set_proposal_metadata(RawOrigin::Signed(caller).into(), 0, metadata)?;
 		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -189,10 +200,12 @@ mod benchmarks {
 		let (caller, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
 		#[allow(deprecated)]
 		Treasury::<T, _>::propose_spend(
-			RawOrigin::Signed(caller).into(),
+			RawOrigin::Signed(caller.clone()).into(),
 			value,
 			beneficiary_lookup,
 		)?;
+		let metadata = note_preimage::<T, I>();
+		Treasury::<T, I>::set_proposal_metadata(RawOrigin::Signed(caller).into(), 0, metadata)?;
 		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
 		Approvals::<T, _>::try_append(proposal_id).unwrap();
 		let reject_origin =
@@ -335,6 +348,27 @@ mod benchmarks {
 		_(origin as T::RuntimeOrigin, 0u32);
 
 		assert!(Spends::<T, I>::get(0).is_none());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_proposal_metadata() -> Result<(), BenchmarkError> {
+		let (caller, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
+		// Whitelist caller account from further DB operations.
+		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
+		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
+		let metadata = note_preimage::<T, I>();
+
+		Treasury::<T, _>::propose_spend(
+			RawOrigin::Signed(caller.clone()).into(),
+			value,
+			beneficiary_lookup,
+		)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), 0u32, metadata);
+
+		assert_eq!(ProposalMetadata::<T, I>::get(0), Some(metadata));
 		Ok(())
 	}
 
