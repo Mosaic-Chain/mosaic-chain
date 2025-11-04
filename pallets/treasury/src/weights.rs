@@ -215,9 +215,22 @@ impl<T: sdk::frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 
-	// TODO: copy real values over after benchmarking
+	/// Storage: `Treasury::Proposals` (r:1 w:0)
+	/// Proof: `Treasury::Proposals` (`max_values`: None, `max_size`: Some(108), added: 2583, mode: `MaxEncodedLen`)
+	/// Storage: `Preimage::StatusFor` (r:1 w:0)
+	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
+	/// Storage: `Preimage::RequestStatusFor` (r:1 w:0)
+	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
+	/// Storage: `Treasury::ProposalMetadata` (r:0 w:1)
+	/// Proof: `Treasury::ProposalMetadata` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn set_proposal_metadata() -> Weight {
-		Default::default()
+		// Proof Size summary in bytes:
+		//  Measured:  `344`
+		//  Estimated: `3573`
+		// Minimum execution time: 30_326_000 picoseconds.
+		Weight::from_parts(32_090_000, 3573)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -371,8 +384,21 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 
-	// TODO: copy real values over after benchmarking
+	/// Storage: `Treasury::Proposals` (r:1 w:0)
+	/// Proof: `Treasury::Proposals` (`max_values`: None, `max_size`: Some(108), added: 2583, mode: `MaxEncodedLen`)
+	/// Storage: `Preimage::StatusFor` (r:1 w:0)
+	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
+	/// Storage: `Preimage::RequestStatusFor` (r:1 w:0)
+	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
+	/// Storage: `Treasury::ProposalMetadata` (r:0 w:1)
+	/// Proof: `Treasury::ProposalMetadata` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn set_proposal_metadata() -> Weight {
-		Default::default()
+		// Proof Size summary in bytes:
+		//  Measured:  `344`
+		//  Estimated: `3573`
+		// Minimum execution time: 30_326_000 picoseconds.
+		Weight::from_parts(32_090_000, 3573)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
