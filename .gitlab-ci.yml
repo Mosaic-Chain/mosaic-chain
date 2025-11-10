@@ -10,6 +10,11 @@ stages:
   - release-devnet
   - release-mainnet
 
+include:
+  - project: 'mosaic-chain/gitlab-ci-templates'
+    file: '/clickup.yml'
+    ref: main
+
 .build-deps: &build-deps
   - apt update -y
   - apt upgrade -y
@@ -238,3 +243,32 @@ release-debian-mainnet:
     DEBIAN_REPOSITORY: apt-mainnet-repository
   environment:
     name: mainnet
+
+clickup-testnet:
+  extends: .clickup-network
+  stage: release-testnet
+  needs:
+    - publish-docker
+    - publish-debian
+  variables:
+    NETWORK: testnet
+    TAG: blockchain
+
+clickup-devnet:
+  extends: .clickup-network
+  stage: release-devnet
+  needs:
+    - clickup-testnet
+  variables:
+    NETWORK: devnet
+    TAG: blockchain
+    
+clickup-mainnet:
+  extends: .clickup-network
+  stage: release-mainnet
+  needs:
+    - clickup-devnet
+  variables:
+    NETWORK: mainnet
+    TAG: blockchain
+
