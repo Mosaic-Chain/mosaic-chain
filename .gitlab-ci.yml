@@ -14,6 +14,9 @@ include:
   - project: 'mosaic-chain/gitlab-ci-templates'
     file: '/clickup.yml'
     ref: main
+  - project: 'mosaic-chain/gitlab-ci-templates'
+    file: '/docker.yml'
+    ref: main
 
 .build-deps: &build-deps
   - apt update -y
@@ -94,18 +97,6 @@ benchmark:
     - git commit -m 'Update benchmark weights'
     - git push origin HEAD:$CI_COMMIT_REF_NAME
   
-.docker:
-  image: docker:stable
-  services:
-    - name: docker:dind
-      alias: docker
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ''
-    DOCKER_REGISTRY: europe-docker.pkg.dev/mosaicchain-general/docker-registry
-  before_script:
-    - cat $GCP_ARTIFACT_REGISTRY_WRITE_JSON_KEY | docker login -u _json_key --password-stdin https://europe-docker.pkg.dev
-
 .debian:
   image: rust:1.88.0-bookworm
   before_script:
@@ -123,7 +114,7 @@ benchmark:
    - DEBIAN_VERSION_PARA="$(cargo pkgid -p mosaic-chain-node | cut -d'@' -f2).$CI_PIPELINE_IID+$CI_COMMIT_SHORT_SHA"
 
 publish-docker:
-  extends: .docker
+  extends: .docker-setup
   stage: publish
   needs:
     - test
@@ -151,17 +142,11 @@ publish-debian:
     - gcloud artifacts apt upload apt-canary-repository --source $PKG_PARA
 
 .release-docker:
-  extends: .docker
-  rules:
-    - if: $CI_COMMIT_REF_PROTECTED == 'true'
-      when: manual
-    - when: never
+  extends: .docker-tag
   needs:
     - publish-docker
-  script:
-    - docker pull $DOCKER_REGISTRY/mosaic-chain-solo-local:$CI_COMMIT_SHORT_SHA
-    - docker tag $DOCKER_REGISTRY/mosaic-chain-solo-local:$CI_COMMIT_SHORT_SHA $DOCKER_REGISTRY/mosaic-chain-solo-local:$TAG
-    - docker push $DOCKER_REGISTRY/mosaic-chain-solo-local:$TAG
+  variables:
+    DOCKER_PROJECT: mosaic-chain-solo-local
 
 .release-debian:
   extends: .debian
@@ -192,7 +177,7 @@ release-docker-testnet:
   extends: .release-docker
   stage: release-testnet
   variables:
-    TAG: testnet
+    DOCKER_TAG: testnet
   environment:
     name: testnet
 
@@ -202,7 +187,7 @@ release-docker-devnet:
   needs:
     - release-docker-testnet
   variables:
-    TAG: devnet
+    DOCKER_TAG: devnet
   environment:
     name: devnet
 
@@ -212,7 +197,7 @@ release-docker-mainnet:
   needs:
     - release-docker-devnet
   variables:
-    TAG: mainnet
+    DOCKER_TAG: mainnet
   environment:
     name: mainnet
 
