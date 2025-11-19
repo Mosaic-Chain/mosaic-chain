@@ -51,6 +51,7 @@ mod undelegate_nft;
 mod autochill;
 mod delegator_nft_expire;
 mod reward;
+mod session_ending;
 mod slash;
 mod validator_set_impls;
 
