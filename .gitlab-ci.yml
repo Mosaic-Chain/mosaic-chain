@@ -7,7 +7,9 @@ stages:
   - test
   - publish
   - release-testnet
+  - approve-testnet
   - release-devnet
+  - approve-devnet
   - release-mainnet
 
 include:
@@ -16,6 +18,9 @@ include:
     ref: main
   - project: 'mosaic-chain/gitlab-ci-templates'
     file: '/docker.yml'
+    ref: main
+  - project: "mosaic-chain/gitlab-ci-templates"
+    file: "/approval.yml"
     ref: main
 
 .build-deps: &build-deps
