@@ -539,6 +539,18 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn set_minimum_staking_amount() {
+		let fixture = Fixture::<T>::default();
+		let validator = &fixture.validator;
+		validator.mint_and_bind();
+		let new_min_amount = <T as NftStakingConfig>::MinimumStakingAmount::get();
+
+		let origin = validator.signed_origin();
+		#[extrinsic_call]
+		_(origin, new_min_amount);
+	}
+
+	#[benchmark]
 	fn kick() {
 		let fixture = Fixture::<T>::default();
 		let validator = &fixture.validator;

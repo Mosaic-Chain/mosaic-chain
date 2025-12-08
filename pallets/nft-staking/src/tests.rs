@@ -40,6 +40,7 @@ mod self_stake_nft;
 mod self_unstake_currency;
 mod self_unstake_nft;
 mod set_commission;
+mod set_minimum_staking_amount;
 mod set_minimum_staking_period;
 mod topup;
 mod unbind;

@@ -2,12 +2,12 @@
 
 ## Design principles
 
-- Least suprise for the end user
+- Least surprise for the end user
 - "Strict API" - no soft failures:
-  - A call either succeeds according to the provided paramaters or it fails.
+  - A call either succeeds according to the provided parameters or it fails.
 - API is primarily for the dev, secondarily for the end user
   - API should be easy to implement and maintain
-  - It should be high level enough to enable freedom of impementation and should be easy to test
+  - It should be high level enough to enable freedom of implementation and should be easy to test
   - It should be ergonomic for the fronted devs.
   - We'll provide a frontend with good UX for the end users.
 
@@ -23,7 +23,7 @@
   - Terms: staked amount, minimum staking period and commission rate.
   - The terms do not change if the contract is untouched.
   - The current terms set by the validator are applied every time an amount is added to the stake.
-    - These new terms become active at the begginning of the next session.
+    - These new terms become active at the beginning of the next session.
     - The start of the new staking period is also reset to the upcoming session.
 
 - **Binding / unbinding:**
@@ -53,7 +53,7 @@
 - **NominalValueThreshold:** if the nominal value falls below this percentage of the initial nominal value, the permission NFT gets disqualified.
 - **MinimumStakingPeriod:** the default minimum staking period under which a validator can't set their own term.
 - **MinimumCommissionRate:** the default commission rate (percentage) under which a validator can't set their own term.
-- **MinimumStakingAmount:** the minimum currency amount one can stake / unstake or keep staked.
+- **MinimumStakingAmount:** the default minimum currency amount one can stake or keep staked under which a validator can't set their own term.
 - **MaximumStakePercentage:** the maximum percentage of total mosaic issuance above which no further stakes are accepted into a validator.
 - **MaximumContractsPerValidator:** the maximum number of contracts allowed per validator. (incl. self-contract)
 
@@ -64,7 +64,7 @@ There are about four distinct cases of staking:
 - A DPOS validator can stake **currency** _or_ **nft** on themselves.
 - One can delegate **currency** _or_ **nft** to DPOS validators.
 
-We can represent all these cases seperately in our public API, as these could be completely distinct functionalities of the frontend.
+We can represent all these cases separately in our public API, as these could be completely distinct functionalities of the frontend.
 
 ### `bind_validator(caller, item)`
 
@@ -72,7 +72,7 @@ Preconditions:
 
 - `item` is an existing permission nft owned by `caller`
 - `caller` does not have an other item bound
-- `item`'s nominal value is at least minimal nominal percent of it's initial nominal value. (this value is greater than the minimal staking amount)
+- `item`'s nominal value is at least minimal nominal percent of it's initial nominal value. (this value is greater than the **global** minimum staking amount)
 _(Note: there could be tokens with 0 nominal value, which should not cause an issue)_
 
 Effects:
@@ -157,7 +157,7 @@ Preconditions:
 
 - `caller` is a bound, not chilled validator
 - `caller` is a DPOS validator
-- `amount` is greater or equal to the minimum staking amount
+- `amount` is greater or equal to the **validator's** minimum staking amount
 - `caller` has at least `amount` of free and lockable balance
 - This stake doesn't make validator overdominant (see later)
 
@@ -178,7 +178,7 @@ Preconditions:
 - `caller` is a DPOS validator
 - `item` is an existing delegator nft owned by `caller`
 - `item` is not bound to another validator
-- the nominal value of `item` is greater or equal to the minimum staking amount
+- the nominal value of `item` is greater or equal to the **validator's** minimum staking amount
 - the `item` will not expire before the minimum staking period ends
 - This stake doesn't make validator overdominant (see later)
 
@@ -194,14 +194,14 @@ Preconditions:
 
 - `caller` is a bound validator
 - the `callers`'s staking period is greater or equal to the minimum staking period
-- `amount` is greater or equal to the minimum staking amount
+- `amount` is greater or equal to the **global** minimum staking amount
 - `amount` can be deducted from the `caller`'s **currency based** stake
-- the remaining currency based stake would still be greater or equal to the minimum staking amount OR be zero
+- the remaining currency based stake would still be greater or equal to the **validator's** minimum staking amount OR be zero
 
 Effects:
 
 - the `amount` is **scheduled** to be unlocked on _(or added to)_ the `caller`'s account
-- the `amount` is schduled to be removed from the `caller`'s stake
+- the `amount` is scheduled to be removed from the `caller`'s stake
 
 ### `self_unstake_nft(caller, item)`
 
@@ -227,7 +227,7 @@ Preconditions:
 - `target` accepts delegations
 - `observed_staking_period` and `observed_commission` match the current terms
 - `caller` and `target` are not the same (use `self_stake_currency` instead)
-- `amount` is more than or equal to the minimum staking amount
+- `amount` is more than or equal to the **validator's** minimum staking amount
 - `caller` has at least `amount` lockable, free currency
 - This stake doesn't make validator overdominant (see later)
 
@@ -249,7 +249,7 @@ Preconditions:
 - `target` and `caller` are not the same (use `self_stake_nft` instead)
 - `item` is a delegator nft owned by `caller`
 - `item` is not bound to any other validator
-- `item`'s nominal value is greater or equal to the minimal staking amount
+- `item`'s nominal value is greater or equal to the **validator's** minimum staking amount
 - `item` will not expire before the minimum staking period ends
 - This stake doesn't make validator overdominant (see later)
 
@@ -258,7 +258,7 @@ Effects:
 - `item` is bound to `target` "immediately"
 - `item`'s nominal value is scheduled to be added to `target`'s stake.
 - terms of the contract between `caller` and `target` are scheduled to be updated:
-  - staking period resets (possibly to a new value), commision changes (if it's changed)
+  - staking period resets (possibly to a new value), commission changes (if it's changed)
 
 ### `undelegate_currency(caller, amount, target)`
 
@@ -269,9 +269,9 @@ Preconditions:
 - `target` and `caller` are not the same (use `self_unstake_currency` instead)
 - `target` has a staking contract with `caller`
 - the minimal staking period is over on the contract or `target` is considered slacking
-- `amount` is greater or equal to the minimum staking amount
+- `amount` is greater or equal to the **global** minimum staking amount
 - the `amount` is available as **currency based** stake on the contract
-- the remaining currency based stake would be more than or equal to the minimal staking amount OR be exactly 0
+- the remaining currency based stake would be more than or equal to the **validator's** minimum staking amount OR be exactly 0
 
 Effects:
 
@@ -320,6 +320,19 @@ Effects:
 - `caller`'s new contract term is updated immediately
 - _(Note: Existing contracts don't get updated)_
 
+### `set_minimum_staking_amount(caller, new_min_amount)`
+
+Preconditions:
+
+- `caller` is a bound, not chilled validator
+- `caller` is a DPoS validator
+- `new_min_amount` is larger or equal to `MinimumStakingAmount`
+
+Effects:
+
+- `caller`'s term is updated immediately
+- _(Note: Unlike other terms, this is not stored per-contract but is applied globally)_
+
 ### `kick(caller, target)`
 
 Preconditions:
@@ -365,7 +378,7 @@ These details are not part of the public callable API, but are behaviours that m
 - we also limit the number of contracts a validator can have
 - the number of delegated nfts are also limited per contract
 
-### Reward calcualtion
+### Reward calculation
 
 - Rewards increase stake.
 - Slashed participants are not rewarded in the current session.
@@ -376,7 +389,7 @@ These details are not part of the public callable API, but are behaviours that m
 ### Slashing
 
 - We slash bound validators who:
-  - have commited self-contract
+  - have committed self-contract
   - not chilled
   - currently in active set or is selected to be in the next one (even if chilled)
 - When it comes to delegator nfts, the convention is to slash them in the order they were staked.
@@ -400,7 +413,7 @@ These details are not part of the public callable API, but are behaviours that m
 ## Implementation guide
 
 - All additions and subtractions should be saturating
-- Be careful with schduled (staged) and commited values.
+- Be careful with scheduled (staged) and committed values.
   - Which one should be checked?
   - Be sure to stage modifications!
 - Implementing the core logic using side effect free functions is encouraged (testability)

@@ -65,7 +65,7 @@ fn state_resets_on_reward(mut ext: TestExternalities) {
 }
 
 #[rstest]
-fn disqulify(mut ext: TestExternalities) {
+fn disqualify(mut ext: TestExternalities) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().nft_nominal_value(1000).mint();
 

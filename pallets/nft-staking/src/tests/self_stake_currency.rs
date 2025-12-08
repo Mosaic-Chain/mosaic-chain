@@ -107,7 +107,7 @@ fn chilled(mut ext: TestExternalities, permission: PermissionType) {
 }
 
 #[apply(dpos)]
-fn too_small_amount(
+fn too_small_amount_default_limit(
 	mut ext: TestExternalities,
 	permission: PermissionType,
 	#[values(0, 1, MinimumStakingAmount::get() - 1)] amount: Balance,
@@ -118,6 +118,45 @@ fn too_small_amount(
 
 		let res = Staking::self_stake_currency(validator.origin, amount);
 		assert_err!(res, Error::<Test>::TooSmallStake);
+	});
+}
+
+#[apply(dpos)]
+fn too_small_amount_custom_limit(
+	mut ext: TestExternalities,
+	permission: PermissionType,
+	#[values(MinimumStakingAmount::get(), MinimumStakingAmount::get() * 4 - 1)] amount: Balance,
+) {
+	ext.execute_with(|| {
+		let validator = BindParams::default().permission(permission).mint().bind();
+		let _ = EndowParams::default().account_id(validator.account_id);
+		Staking::set_minimum_staking_amount(
+			validator.origin.clone(),
+			MinimumStakingAmount::get() * 4,
+		)
+		.expect("Can set minimum stake amount");
+
+		let res = Staking::self_stake_currency(validator.origin, amount);
+		assert_err!(res, Error::<Test>::TooSmallStake);
+	});
+}
+
+#[apply(dpos)]
+fn self_stake_currency_is_successful_custom_limit(
+	mut ext: TestExternalities,
+	permission: PermissionType,
+) {
+	ext.execute_with(|| {
+		let validator = BindParams::default().permission(permission).mint().bind();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
+		Staking::set_minimum_staking_amount(
+			validator.origin.clone(),
+			MinimumStakingAmount::get() * 4,
+		)
+		.expect("Can set minimum stake amount");
+
+		let res = Staking::self_stake_currency(validator.origin, MinimumStakingAmount::get() * 4);
+		assert_ok!(res, ());
 	});
 }
 

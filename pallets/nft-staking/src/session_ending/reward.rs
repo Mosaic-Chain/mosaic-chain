@@ -240,7 +240,7 @@ impl<T: Config> RewardValidator<T> {
 
 	/// Calculates how much is rewarded in a session for a given staking contract to the validator, the delegator and the treasury.
 	///
-	/// ```
+	/// ```rust,ignore
 	/// contract_reward = session_reward * contract.stake.total / total_stake
 	///
 	/// contribution = ContributionPercentage * contract_reward

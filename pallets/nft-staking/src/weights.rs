@@ -51,6 +51,7 @@ pub trait WeightInfo {
 	fn set_commission() -> Weight;
 	fn kick() -> Weight;
 	fn topup() -> Weight;
+	fn set_minimum_staking_amount() -> Weight;
 	fn total_committed_stake(v: u32, ) -> Weight;
 	fn maybe_reset_validator_state() -> Weight;
 	fn reward_contract(d: u32, ) -> Weight;
@@ -543,6 +544,21 @@ impl<T: sdk::frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(142_688_000, 7282)
 			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
+	}
+	/// Storage: `NftStaking::Validators` (r:1 w:1)
+	/// Proof: `NftStaking::Validators` (`max_values`: None, `max_size`: Some(66), added: 2541, mode: `MaxEncodedLen`)
+	/// Storage: `NftStaking::ValidatorStates` (r:1 w:0)
+	/// Proof: `NftStaking::ValidatorStates` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
+	/// Storage: `Parameters::Parameters` (r:1 w:0)
+	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
+	fn set_minimum_staking_amount() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1137`
+		//  Estimated: `3531`
+		// Minimum execution time: 34_986_000 picoseconds.
+		Weight::from_parts(36_488_000, 3531)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `NftStaking::TotalValidatorStakes` (r:406 w:0)
 	/// Proof: `NftStaking::TotalValidatorStakes` (`max_values`: None, `max_size`: Some(62), added: 2537, mode: `MaxEncodedLen`)
@@ -1288,6 +1304,21 @@ impl WeightInfo for () {
 		Weight::from_parts(142_688_000, 7282)
 			.saturating_add(RocksDbWeight::get().reads(9_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+	}
+	/// Storage: `NftStaking::Validators` (r:1 w:1)
+	/// Proof: `NftStaking::Validators` (`max_values`: None, `max_size`: Some(66), added: 2541, mode: `MaxEncodedLen`)
+	/// Storage: `NftStaking::ValidatorStates` (r:1 w:0)
+	/// Proof: `NftStaking::ValidatorStates` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
+	/// Storage: `Parameters::Parameters` (r:1 w:0)
+	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
+	fn set_minimum_staking_amount() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1137`
+		//  Estimated: `3531`
+		// Minimum execution time: 34_986_000 picoseconds.
+		Weight::from_parts(36_488_000, 3531)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `NftStaking::TotalValidatorStakes` (r:406 w:0)
 	/// Proof: `NftStaking::TotalValidatorStakes` (`max_values`: None, `max_size`: Some(62), added: 2537, mode: `MaxEncodedLen`)

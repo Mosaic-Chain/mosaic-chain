@@ -14,7 +14,7 @@ use sp_runtime::{
 	BoundedVec, Perbill,
 };
 
-use super::Config;
+use super::{Config, Error};
 
 pub const MAX_NFTS_PER_CONTRACT: u32 = 5;
 
@@ -88,15 +88,27 @@ pub struct TotalValidatorStake<Balance> {
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum ValidatorDetails {
+	/// Validator that only stakes the nominal value of its permission NFT
 	PoS,
+	/// Validator that can be delegated to (default minimum staking amount)
 	DPoS { commission: Perbill, min_staking_period: u32, accept_delegations: bool },
+	/// Validator that can be delegated to (migrated to having a configurable
+	/// minimum staking amount)
+	DPoSv2 {
+		commission: Perbill,
+		min_staking_period: u32,
+		min_staking_amount: u128,
+		accept_delegations: bool,
+	},
 }
 
 impl ValidatorDetails {
+	/// Helper function to return whether the validator can be delegated to
+	/// regardless the permission type of it
 	pub fn permission(&self) -> PermissionType {
 		match self {
 			Self::PoS => PermissionType::PoS,
-			Self::DPoS { .. } => PermissionType::DPoS,
+			Self::DPoS { .. } | Self::DPoSv2 { .. } => PermissionType::DPoS,
 		}
 	}
 
@@ -104,7 +116,7 @@ impl ValidatorDetails {
 	pub fn commission(&self) -> Perbill {
 		match self {
 			Self::PoS => Perbill::from_percent(100),
-			Self::DPoS { commission, .. } => *commission,
+			Self::DPoS { commission, .. } | Self::DPoSv2 { commission, .. } => *commission,
 		}
 	}
 
@@ -112,7 +124,37 @@ impl ValidatorDetails {
 	pub fn min_staking_period<T: Config>(&self) -> u32 {
 		match self {
 			Self::PoS => T::MinimumStakingPeriod::get().into(),
-			Self::DPoS { min_staking_period, .. } => *min_staking_period,
+			Self::DPoS { min_staking_period, .. } | Self::DPoSv2 { min_staking_period, .. } => {
+				*min_staking_period
+			},
+		}
+	}
+
+	/// Helper function to return `min_staking_amount` regardless the permission type
+	pub fn min_staking_amount<T: Config>(&self) -> T::Balance {
+		match self {
+			Self::PoS | Self::DPoS { .. } => T::MinimumStakingAmount::get(),
+			Self::DPoSv2 { min_staking_amount, .. } => T::Balance::from(*min_staking_amount),
+		}
+	}
+
+	/// Helper function to return `accept_delegation` regardless the permission type
+	pub fn accept_delegations<T: Config>(&self) -> Result<bool, Error<T>> {
+		match self {
+			Self::PoS => Err(Error::<T>::TargetNotDPoS),
+			Self::DPoS { accept_delegations, .. } | Self::DPoSv2 { accept_delegations, .. } => {
+				Ok(*accept_delegations)
+			},
+		}
+	}
+
+	/// Helper function to set `accept_delegation` regardless the permission type
+	pub fn accept_delegations_mut<T: Config>(&mut self) -> Result<&mut bool, Error<T>> {
+		match self {
+			Self::PoS => Err(Error::<T>::CallerNotDPoS),
+			Self::DPoS { accept_delegations, .. } | Self::DPoSv2 { accept_delegations, .. } => {
+				Ok(accept_delegations)
+			},
 		}
 	}
 }

@@ -311,6 +311,11 @@ pub mod pallet {
 			item: T::ItemId,
 			cost: T::Balance,
 		},
+
+		MinimumStakingAmountChanged {
+			validator: T::AccountId,
+			new_amount: T::Balance,
+		},
 	}
 
 	#[pallet::error]
@@ -350,6 +355,7 @@ pub mod pallet {
 		TooManyNftDelegatedToContract,
 		ContractLimitReached,
 		WouldDust,
+		InvalidStakingAmount,
 	}
 
 	#[pallet::genesis_config]
@@ -646,7 +652,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure!(!Self::is_chilled(validator), Error::<T>::TargetIsChilled);
 
-			ensure!(amount >= T::MinimumStakingAmount::get(), Error::<T>::TooSmallStake);
+			ensure!(
+				amount >= validator_details.min_staking_amount::<T>(),
+				Error::<T>::TooSmallStake
+			);
 
 			Self::lock_currency(staker, amount, Precision::Exact)?;
 			Self::grow_total_validator_stake_by(validator, amount);
@@ -689,7 +698,10 @@ pub mod pallet {
 			let (expiry, nominal_value) =
 				T::NftDelegationHandler::bind(staker, item_id, validator.clone())?;
 
-			ensure!(nominal_value >= T::MinimumStakingAmount::get(), Error::<T>::LowNominalValue);
+			ensure!(
+				nominal_value >= validator_details.min_staking_amount::<T>(),
+				Error::<T>::LowNominalValue
+			);
 
 			let min_staking_period_end =
 				SessionPallet::<T>::current_index() + validator_details.min_staking_period::<T>();
@@ -750,9 +762,8 @@ pub mod pallet {
 				Error::<T>::EarlyUnstake
 			);
 
-			let minimum_staking_amount = T::MinimumStakingAmount::get();
 			ensure!(
-				amount >= contract.stake.currency.min(minimum_staking_amount),
+				amount >= contract.stake.currency.min(T::MinimumStakingAmount::get()),
 				Error::<T>::TooSmallUnstake
 			);
 
@@ -760,8 +771,10 @@ pub mod pallet {
 
 			contract.stake.currency.saturating_reduce(amount);
 
+			let details = Validators::<T>::get(validator).ok_or(Error::<T>::NotBound)?;
+
 			ensure!(
-				contract.stake.currency >= T::MinimumStakingAmount::get()
+				contract.stake.currency >= details.min_staking_amount::<T>()
 					|| contract.stake.currency.is_zero(),
 				Error::<T>::WouldDust
 			);
@@ -831,6 +844,13 @@ pub mod pallet {
 
 			let details = match permission {
 				PermissionType::PoS => ValidatorDetails::PoS,
+				// TODO Use DPoSv2 for binding new validators (adapt tests)
+				// PermissionType::DPoS => ValidatorDetails::DPoSv2 {
+				// 	commission: T::MinimumCommissionRate::get(),
+				// 	min_staking_period: T::MinimumStakingPeriod::get().into(),
+				// 	min_staking_amount: T::MinimumStakingAmount::get().into(),
+				// 	accept_delegations: true,
+				// },
 				PermissionType::DPoS => ValidatorDetails::DPoS {
 					commission: T::MinimumCommissionRate::get(),
 					min_staking_period: T::MinimumStakingPeriod::get().into(),
@@ -955,13 +975,9 @@ pub mod pallet {
 			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
 				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
 
-				if let ValidatorDetails::DPoS { accept_delegations, .. } = details {
-					ensure!(!*accept_delegations, Error::<T>::AlreadyAcceptsDelegations);
-
-					*accept_delegations = true;
-				} else {
-					return Err(Error::<T>::CallerNotDPoS.into());
-				};
+				let accept_delegations = details.accept_delegations_mut::<T>()?;
+				ensure!(!*accept_delegations, Error::<T>::AlreadyAcceptsDelegations);
+				*accept_delegations = true;
 
 				Self::deposit_event(Event::<T>::DelegationEnabled(caller.clone()));
 
@@ -977,13 +993,9 @@ pub mod pallet {
 			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
 				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
 
-				if let ValidatorDetails::DPoS { accept_delegations, .. } = details {
-					ensure!(*accept_delegations, Error::<T>::AlreadyDeniesDelegations);
-
-					*accept_delegations = false;
-				} else {
-					return Err(Error::<T>::CallerNotDPoS.into());
-				};
+				let accept_delegations = details.accept_delegations_mut::<T>()?;
+				ensure!(*accept_delegations, Error::<T>::AlreadyDeniesDelegations);
+				*accept_delegations = false;
 
 				Self::deposit_event(Event::<T>::DelegationDisabled(caller.clone()));
 
@@ -1121,19 +1133,12 @@ pub mod pallet {
 			ensure!(caller != target, Error::<T>::InvalidTarget);
 
 			let details = Validators::<T>::get(&target).ok_or(Error::<T>::NotBound)?;
-
-			let ValidatorDetails::DPoS { accept_delegations, min_staking_period, commission } =
-				details
-			else {
-				return Err(Error::<T>::TargetNotDPoS.into());
-			};
-
-			ensure!(accept_delegations, Error::<T>::TargetDeniesDelegations);
+			ensure!(details.accept_delegations::<T>()?, Error::<T>::TargetDeniesDelegations);
 			ensure!(
-				min_staking_period == observed_staking_period && commission == observed_commission,
+				details.min_staking_period::<T>() == observed_staking_period
+					&& details.commission() == observed_commission,
 				Error::<T>::SlippageExceeded
 			);
-
 			Self::do_stake_currency(&target, details, &caller, amount)?;
 
 			Self::deposit_event(Event::<T>::CurrencyStaked {
@@ -1158,16 +1163,10 @@ pub mod pallet {
 			ensure!(caller != target, Error::<T>::InvalidTarget);
 
 			let details = Validators::<T>::get(&target).ok_or(Error::<T>::NotBound)?;
-
-			let ValidatorDetails::DPoS { accept_delegations, min_staking_period, commission } =
-				details
-			else {
-				return Err(Error::<T>::TargetNotDPoS.into());
-			};
-
-			ensure!(accept_delegations, Error::<T>::TargetDeniesDelegations);
+			ensure!(details.accept_delegations::<T>()?, Error::<T>::TargetDeniesDelegations);
 			ensure!(
-				min_staking_period == observed_staking_period && commission == observed_commission,
+				details.min_staking_period::<T>() == observed_staking_period
+					&& details.commission() == observed_commission,
 				Error::<T>::SlippageExceeded
 			);
 
@@ -1216,11 +1215,8 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			ensure!(caller != target, Error::<T>::InvalidTarget);
 
-			let permission = Validators::<T>::get(&target)
-				.map(|details| details.permission())
-				.ok_or(Error::<T>::NotBound)?;
-
-			ensure!(permission == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
+			let details = Validators::<T>::get(&target).ok_or(Error::<T>::NotBound)?;
+			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
 			Self::do_unstake_nft(&target, &caller, &item_id)?;
 
@@ -1246,8 +1242,12 @@ pub mod pallet {
 
 				ensure!(!Self::is_chilled(&caller), Error::<T>::CallerIsChilled);
 
-				let ValidatorDetails::DPoS { min_staking_period, .. } = details else {
-					return Err(Error::<T>::CallerNotDPoS.into());
+				let min_staking_period = match details {
+					ValidatorDetails::DPoS { min_staking_period, .. }
+					| ValidatorDetails::DPoSv2 { min_staking_period, .. } => min_staking_period,
+					ValidatorDetails::PoS => {
+						return Err(Error::<T>::CallerNotDPoS.into());
+					},
 				};
 
 				ensure!(
@@ -1276,8 +1276,12 @@ pub mod pallet {
 
 				ensure!(!Self::is_chilled(&caller), Error::<T>::CallerIsChilled);
 
-				let ValidatorDetails::DPoS { commission, .. } = details else {
-					return Err(Error::<T>::CallerNotDPoS.into());
+				let commission = match details {
+					ValidatorDetails::DPoS { commission, .. }
+					| ValidatorDetails::DPoSv2 { commission, .. } => commission,
+					ValidatorDetails::PoS => {
+						return Err(Error::<T>::CallerNotDPoS.into());
+					},
 				};
 
 				ensure!(
@@ -1392,6 +1396,56 @@ pub mod pallet {
 			});
 
 			Ok(())
+		}
+
+		#[pallet::call_index(18)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_minimum_staking_amount())]
+		pub fn set_minimum_staking_amount(
+			origin: OriginFor<T>,
+			new_min_amount: T::Balance,
+		) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+
+			Validators::<T>::mutate(&caller, |v: &mut Option<_>| {
+				let details = v.as_mut().ok_or(Error::<T>::NotBound)?;
+
+				ensure!(!Self::is_chilled(&caller), Error::<T>::CallerIsChilled);
+
+				match details {
+					ValidatorDetails::PoS => {
+						return Err(Error::<T>::CallerNotDPoS.into());
+					},
+
+					ValidatorDetails::DPoS {
+						commission,
+						min_staking_period,
+						accept_delegations,
+					} => {
+						*details = ValidatorDetails::DPoSv2 {
+							commission: *commission,
+							min_staking_period: *min_staking_period,
+							min_staking_amount: new_min_amount.into(),
+							accept_delegations: *accept_delegations,
+						};
+					},
+
+					ValidatorDetails::DPoSv2 { min_staking_amount, .. } => {
+						*min_staking_amount = new_min_amount.into()
+					},
+				};
+
+				ensure!(
+					new_min_amount >= T::MinimumStakingAmount::get(),
+					Error::<T>::InvalidStakingAmount
+				);
+
+				Self::deposit_event(Event::<T>::MinimumStakingAmountChanged {
+					validator: caller.clone(),
+					new_amount: new_min_amount,
+				});
+
+				Ok(())
+			})
 		}
 	}
 }

@@ -2,22 +2,16 @@
 version = 2
 yanked = "warn"
 ignore = [
-    "RUSTSEC-2024-0388", # `derivative` is unmaintained
-    "RUSTSEC-2024-0421", # `idna` accepts malleable Punycode, but libp2p cryptographicall verifies its peers anyways
     "RUSTSEC-2024-0384", # `instant` is unmaintained
     "RUSTSEC-2020-0168", # `mach` is unmaintained
     "RUSTSEC-2022-0061", # `parity-wasm` is deprecated 🤦
     "RUSTSEC-2024-0436", # `paste` is unmaintained
     "RUSTSEC-2024-0370", # `proc-macro-error` is unmaintained
-    "RUSTSEC-2025-0009", # In `ring` some AES functions may panic when overflow checking is enabled
-    "RUSTSEC-2025-0010", # Unmaintained `ring` version used in `litep2p`
-    "RUSTSEC-2024-0336", # `rustls` dep of `litep2p` can get to infinite loop based on network input
-    "RUSTSEC-2025-0017", # `trust-dns-resolver` is unmaintained
     "RUSTSEC-2024-0438", # `wasmtime` doesn't fully sandbox all the Windows device filenames
     "RUSTSEC-2023-0091", # `wasmtime` miscompilation of wasm `i64x2.shr_s` instruction with constant input on x86\_64
     "RUSTSEC-2024-0442", # safe code can leak memory in `wasmtime-jit-debug`
     "RUSTSEC-2025-0057", # `fxhash` is unmaintained
-    "RUSTSEC-2025-0055", #
+    "RUSTSEC-2025-0118", # wasmtime linear memory is not used from multiple threads
 ]
 
 [licenses]
@@ -36,9 +30,9 @@ allow = [
     "Zlib",
     # copyleft:
     "GPL-3.0-or-later",                              # this makes our nodes GPL-3.0, too
-    "GPL-3.0-only",                              # this makes our nodes GPL-3.0, too
+    "GPL-3.0-only",                                  # this makes our nodes GPL-3.0, too
     "GPL-3.0-or-later WITH Classpath-exception-2.0", # like LGPL, but legally simpler
-    "MPL-2.0",                              # other source code files can use any license
+    "MPL-2.0",                                       # other source code files can use any license
 ]
 confidence-threshold = 0.8
 exceptions = [
@@ -84,7 +78,6 @@ skip = [
     { name = "crypto-mac" },
     { name = "derive_more" },
     { name = "digest" },
-    { name = "enum-as-inner" },
     { name = "env_logger" },
     { name = "event-listener" },
     { name = "fastrand" },
@@ -93,22 +86,17 @@ skip = [
     { name = "getrandom" },
     { name = "heck" },
     { name = "hmac" },
-    { name = "idna" },
     { name = "itertools" },
     { name = "lru" },
     { name = "memmap2" },
     { name = "multiaddr" },
     { name = "nix" },
     { name = "pallet-treasury", reason = "We forked an older version" },
-    { name = "proc-macro-warning" },
     { name = "schnorrkel" },
     { name = "semver" },
     { name = "sp-crypto-hashing" },
-    { name = "trust-dns-proto" },
-    { name = "unicode-width" },
     { name = "windows-core" },
     { name = "yamux" },
-    { name = "hostname" },
     { name = "windows-result" },
 ]
 skip-tree = [
