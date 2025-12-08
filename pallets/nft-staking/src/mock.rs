@@ -291,6 +291,10 @@ impl WeightInfo for UnitWeights {
 		Weight::from_all(1)
 	}
 
+	fn set_minimum_staking_amount() -> Weight {
+		Weight::from_all(1)
+	}
+
 	fn total_committed_stake(v: u32) -> Weight {
 		SessionEndingLog::push(SessionEndingLogEntry::CalculateTotalStake);
 		Weight::from_all(v.into())
