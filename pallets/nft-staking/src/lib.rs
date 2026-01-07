@@ -750,6 +750,7 @@ pub mod pallet {
 			validator: &T::AccountId,
 			staker: &T::AccountId,
 			amount: T::Balance,
+			force: bool,
 		) -> DispatchResult {
 			let Some(mut contract) = Self::current_contract(validator, staker) else {
 				return Err(Error::<T>::NoContract.into());
@@ -757,13 +758,14 @@ pub mod pallet {
 
 			let session = SessionPallet::<T>::current_index();
 			ensure!(
-				session >= contract.min_staking_period_end
+				force
+					|| session >= contract.min_staking_period_end
 					|| (validator != staker && Self::is_slacking(validator)),
 				Error::<T>::EarlyUnstake
 			);
 
 			ensure!(
-				amount >= contract.stake.currency.min(T::MinimumStakingAmount::get()),
+				force || amount >= contract.stake.currency.min(T::MinimumStakingAmount::get()),
 				Error::<T>::TooSmallUnstake
 			);
 
@@ -774,7 +776,8 @@ pub mod pallet {
 			let details = Validators::<T>::get(validator).ok_or(Error::<T>::NotBound)?;
 
 			ensure!(
-				contract.stake.currency >= details.min_staking_amount::<T>()
+				force
+					|| contract.stake.currency >= details.min_staking_amount::<T>()
 					|| contract.stake.currency.is_zero(),
 				Error::<T>::WouldDust
 			);
@@ -793,6 +796,7 @@ pub mod pallet {
 			validator: &T::AccountId,
 			staker: &T::AccountId,
 			item_id: &T::ItemId,
+			force: bool,
 		) -> DispatchResult {
 			let Some(mut contract) = Self::current_contract(validator, staker) else {
 				return Err(Error::<T>::NoContract.into());
@@ -808,7 +812,8 @@ pub mod pallet {
 
 			let session = SessionPallet::<T>::current_index();
 			ensure!(
-				session >= contract.min_staking_period_end
+				force
+					|| session >= contract.min_staking_period_end
 					|| (validator != staker && Self::is_slacking(validator)),
 				Error::<T>::EarlyUnstake
 			);
@@ -821,6 +826,139 @@ pub mod pallet {
 			Self::shrink_total_validator_stake_by(validator, nominal_value);
 
 			T::Hooks::on_nft_unstake(staker, validator, item_id);
+
+			Ok(())
+		}
+
+		fn do_kick(validator: &T::AccountId, target: &T::AccountId, force: bool) -> DispatchResult {
+			ensure!(validator != target, Error::<T>::InvalidCaller);
+
+			let details = Validators::<T>::get(validator).ok_or(Error::<T>::NotBound)?;
+
+			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::CallerNotDPoS);
+
+			ensure!(force || !Self::is_chilled(validator), Error::<T>::CallerIsChilled);
+
+			let Some(mut contract) = Self::current_contract(validator, target) else {
+				return Err(Error::<T>::NoContract.into());
+			};
+
+			if !force && contract.min_staking_period_end > SessionPallet::<T>::current_index() {
+				return Err(Error::<T>::EarlyKick.into());
+			}
+
+			// TODO: there might be events missing for the indexer
+			Self::stage_unlock_currency(&target, contract.stake.currency);
+			for (item_id, _) in &contract.stake.delegated_nfts {
+				UnlockingDelegatorNfts::<T>::insert(item_id.clone(), target.clone());
+			}
+
+			// this is a staged action, so in the current session this delegator's stake is still included.
+			Self::shrink_total_validator_stake_by(validator, contract.stake.total());
+
+			// Note: contracts with empty stake are removed in next session,
+			// but the delegator can always just restake even in this session
+			contract.stake = Stake::default();
+
+			T::Hooks::on_kick(target, validator);
+
+			Self::deposit_event(Event::<T>::StakerKicked {
+				validator: validator.clone(),
+				staker: target.clone(),
+				reason: KickReason::Manual,
+			});
+
+			Self::stage_contract(validator, target, contract);
+
+			Ok(())
+		}
+
+		fn do_unbind_validator(
+			validator: &T::AccountId,
+			contract_count: u32,
+			force: bool,
+		) -> DispatchResult {
+			ensure!(Validators::<T>::contains_key(validator), Error::<T>::NotBound);
+			ensure!(force || Self::is_chilled(validator), Error::<T>::CallerIsNotChilled);
+
+			// NOTE: we use this as a proxy for all staged storages related to the caller (eg.: contracts)
+			// match Self::current_staged_total_validator_stake(&caller) {
+			// 	Some(_) => {
+			// 		let current_layer = CurrentStagingLayer::<T>::get();
+			// 		let write_layer = TotalValidatorStakes::<T>::get((
+			// 			StorageLayer::Staged(current_layer),
+			// 			validator,
+			// 		));
+			// 		let drain_layer = TotalValidatorStakes::<T>::get((
+			// 			StorageLayer::Staged(current_layer.other()),
+			// 			validator,
+			// 		));
+			// 		panic!("{current_layer:?} {write_layer:?} {drain_layer:?}");
+			// 	},
+			// 	None => (),
+			// };
+
+			ensure!(
+				Self::current_staged_total_validator_stake(validator).is_none(),
+				Error::<T>::UncommittedState
+			);
+
+			let _ = T::NftStakingHandler::unbind(validator)?;
+
+			let validator_id = T::ValidatorIdOf::convert(validator.clone())
+				.expect("caller address can always be converted to validator id");
+
+			ensure!(
+				Self::drafted_validators().all(|id| id != validator_id),
+				Error::<T>::ValidatorAlreadySelected
+			);
+
+			let contracts = Contracts::<T>::drain_prefix((StorageLayer::Committed, validator))
+				.collect::<SpVec<_>>();
+
+			ensure!(
+				contracts.len()
+					<= contract_count
+						.try_into()
+						.expect("Number of contracts always fits into a usize"),
+				Error::<T>::MoreContractsExist
+			);
+
+			let session = SessionPallet::<T>::current_index();
+
+			// Note: this includes the self-contract as well
+			for (contractee, contract) in contracts {
+				// Note: since we are terminating the contract immediately we have to check for equality too
+				if !force && contract.min_staking_period_end >= session {
+					return Err(Error::<T>::BindingContractExists.into());
+				}
+
+				// We immediately release currency and NFTs so delegators needn't wait until the end of session.
+				// Note: they would not receive rewards for this contract this session.
+				Self::unlock_currency(&contractee, contract.stake.currency);
+				for (item_id, _) in &contract.stake.delegated_nfts {
+					T::NftDelegationHandler::unbind(&contractee, item_id)?;
+				}
+
+				T::Hooks::on_kick(&contractee, validator);
+
+				Self::deposit_event(Event::<T>::StakerKicked {
+					validator: validator.clone(),
+					staker: contractee,
+					reason: KickReason::Unbind,
+				});
+			}
+
+			// FIXME: make sure this still holds in new setup
+			// Note: we can remove immediately as no reward would be given.
+			// Caveat: slashes in current session? We can forgive them, right?
+			Validators::<T>::remove(validator);
+			ValidatorStates::<T>::remove(validator);
+			TotalValidatorStakes::<T>::remove((StorageLayer::Committed, validator));
+			InverseSlashes::<T>::remove(validator);
+
+			T::Hooks::on_unbound(validator);
+			Self::deposit_event(Event::<T>::ValidatorUnbound(validator.clone()));
 
 			Ok(())
 		}
@@ -882,89 +1020,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::unbind_validator(*contract_count))]
 		pub fn unbind_validator(origin: OriginFor<T>, contract_count: u32) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
-			ensure!(Self::is_chilled(&caller), Error::<T>::CallerIsNotChilled);
-
-			// NOTE: we use this as a proxy for all staged storages related to the caller (eg.: contracts)
-			// match Self::current_staged_total_validator_stake(&caller) {
-			// 	Some(_) => {
-			// 		let current_layer = CurrentStagingLayer::<T>::get();
-			// 		let write_layer = TotalValidatorStakes::<T>::get((
-			// 			StorageLayer::Staged(current_layer),
-			// 			&caller,
-			// 		));
-			// 		let drain_layer = TotalValidatorStakes::<T>::get((
-			// 			StorageLayer::Staged(current_layer.other()),
-			// 			&caller,
-			// 		));
-			// 		panic!("{current_layer:?} {write_layer:?} {drain_layer:?}");
-			// 	},
-			// 	None => (),
-			// };
-
-			ensure!(
-				Self::current_staged_total_validator_stake(&caller).is_none(),
-				Error::<T>::UncommittedState
-			);
-
-			let _ = T::NftStakingHandler::unbind(&caller)?;
-
-			let validator_id = T::ValidatorIdOf::convert(caller.clone())
-				.expect("caller address can always be converted to validator id");
-
-			ensure!(
-				Self::drafted_validators().all(|id| id != validator_id),
-				Error::<T>::ValidatorAlreadySelected
-			);
-
-			let contracts = Contracts::<T>::drain_prefix((StorageLayer::Committed, &caller))
-				.collect::<SpVec<_>>();
-
-			ensure!(
-				contracts.len()
-					<= contract_count
-						.try_into()
-						.expect("Number of contracts always fits into a usize"),
-				Error::<T>::MoreContractsExist
-			);
-
-			let session = SessionPallet::<T>::current_index();
-
-			// Note: this includes the self-contract as well
-			for (contractee, contract) in contracts {
-				// Note: since we are terminating the contract immediately we have to check for equality too
-				if contract.min_staking_period_end >= session {
-					return Err(Error::<T>::BindingContractExists.into());
-				}
-
-				// We immediately release currency and NFTs so delegators needn't wait until the end of session.
-				// Note: they would not receive rewards for this contract this session.
-				Self::unlock_currency(&contractee, contract.stake.currency);
-				for (item_id, _) in &contract.stake.delegated_nfts {
-					T::NftDelegationHandler::unbind(&contractee, item_id)?;
-				}
-
-				T::Hooks::on_kick(&contractee, &caller);
-
-				Self::deposit_event(Event::<T>::StakerKicked {
-					validator: caller.clone(),
-					staker: contractee,
-					reason: KickReason::Unbind,
-				});
-			}
-
-			// FIXME: make sure this still holds in new setup
-			// Note: we can remove immediately as no reward would be given.
-			// Caveat: slashes in current session? We can forgive them, right?
-			Validators::<T>::remove(&caller);
-			ValidatorStates::<T>::remove(&caller);
-			TotalValidatorStakes::<T>::remove((StorageLayer::Committed, &caller));
-			InverseSlashes::<T>::remove(&caller);
-
-			T::Hooks::on_unbound(&caller);
-			Self::deposit_event(Event::<T>::ValidatorUnbound(caller));
-
-			Ok(())
+			Self::do_unbind_validator(&caller, contract_count, false)
 		}
 
 		#[pallet::call_index(2)]
@@ -1090,7 +1146,7 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 			ensure!(Validators::<T>::contains_key(&caller), Error::<T>::NotBound);
 
-			Self::do_unstake_currency(&caller, &caller, amount)?;
+			Self::do_unstake_currency(&caller, &caller, amount, false)?;
 
 			Self::deposit_event(Event::<T>::CurrencyUnstaked {
 				validator: caller.clone(),
@@ -1109,7 +1165,7 @@ pub mod pallet {
 			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
 			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::CallerNotDPoS);
 
-			Self::do_unstake_nft(&caller, &caller, &item_id)?;
+			Self::do_unstake_nft(&caller, &caller, &item_id, false)?;
 
 			Self::deposit_event(Event::<T>::NftUndelegated {
 				validator: caller.clone(),
@@ -1194,7 +1250,7 @@ pub mod pallet {
 			let details = Validators::<T>::get(&target).ok_or(Error::<T>::NotBound)?;
 			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
-			Self::do_unstake_currency(&target, &caller, amount)?;
+			Self::do_unstake_currency(&target, &caller, amount, false)?;
 
 			Self::deposit_event(Event::<T>::CurrencyUnstaked {
 				validator: target,
@@ -1218,7 +1274,7 @@ pub mod pallet {
 			let details = Validators::<T>::get(&target).ok_or(Error::<T>::NotBound)?;
 			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::TargetNotDPoS);
 
-			Self::do_unstake_nft(&target, &caller, &item_id)?;
+			Self::do_unstake_nft(&target, &caller, &item_id, false)?;
 
 			Self::deposit_event(Event::<T>::NftUndelegated {
 				validator: target,
@@ -1304,46 +1360,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::kick())]
 		pub fn kick(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			ensure!(caller != target, Error::<T>::InvalidCaller);
-
-			let details = Validators::<T>::get(&caller).ok_or(Error::<T>::NotBound)?;
-
-			ensure!(details.permission() == PermissionType::DPoS, Error::<T>::CallerNotDPoS);
-
-			ensure!(!Self::is_chilled(&caller), Error::<T>::CallerIsChilled);
-
-			let Some(mut contract) = Self::current_contract(&caller, &target) else {
-				return Err(Error::<T>::NoContract.into());
-			};
-
-			if contract.min_staking_period_end > SessionPallet::<T>::current_index() {
-				return Err(Error::<T>::EarlyKick.into());
-			}
-
-			// TODO: there might be events missing for the indexer
-			Self::stage_unlock_currency(&target, contract.stake.currency);
-			for (item_id, _) in &contract.stake.delegated_nfts {
-				UnlockingDelegatorNfts::<T>::insert(item_id.clone(), target.clone());
-			}
-
-			// this is a staged action, so in the current session this delegator's stake is still included.
-			Self::shrink_total_validator_stake_by(&caller, contract.stake.total());
-
-			// Note: contracts with empty stake are removed in next session,
-			// but the delegator can always just restake even in this session
-			contract.stake = Stake::default();
-
-			T::Hooks::on_kick(&target, &caller);
-
-			Self::deposit_event(Event::<T>::StakerKicked {
-				validator: caller.clone(),
-				staker: target.clone(),
-				reason: KickReason::Manual,
-			});
-
-			Self::stage_contract(&caller, &target, contract);
-
-			Ok(())
+			Self::do_kick(&caller, &target, false)
 		}
 
 		#[pallet::call_index(17)]
@@ -1446,6 +1463,82 @@ pub mod pallet {
 
 				Ok(())
 			})
+		}
+
+		#[pallet::call_index(19)]
+		#[pallet::weight(<T as Config>::WeightInfo::kick())]
+		pub fn force_kick(
+			origin: OriginFor<T>,
+			validator: T::AccountId,
+			target: T::AccountId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::do_kick(&validator, &target, true)
+		}
+
+		#[pallet::call_index(20)]
+		#[pallet::weight(<T as Config>::WeightInfo::undelegate_nft())]
+		pub fn force_undelegate_nft(
+			origin: OriginFor<T>,
+			validator: T::AccountId,
+			delegator: T::AccountId,
+			item_id: T::ItemId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let details = Validators::<T>::get(&validator).ok_or(Error::<T>::NotBound)?;
+			ensure!(
+				details.permission() == PermissionType::DPoS || validator == delegator,
+				Error::<T>::TargetNotDPoS
+			);
+
+			Self::do_unstake_nft(&validator, &delegator, &item_id, true)?;
+
+			Self::deposit_event(Event::<T>::NftUndelegated {
+				validator,
+				staker: delegator,
+				item_id,
+			});
+
+			Ok(())
+		}
+
+		#[pallet::call_index(21)]
+		#[pallet::weight(<T as Config>::WeightInfo::undelegate_currency())]
+		pub fn force_undelegate_currency(
+			origin: OriginFor<T>,
+			validator: T::AccountId,
+			delegator: T::AccountId,
+			amount: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let details = Validators::<T>::get(&validator).ok_or(Error::<T>::NotBound)?;
+			ensure!(
+				details.permission() == PermissionType::DPoS || validator == delegator,
+				Error::<T>::TargetNotDPoS
+			);
+
+			Self::do_unstake_currency(&validator, &delegator, amount, true)?;
+
+			Self::deposit_event(Event::<T>::CurrencyUnstaked {
+				validator,
+				staker: delegator,
+				amount,
+			});
+
+			Ok(())
+		}
+
+		#[pallet::call_index(22)]
+		#[pallet::weight(<T as Config>::WeightInfo::unbind_validator(*contract_count))]
+		pub fn force_unbind_validator(
+			origin: OriginFor<T>,
+			validator: T::AccountId,
+			contract_count: u32,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::do_unbind_validator(&validator, contract_count, true)
 		}
 	}
 }

@@ -1,7 +1,15 @@
 use super::*;
 
-#[apply(permission_cases)]
-fn unbind_is_successful(mut ext: TestExternalities, permission: PermissionType) {
+fn unbind_maybe_force(validator: AccountId, contract_count: u32, force: bool) -> DispatchResult {
+	if force {
+		Staking::force_unbind_validator(RuntimeOrigin::root(), validator, contract_count)
+	} else {
+		Staking::unbind_validator(origin(validator), contract_count)
+	}
+}
+
+#[apply(permission_x_force_cases)]
+fn unbind_is_successful(mut ext: TestExternalities, permission: PermissionType, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
 
@@ -11,7 +19,7 @@ fn unbind_is_successful(mut ext: TestExternalities, permission: PermissionType) 
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin.clone(), 1);
+		let res = unbind_maybe_force(validator.account_id, 1, force);
 		assert_ok!(res, ());
 
 		assert!(Validators::<Test>::get(validator.account_id).is_none());
@@ -25,8 +33,8 @@ fn unbind_is_successful(mut ext: TestExternalities, permission: PermissionType) 
 	});
 }
 
-#[rstest]
-fn not_binding_contracts_kicked(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn not_binding_contracts_kicked(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -55,7 +63,7 @@ fn not_binding_contracts_kicked(mut ext: TestExternalities) {
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin, 2);
+		let res = unbind_maybe_force(validator.account_id, 2, force);
 		assert_ok!(res, ());
 
 		assert!(Staking::current_total_validator_stake(&validator.account_id).is_none());
@@ -87,31 +95,35 @@ fn not_binding_contracts_kicked(mut ext: TestExternalities) {
 	});
 }
 
-#[rstest]
-fn not_bound(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn not_bound(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
-		let origin = origin(0);
-
-		let res = Staking::unbind_validator(origin, 1);
+		let res = unbind_maybe_force(0, 1, force);
 		assert_noop!(res, Error::<Test>::NotBound);
 	});
 }
 
-#[apply(permission_cases)]
-fn not_chilled(mut ext: TestExternalities, permission: PermissionType) {
+#[apply(permission_x_force_cases)]
+fn not_chilled(mut ext: TestExternalities, permission: PermissionType, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
 
 		skip_min_staking_period();
 		next_session();
 
-		let res = Staking::unbind_validator(validator.origin, 1);
-		assert_noop!(res, Error::<Test>::CallerIsNotChilled);
+		if force {
+			Staking::force_unbind_validator(RuntimeOrigin::root(), validator.account_id, 1)
+				.expect("could unbind unchilled validator forcefully");
+			System::assert_last_event(Event::<Test>::ValidatorUnbound(validator.account_id).into());
+		} else {
+			let res = Staking::unbind_validator(validator.origin, 1);
+			assert_noop!(res, Error::<Test>::CallerIsNotChilled);
+		}
 	});
 }
 
-#[apply(permission_cases)]
-fn self_contract_is_binding(mut ext: TestExternalities, permission: PermissionType) {
+#[apply(permission_x_force_cases)]
+fn self_contract_is_binding(mut ext: TestExternalities, permission: PermissionType, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
 
@@ -120,13 +132,19 @@ fn self_contract_is_binding(mut ext: TestExternalities, permission: PermissionTy
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin, 1);
-		assert_noop!(res, Error::<Test>::BindingContractExists);
+		if force {
+			Staking::force_unbind_validator(RuntimeOrigin::root(), validator.account_id, 1)
+				.expect("could forcefully unbind validator with binding self-contract");
+			System::assert_last_event(Event::<Test>::ValidatorUnbound(validator.account_id).into());
+		} else {
+			let res = Staking::unbind_validator(validator.origin, 1);
+			assert_noop!(res, Error::<Test>::BindingContractExists);
+		}
 	});
 }
 
-#[rstest]
-fn binding_contract_exists(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn binding_contract_exists(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 
@@ -147,13 +165,19 @@ fn binding_contract_exists(mut ext: TestExternalities) {
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin, 2);
-		assert_noop!(res, Error::<Test>::BindingContractExists);
+		if force {
+			Staking::force_unbind_validator(RuntimeOrigin::root(), validator.account_id, 2)
+				.expect("could forcefully unbind validator with binding contract");
+			System::assert_last_event(Event::<Test>::ValidatorUnbound(validator.account_id).into());
+		} else {
+			let res = Staking::unbind_validator(validator.origin, 2);
+			assert_noop!(res, Error::<Test>::BindingContractExists);
+		}
 	});
 }
 
-#[rstest]
-fn uncommitted_state(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn uncommitted_state(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 
@@ -166,13 +190,13 @@ fn uncommitted_state(mut ext: TestExternalities) {
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin, 2);
+		let res = unbind_maybe_force(validator.account_id, 2, force);
 		assert_noop!(res, Error::<Test>::UncommittedState);
 	});
 }
 
-#[apply(permission_cases)]
-fn drafted(mut ext: TestExternalities, permission: PermissionType) {
+#[apply(permission_x_force_cases)]
+fn drafted(mut ext: TestExternalities, permission: PermissionType, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(permission).mint().bind();
 
@@ -184,7 +208,7 @@ fn drafted(mut ext: TestExternalities, permission: PermissionType) {
 
 		Staking::chill_validator(validator.origin.clone()).expect("could chill validator");
 
-		let res = Staking::unbind_validator(validator.origin, 1);
+		let res = unbind_maybe_force(validator.account_id, 1, force);
 		assert_err!(res, Error::<Test>::ValidatorAlreadySelected);
 	});
 }

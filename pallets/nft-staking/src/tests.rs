@@ -20,9 +20,9 @@ use rstest_reuse::{apply, template};
 
 use crate::{
 	assert_current_contract, assert_current_validator_stake, assert_validator_state, mock::*,
-	ChillReason, Contract, Error, Event, KickReason, Pallet, PermissionType, SelectableValidators,
-	SlashableValidators, Stake, TotalValidatorStake, ValidatorDetails, ValidatorState,
-	ValidatorStates, Validators,
+	ChillReason, Contract, DispatchResult, Error, Event, KickReason, Pallet, PermissionType,
+	SelectableValidators, SlashableValidators, Stake, TotalValidatorStake, ValidatorDetails,
+	ValidatorState, ValidatorStates, Validators,
 };
 
 mod test_bases;

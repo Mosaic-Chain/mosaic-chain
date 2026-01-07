@@ -1,7 +1,20 @@
 use super::*;
 
-#[rstest]
-fn undelegate_nft_is_successful(mut ext: TestExternalities) {
+fn undelegate_maybe_force(
+	validator: AccountId,
+	delegator: AccountId,
+	item_id: u32,
+	force: bool,
+) -> DispatchResult {
+	if force {
+		Staking::force_undelegate_nft(RuntimeOrigin::root(), validator, delegator, item_id)
+	} else {
+		Staking::undelegate_nft(origin(delegator), item_id, validator)
+	}
+}
+
+#[apply(force_cases)]
+fn undelegate_nft_is_successful(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -17,11 +30,13 @@ fn undelegate_nft_is_successful(mut ext: TestExternalities) {
 
 		skip_min_staking_period();
 
-		let res = Staking::undelegate_nft(
-			delegator.origin,
-			delegator.delegator_nft,
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			delegator.delegator_nft,
+			force,
 		);
+
 		assert_ok!(res, ());
 
 		assert_current_validator_stake!(
@@ -55,8 +70,8 @@ fn undelegate_nft_is_successful(mut ext: TestExternalities) {
 	});
 }
 
-#[rstest]
-fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -80,58 +95,85 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 			SlackingPeriod::get() + 1,
 		));
 
-		let res = Staking::undelegate_nft(
-			delegator.origin,
-			delegator.delegator_nft,
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			delegator.delegator_nft,
+			force,
 		);
+
 		assert_ok!(res, ());
 	});
 }
 
-#[rstest]
-fn target_not_bound(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn target_not_bound(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = 0;
 		let delegator = EndowParams::default().endow();
 
-		let res = Staking::undelegate_nft(delegator.origin, delegator.delegator_nft, validator);
+		let res =
+			undelegate_maybe_force(validator, delegator.account_id, delegator.delegator_nft, force);
 		assert_noop!(res, Error::<Test>::NotBound);
 	});
 }
 
-#[rstest]
-fn target_not_dpos(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn target_not_dpos(mut ext: TestExternalities, #[case] force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::PoS).mint().bind();
 		let delegator = EndowParams::default().endow();
 
-		let res = Staking::undelegate_nft(
-			delegator.origin,
-			delegator.delegator_nft,
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			delegator.delegator_nft,
+			force,
 		);
+
 		assert_noop!(res, Error::<Test>::TargetNotDPoS);
 	});
 }
 
-#[rstest]
-fn target_is_caller(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn target_is_caller(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().account_id(validator.account_id).endow();
 
-		let res = Staking::undelegate_nft(
-			validator.origin,
-			delegator.delegator_nft,
-			validator.account_id,
-		);
-		assert_noop!(res, Error::<Test>::InvalidTarget);
+		Staking::self_stake_nft(delegator.origin.clone(), delegator.delegator_nft)
+			.expect("could delegate nft");
+
+		if force {
+			let res = Staking::undelegate_nft(
+				validator.origin,
+				delegator.delegator_nft,
+				validator.account_id,
+			);
+			assert_noop!(res, Error::<Test>::InvalidTarget);
+		} else {
+			Staking::force_undelegate_nft(
+				RuntimeOrigin::root(),
+				validator.account_id,
+				delegator.account_id,
+				delegator.delegator_nft,
+			)
+			.expect("could forcefully undelegate nft");
+
+			System::assert_last_event(
+				Event::<Test>::NftUndelegated {
+					validator: validator.account_id,
+					staker: delegator.account_id,
+					item_id: delegator.delegator_nft,
+				}
+				.into(),
+			);
+		}
 	});
 }
 
-#[rstest]
-fn item_does_not_exists(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn item_does_not_exists(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -146,13 +188,19 @@ fn item_does_not_exists(mut ext: TestExternalities) {
 		)
 		.expect("could delegate currency");
 
-		let res = Staking::undelegate_nft(delegator.origin, 42, validator.account_id);
+		let res = undelegate_maybe_force(
+			validator.account_id,
+			delegator.account_id,
+			delegator.delegator_nft,
+			force,
+		);
+
 		assert_noop!(res, Error::<Test>::NftNotBound); // TODO: should we have more specific errors?
 	});
 }
 
-#[rstest]
-fn wrong_owner(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn wrong_owner(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -167,17 +215,19 @@ fn wrong_owner(mut ext: TestExternalities) {
 		)
 		.expect("could delegate currency");
 
-		let res = Staking::undelegate_nft(
-			delegator.origin,
-			delegator.delegator_nft,
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			delegator.delegator_nft,
+			force,
 		);
+
 		assert_noop!(res, Error::<Test>::NftNotBound); // TODO: should we have more specific errors?
 	});
 }
 
-#[rstest]
-fn item_not_bound(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn item_not_bound(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -192,20 +242,22 @@ fn item_not_bound(mut ext: TestExternalities) {
 		)
 		.expect("could delegate currency");
 
-		let res = Staking::undelegate_nft(
-			delegator.origin,
-			delegator.delegator_nft,
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			delegator.delegator_nft,
+			force,
 		);
 		assert_noop!(res, Error::<Test>::NftNotBound);
 	});
 }
 
-#[rstest]
+#[apply(force_cases)]
 fn binding_contract(
 	mut ext: TestExternalities,
 	#[values(1, MinimumStakingPeriod::get().get() / 2, MinimumStakingPeriod::get().get() - 1)]
 	session: u32,
+	force: bool,
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
@@ -222,11 +274,30 @@ fn binding_contract(
 
 		run_until::<AllPalletsWithSystem, Test>(ToSession(session));
 
-		let res = Staking::undelegate_nft(
-			delegator.origin,
-			delegator.delegator_nft,
-			validator.account_id,
-		);
-		assert_noop!(res, Error::<Test>::EarlyUnstake);
+		if force {
+			Staking::force_undelegate_nft(
+				RuntimeOrigin::root(),
+				validator.account_id,
+				delegator.account_id,
+				delegator.delegator_nft,
+			)
+			.expect("could forcefully undelegate nft");
+
+			System::assert_last_event(
+				Event::<Test>::NftUndelegated {
+					validator: validator.account_id,
+					staker: delegator.account_id,
+					item_id: delegator.delegator_nft,
+				}
+				.into(),
+			);
+		} else {
+			let res = Staking::undelegate_nft(
+				delegator.origin,
+				delegator.delegator_nft,
+				validator.account_id,
+			);
+			assert_noop!(res, Error::<Test>::EarlyUnstake);
+		}
 	});
 }

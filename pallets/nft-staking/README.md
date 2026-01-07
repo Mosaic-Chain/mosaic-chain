@@ -102,6 +102,19 @@ Effects:
   - all delegators' bound delegator nft is unbound
   - all delegators' delegation to `caller` is **immediately** to be removed
 
+### `force_unbind_validator(caller, validator)`
+
+Preconditions:
+
+Same as above, except:
+ - `caller` is root, `validator` is `caller` from above
+ - `validator` can be unchilled
+ - the minimum staking period can be violated for any contract
+
+Effects:
+
+Same as above
+
 ### `disable_delegations(caller)`
 
 Preconditions:
@@ -278,6 +291,19 @@ Effects:
 - `amount` currency is scheduled to be unlocked on the `caller`'s account
 - `amount` currency is scheduled to be removed from the `target`'s stake
 
+### `force_undelegate_currency(caller, validator, delegator, amount)`
+
+Preconditions:
+
+Same as above, except:
+ - `caller` is root, `delegator` is `caller` from above
+ - `delegator` and `validator` may be the same (`validator` may be PoS)
+ - the minimum staking period/amount can be violated
+
+Effects:
+
+Same as above
+
 ### `undelegate_nft(caller, item, target)`
 
 Preconditions:
@@ -293,6 +319,19 @@ Effects:
 
 - `item` is scheduled to be unbound from `target`
 - `item`'s nominal value is scheduled to be removed from `target`'s stake
+
+### `force_undelegate_nft(caller, validator, delegator, item)`
+
+Preconditions:
+
+Same as above, except:
+ - `caller` is root, `delegator` is `caller` from above
+ - `delegator` and `validator` may be the same (`validator` may be PoS)
+ - the minimum staking period can be violated
+
+Effects:
+
+Same as above
 
 ### `set_minimum_staking_period(caller, new_min_period)`
 
@@ -348,6 +387,19 @@ Effects:
 - `target`'s currency based delegation **scheduled** to be freed
 - `target`'s delegated nfts are **scheduled** to be unbound
 - `target`'s stake is **scheduled** to be removed from `caller`'s stake
+
+### `force_kick(caller, validator, target)`
+
+Preconditions:
+
+Same as above, except:
+ - `caller` is root, `validator` is `caller` from above
+ - `validator` can be chilled
+ - the minimum staking period can be violated
+
+Effects:
+
+Same as above
 
 ### `topup(caller, item_id, allowed_amount)`
 

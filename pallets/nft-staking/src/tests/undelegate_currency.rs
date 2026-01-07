@@ -1,7 +1,20 @@
 use super::*;
 
-#[rstest]
-fn undelegate_currency_is_successful(mut ext: TestExternalities) {
+fn undelegate_maybe_force(
+	validator: AccountId,
+	delegator: AccountId,
+	amount: Balance,
+	force: bool,
+) -> DispatchResult {
+	if force {
+		Staking::force_undelegate_currency(RuntimeOrigin::root(), validator, delegator, amount)
+	} else {
+		Staking::undelegate_currency(origin(delegator), amount, validator)
+	}
+}
+
+#[apply(force_cases)]
+fn undelegate_currency_is_successful(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -17,10 +30,11 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 
 		skip_min_staking_period();
 
-		let res = Staking::undelegate_currency(
-			delegator.origin,
-			MinimumStakingAmount::get(),
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			MinimumStakingAmount::get(),
+			force,
 		);
 		assert_ok!(res, ());
 
@@ -64,8 +78,8 @@ fn undelegate_currency_is_successful(mut ext: TestExternalities) {
 	});
 }
 
-#[rstest]
-fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -89,76 +103,124 @@ fn can_undelegate_if_target_is_slacking(mut ext: TestExternalities) {
 			SlackingPeriod::get() + 1,
 		));
 
-		let res = Staking::undelegate_currency(
-			delegator.origin,
-			MinimumStakingAmount::get(),
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			MinimumStakingAmount::get(),
+			force,
 		);
 		assert_ok!(res, ());
 	});
 }
 
-#[rstest]
-fn target_not_bound(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn target_not_bound(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = 0;
-		let delegator = origin(1);
+		let delegator = 1;
 
-		let res = Staking::undelegate_currency(delegator, MinimumStakingAmount::get(), validator);
+		let res = undelegate_maybe_force(validator, delegator, MinimumStakingAmount::get(), force);
 		assert_noop!(res, Error::<Test>::NotBound);
 	});
 }
 
-#[rstest]
-fn target_not_dpos(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn target_not_dpos(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::PoS).mint().bind();
 		let delegator = EndowParams::default().endow();
 
-		let res = Staking::undelegate_currency(
-			delegator.origin,
-			MinimumStakingAmount::get(),
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			MinimumStakingAmount::get(),
+			force,
 		);
 		assert_noop!(res, Error::<Test>::TargetNotDPoS);
 	});
 }
 
 #[rstest]
-fn target_is_caller(mut ext: TestExternalities) {
+fn target_can_be_caller_for_pos_forced(mut ext: TestExternalities) {
+	ext.execute_with(|| {
+		let validator = BindParams::default().permission(PermissionType::PoS).mint().bind();
+		let _ = EndowParams::default().account_id(validator.account_id).endow();
+
+		ValidatorSet::set(vec![validator.account_id]);
+		SessionReward::set(1250); // 1250 * (1 - contribution) = 1000
+
+		next_session();
+		next_session();
+
+		Staking::force_undelegate_currency(
+			RuntimeOrigin::root(),
+			validator.account_id,
+			validator.account_id,
+			1000,
+		)
+		.expect("could forcefully undelegate currency");
+
+		System::assert_last_event(
+			Event::<Test>::CurrencyUnstaked {
+				validator: validator.account_id,
+				staker: validator.account_id,
+				amount: 1000,
+			}
+			.into(),
+		);
+	});
+}
+
+#[apply(force_cases)]
+fn target_is_caller(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let _ = EndowParams::default().account_id(validator.account_id).endow();
 
-		let res = Staking::undelegate_currency(
-			validator.origin,
-			MinimumStakingAmount::get(),
-			validator.account_id,
-		);
-		assert_noop!(res, Error::<Test>::InvalidTarget);
+		Staking::self_stake_currency(validator.origin.clone(), MinimumStakingAmount::get())
+			.expect("could delegate currency");
+
+		if force {
+			Staking::force_undelegate_currency(
+				RuntimeOrigin::root(),
+				validator.account_id,
+				validator.account_id,
+				MinimumStakingAmount::get(),
+			)
+			.expect("could forcefully undelegate currency");
+		} else {
+			let res = Staking::undelegate_currency(
+				validator.origin,
+				MinimumStakingAmount::get(),
+				validator.account_id,
+			);
+			assert_noop!(res, Error::<Test>::InvalidTarget);
+		}
 	});
 }
 
-#[rstest]
-fn no_contract(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn no_contract(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
 
-		let res = Staking::undelegate_currency(
-			delegator.origin,
-			MinimumStakingAmount::get(),
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			MinimumStakingAmount::get(),
+			force,
 		);
 		assert_noop!(res, Error::<Test>::NoContract);
 	});
 }
 
-#[rstest]
+#[apply(force_cases)]
 fn binding_contract(
 	mut ext: TestExternalities,
 	#[values(1, MinimumStakingPeriod::get().get() / 2, MinimumStakingPeriod::get().get()  - 1)]
 	session: u32,
+	force: bool,
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
@@ -175,19 +237,40 @@ fn binding_contract(
 
 		run_until::<AllPalletsWithSystem, Test>(ToSession(session));
 
-		let res = Staking::undelegate_currency(
-			delegator.origin,
-			MinimumStakingAmount::get(),
-			validator.account_id,
-		);
-		assert_noop!(res, Error::<Test>::EarlyUnstake);
+		if force {
+			Staking::force_undelegate_currency(
+				RuntimeOrigin::root(),
+				validator.account_id,
+				delegator.account_id,
+				MinimumStakingAmount::get(),
+			)
+			.expect("could undelegate currency with force");
+
+			System::assert_last_event(
+				Event::<Test>::CurrencyUnstaked {
+					validator: validator.account_id,
+					staker: delegator.account_id,
+					amount: MinimumStakingAmount::get(),
+				}
+				.into(),
+			);
+		} else {
+			let res = Staking::undelegate_currency(
+				delegator.origin,
+				MinimumStakingAmount::get(),
+				validator.account_id,
+			);
+
+			assert_noop!(res, Error::<Test>::EarlyUnstake);
+		}
 	});
 }
 
-#[rstest]
+#[apply(force_cases)]
 fn too_small_unstake(
 	mut ext: TestExternalities,
 	#[values(0, 1, MinimumStakingAmount::get() - 1)] amount: Balance,
+	force: bool,
 ) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
@@ -204,13 +287,33 @@ fn too_small_unstake(
 
 		skip_min_staking_period();
 
-		let res = Staking::undelegate_currency(delegator.origin, amount, validator.account_id);
-		assert_noop!(res, Error::<Test>::TooSmallUnstake);
+		if force {
+			Staking::force_undelegate_currency(
+				RuntimeOrigin::root(),
+				validator.account_id,
+				delegator.account_id,
+				amount,
+			)
+			.expect("could undelegate currency with force");
+
+			System::assert_last_event(
+				Event::<Test>::CurrencyUnstaked {
+					validator: validator.account_id,
+					staker: delegator.account_id,
+					amount,
+				}
+				.into(),
+			);
+		} else {
+			let res = Staking::undelegate_currency(delegator.origin, amount, validator.account_id);
+
+			assert_noop!(res, Error::<Test>::TooSmallUnstake);
+		}
 	});
 }
 
-#[rstest]
-fn not_enough_currency_stake(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn not_enough_currency_stake(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -226,17 +329,18 @@ fn not_enough_currency_stake(mut ext: TestExternalities) {
 
 		skip_min_staking_period();
 
-		let res = Staking::undelegate_currency(
-			delegator.origin,
-			MinimumStakingAmount::get() + 1,
+		let res = undelegate_maybe_force(
 			validator.account_id,
+			delegator.account_id,
+			MinimumStakingAmount::get() + 1,
+			force,
 		);
 		assert_noop!(res, Error::<Test>::InsufficientFunds);
 	});
 }
 
-#[rstest]
-fn unstake_would_dust_stake(mut ext: TestExternalities) {
+#[apply(force_cases)]
+fn unstake_would_dust_stake(mut ext: TestExternalities, force: bool) {
 	ext.execute_with(|| {
 		let validator = BindParams::default().permission(PermissionType::DPoS).mint().bind();
 		let delegator = EndowParams::default().endow();
@@ -252,11 +356,31 @@ fn unstake_would_dust_stake(mut ext: TestExternalities) {
 
 		skip_min_staking_period();
 
-		let res = Staking::undelegate_currency(
-			delegator.origin,
-			MinimumStakingAmount::get(),
-			validator.account_id,
-		);
-		assert_noop!(res, Error::<Test>::WouldDust);
+		if force {
+			Staking::force_undelegate_currency(
+				RuntimeOrigin::root(),
+				validator.account_id,
+				delegator.account_id,
+				MinimumStakingAmount::get(),
+			)
+			.expect("could undelegate currency with force");
+
+			System::assert_last_event(
+				Event::<Test>::CurrencyUnstaked {
+					validator: validator.account_id,
+					staker: delegator.account_id,
+					amount: MinimumStakingAmount::get(),
+				}
+				.into(),
+			);
+		} else {
+			let res = Staking::undelegate_currency(
+				delegator.origin,
+				MinimumStakingAmount::get(),
+				validator.account_id,
+			);
+
+			assert_noop!(res, Error::<Test>::WouldDust);
+		}
 	});
 }
