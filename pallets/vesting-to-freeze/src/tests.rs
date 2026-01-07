@@ -208,3 +208,66 @@ fn thaw_expired_no_schedules() {
 		assert_noop!(VestingToFreeze::thaw_expired(origin(1)), Error::<Test>::NoFrozenSchedules);
 	});
 }
+
+#[test]
+fn force_thaw_works() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+
+		for i in 0..3u32 {
+			add_schedule(
+				owner,
+				Schedule {
+					locked: 100,
+					per_block: 1,
+					starting_block: Some(u64::from(i) * 100 + 1),
+				},
+			);
+
+			// NOTE: every iteration the newly created schedule will get index 0 as the previous was already removed
+			VestingToFreeze::convert_schedule(origin(owner), 0).expect("could convert schedule");
+		}
+
+		// Let's say the first two schedule expired
+		run_to_block(201);
+
+		// We forcefully thaw the third (that hasn't expired)
+		VestingToFreeze::force_thaw(RuntimeOrigin::root(), owner, 2).unwrap();
+
+		// It thaws
+		System::assert_last_event(Event::<Test>::Thawed { account_id: owner, amount: 100 }.into());
+
+		// But the other remain frozen despite they **could** be thawed by the user.
+		assert_eq!(Balances::balance_frozen(&FreezeReason::VestingToFreeze.into(), &owner), 200);
+		assert_eq!(FrozenSchedules::<Test>::get(owner).as_slice(), &[(101, 100), (201, 100)]);
+	});
+}
+
+#[test]
+fn force_thaw_no_frozen_schedules() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			VestingToFreeze::force_thaw(RuntimeOrigin::root(), 1, 0),
+			Error::<Test>::NoFrozenSchedules
+		);
+	});
+}
+
+#[test]
+fn force_thaw_invalid_index() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+
+		for _ in 0..3u32 {
+			add_schedule(owner, Schedule { locked: 100, per_block: 1, starting_block: Some(1) });
+
+			// NOTE: every iteration the newly created schedule will get index 0 as the previous was already removed
+			VestingToFreeze::convert_schedule(origin(owner), 0).expect("could convert schedule");
+		}
+
+		assert_noop!(
+			VestingToFreeze::force_thaw(RuntimeOrigin::root(), owner, 3),
+			Error::<Test>::InvalidFrozenScheduleIndex
+		);
+	});
+}

@@ -35,6 +35,7 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn convert_schedule(s: u32, r: u32, f: u32, ) -> Weight;
 	fn thaw_expired(r: u32, f: u32, ) -> Weight;
+	fn force_thaw(r: u32, f: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_vesting_to_freeze` using the Substrate node and recommended hardware.
@@ -92,6 +93,24 @@ impl<T: sdk::frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(0, 20).saturating_mul(f.into()))
 			.saturating_add(Weight::from_parts(0, 19).saturating_mul(r.into()))
 	}
+
+	/// Storage: `VestingToFreeze::FrozenSchedules` (r:1 w:1)
+	/// Proof: `VestingToFreeze::FrozenSchedules` (`max_values`: None, `max_size`: Some(201), added: 2676, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:1)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(139), added: 2614, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:0)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1650), added: 4125, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[0, 4]`.
+	/// The range of component `f` is `[1, 8]`.
+	fn force_thaw(_r: u32, _f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `264 + f * (20 ±0) + r * (19 ±0)`
+		//  Estimated: `5115`
+		// Minimum execution time: 23_544_000 picoseconds.
+		Weight::from_parts(26_505_342, 5115)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -147,5 +166,23 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(Weight::from_parts(0, 20).saturating_mul(f.into()))
 			.saturating_add(Weight::from_parts(0, 19).saturating_mul(r.into()))
+	}
+
+	/// Storage: `VestingToFreeze::FrozenSchedules` (r:1 w:1)
+	/// Proof: `VestingToFreeze::FrozenSchedules` (`max_values`: None, `max_size`: Some(201), added: 2676, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:1)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(139), added: 2614, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:0)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1650), added: 4125, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[0, 4]`.
+	/// The range of component `f` is `[1, 8]`.
+	fn force_thaw(_r: u32, _f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `264 + f * (20 ±0) + r * (19 ±0)`
+		//  Estimated: `5115`
+		// Minimum execution time: 23_544_000 picoseconds.
+		Weight::from_parts(26_505_342, 5115)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

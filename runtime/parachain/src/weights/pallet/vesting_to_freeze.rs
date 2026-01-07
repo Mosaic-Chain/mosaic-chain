@@ -80,4 +80,22 @@ impl<T: sdk::frame_system::Config> WeightInfo for Weights<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+
+	/// Storage: `VestingToFreeze::FrozenSchedules` (r:1 w:1)
+	/// Proof: `VestingToFreeze::FrozenSchedules` (`max_values`: None, `max_size`: Some(201), added: 2676, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Freezes` (r:1 w:1)
+	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(139), added: 2614, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Locks` (r:1 w:0)
+	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1650), added: 4125, mode: `MaxEncodedLen`)
+	/// The range of component `r` is `[0, 4]`.
+	/// The range of component `f` is `[1, 8]`.
+	fn force_thaw(_r: u32, _f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `264 + f * (20 ±0) + r * (19 ±0)`
+		//  Estimated: `5115`
+		// Minimum execution time: 23_544_000 picoseconds.
+		Weight::from_parts(26_505_342, 5115)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }

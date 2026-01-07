@@ -143,6 +143,7 @@ pub mod pallet {
 		AlreadyExpired,
 		NoFrozenSchedules,
 		MaxFrozenSchedulesReached,
+		InvalidFrozenScheduleIndex,
 	}
 
 	#[pallet::call]
@@ -225,6 +226,40 @@ pub mod pallet {
 			T::Fungible::decrease_frozen(&FreezeReason::VestingToFreeze.into(), &who, thaw)?;
 
 			Self::deposit_event(Event::<T>::Thawed { account_id: who, amount: thaw });
+
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::force_thaw(
+			T::MaxFreezes::get(),
+			T::MaxFrozenSchedules::get(),
+		))]
+		pub fn force_thaw(
+			origin: OriginFor<T>,
+			account_id: T::AccountId,
+			schedule_index: u32,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let thaw = FrozenSchedules::<T>::mutate_exists(&account_id, |maybe_schedules| {
+				let schedules = maybe_schedules.as_mut().ok_or(Error::<T>::NoFrozenSchedules)?;
+
+				if schedule_index as usize >= schedules.len() {
+					return Err(Error::<T>::InvalidFrozenScheduleIndex.into());
+				}
+
+				let schedule = schedules.swap_remove(schedule_index as usize);
+
+				if schedules.is_empty() {
+					*maybe_schedules = None;
+				}
+
+				Ok::<_, DispatchError>(schedule.1)
+			})?;
+
+			T::Fungible::decrease_frozen(&FreezeReason::VestingToFreeze.into(), &account_id, thaw)?;
+			Self::deposit_event(Event::<T>::Thawed { account_id, amount: thaw });
 
 			Ok(())
 		}

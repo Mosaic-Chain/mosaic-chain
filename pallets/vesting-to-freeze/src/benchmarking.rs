@@ -102,4 +102,21 @@ mod benchmarks {
 
 		assert_eq!(FrozenSchedules::<T>::decode_len(&caller), None)
 	}
+
+	#[benchmark]
+	fn force_thaw(
+		r: Linear<0, { FreezeReason::VARIANT_COUNT - 1 }>,
+		f: Linear<1, { T::MaxFrozenSchedules::get() }>,
+	) {
+		let caller = whitelisted_caller();
+
+		add_freezes::<T>(&caller, r);
+		add_frozen_schedules::<T>(&caller, f);
+
+		#[extrinsic_call]
+		Pallet::<T>::force_thaw(RawOrigin::Root, caller.clone(), f / 2);
+
+		let expected_schedules_len = (f > 1).then_some(f as usize - 1);
+		assert_eq!(FrozenSchedules::<T>::decode_len(&caller), expected_schedules_len);
+	}
 }
