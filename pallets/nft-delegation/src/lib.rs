@@ -46,7 +46,7 @@ use frame_support::{
 	},
 	PalletError, PalletId,
 };
-use frame_system::pallet_prelude::OriginFor;
+use frame_system::{ensure_root, pallet_prelude::OriginFor};
 use pallet_nfts::{
 	CollectionConfig, CollectionSetting, CollectionSettings, Config as NftsConfig, ItemConfig,
 	ItemSettings, MintSettings, MintType, Pallet as NftsPallet,
@@ -411,6 +411,30 @@ pub mod pallet {
 			})
 		}
 
+		/// Remove an item from the expiration cache.
+		/// The caller must provide the `item_id` and the correct `expiration`.
+		///
+		/// # Errors:
+		/// - Item is not cached for erxpiration in the provided session
+		fn uncache_expiration(
+			item_id: &<T as NftsConfig>::ItemId,
+			expiration: SessionIndex,
+		) -> Result<(), DispatchError> {
+			ExpiryCache::<T>::try_mutate(expiration, |items| -> Result<(), DispatchError> {
+				let Some(items) = items else {
+					return Err(Error::<T>::NotBound.into());
+				};
+
+				let Some(idx) = items.iter().position(|i| i == item_id) else {
+					return Err(Error::<T>::NotBound.into());
+				};
+
+				items.swap_remove(idx);
+
+				Ok(())
+			})
+		}
+
 		fn encode_nominal_value(
 			collection_id: &<T as NftsConfig>::CollectionId,
 			item_id: &<T as NftsConfig>::ItemId,
@@ -525,6 +549,25 @@ pub mod pallet {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
 
 			Self::do_mint_delegator_token(&account_id, expiration, &nominal_value).map(|_| ())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::force_stop_expiration())]
+		pub fn force_stop_expiration(
+			origin: OriginFor<T>,
+			item_id: <T as NftsConfig>::ItemId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let collection_id =
+				Self::collection_id().ok_or(Error::<T>::CollectionNotInitialized)?;
+
+			let Status::Active { expires_on } = Self::decode_status(&collection_id, &item_id)?
+			else {
+				return Err(Error::<T>::NotBound.into());
+			};
+
+			Self::uncache_expiration(&item_id, expires_on)
 		}
 	}
 

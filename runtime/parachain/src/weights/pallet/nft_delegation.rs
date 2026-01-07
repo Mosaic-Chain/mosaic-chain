@@ -64,4 +64,20 @@ impl<T: sdk::frame_system::Config> WeightInfo for Weights<T> {
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
+
+	/// Storage: `NftDelegation::CollectionId` (r:1 w:0)
+	/// Proof: `NftDelegation::CollectionId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Nfts::Attribute` (r:1 w:0)
+	/// Proof: `Nfts::Attribute` (`max_values`: None, `max_size`: Some(479), added: 2954, mode: `MaxEncodedLen`)
+	/// Storage: `NftDelegation::ExpiryCache` (r:1 w:1)
+	/// Proof: `NftDelegation::ExpiryCache` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+	fn force_stop_expiration() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1068`
+		//  Estimated: `3944`
+		// Minimum execution time: 22_252_000 picoseconds.
+		Weight::from_parts(22_873_000, 3944)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }

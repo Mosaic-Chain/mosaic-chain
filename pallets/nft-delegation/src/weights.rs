@@ -34,6 +34,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_nft_delegation`.
 pub trait WeightInfo {
 	fn mint_delegator_token() -> Weight;
+	fn force_stop_expiration() -> Weight;
 }
 
 /// Weights for `pallet_nft_delegation` using the Substrate node and recommended hardware.
@@ -64,6 +65,23 @@ impl<T: sdk::frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
+
+	/// Storage: `NftDelegation::CollectionId` (r:1 w:0)
+	/// Proof: `NftDelegation::CollectionId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Nfts::Attribute` (r:1 w:0)
+	/// Proof: `Nfts::Attribute` (`max_values`: None, `max_size`: Some(479), added: 2954, mode: `MaxEncodedLen`)
+	/// Storage: `NftDelegation::ExpiryCache` (r:1 w:1)
+	/// Proof: `NftDelegation::ExpiryCache` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+	fn force_stop_expiration() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1068`
+		//  Estimated: `3944`
+		// Minimum execution time: 22_252_000 picoseconds.
+		Weight::from_parts(22_873_000, 3944)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
 }
 
 // For backwards compatibility and tests.
@@ -92,5 +110,21 @@ impl WeightInfo for () {
 		Weight::from_parts(87_795_000, 7282)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
+	}
+
+	/// Storage: `NftDelegation::CollectionId` (r:1 w:0)
+	/// Proof: `NftDelegation::CollectionId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Nfts::Attribute` (r:1 w:0)
+	/// Proof: `Nfts::Attribute` (`max_values`: None, `max_size`: Some(479), added: 2954, mode: `MaxEncodedLen`)
+	/// Storage: `NftDelegation::ExpiryCache` (r:1 w:1)
+	/// Proof: `NftDelegation::ExpiryCache` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+	fn force_stop_expiration() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1068`
+		//  Estimated: `3944`
+		// Minimum execution time: 22_252_000 picoseconds.
+		Weight::from_parts(22_873_000, 3944)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

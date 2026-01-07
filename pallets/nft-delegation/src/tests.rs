@@ -323,3 +323,34 @@ fn expires_even_if_unbound() {
 		assert_ok!(NftDelegation::status_of(&item), Status::Expired { expired_on: 10 });
 	});
 }
+
+#[test]
+fn force_stop_expiration_works() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let nominal_value = 100;
+
+		let item = NftDelegation::mint(&owner, 10, &nominal_value).unwrap();
+
+		NftDelegation::bind(&owner, &item, account(42)).unwrap();
+		assert_ok!(NftDelegation::status_of(&item), Status::Active { expires_on: 10 });
+
+		NftDelegation::force_stop_expiration(RawOrigin::Root.into(), item).unwrap();
+		run_until::<AllPalletsWithSystem, Test>(Blocks(11u32));
+		assert_ok!(NftDelegation::status_of(&item), Status::Active { expires_on: 10 });
+	});
+}
+
+#[test]
+fn force_stop_expiration_not_bound() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let nominal_value = 100;
+		let item = NftDelegation::mint(&owner, 10, &nominal_value).unwrap();
+
+		assert_noop!(
+			NftDelegation::force_stop_expiration(RawOrigin::Root.into(), item),
+			Error::<Test>::NotBound
+		);
+	});
+}
