@@ -115,3 +115,54 @@ fn slashing_frozen_schedules() {
 		assert_eq!(Balances::usable_balance(ALICE), 550);
 	})
 }
+
+#[test]
+fn burn_staked_frozen_schedule() {
+	new_test_ext().execute_with(|| {
+		let _ = Balances::deposit_creating(&BOB, 100000); // avoid overdominant stake
+		let _ = Balances::deposit_creating(&ALICE, 501);
+		assert_ok!(HoldVesting::add_vesting_schedule(&ALICE, Schedule::new(500, 10, Some(1))));
+
+		assert_eq!(Balances::free_balance(ALICE), 1); // ED
+		assert_eq!(HoldVesting::vesting_balance(&ALICE), Some(500));
+
+		assert_ok!(VestingToFreeze::convert_schedule(RawOrigin::Signed(ALICE).into(), 0));
+
+		assert_eq!(Balances::free_balance(ALICE), 501);
+		assert_eq!(Balances::usable_balance(ALICE), 1);
+		assert_eq!(HoldVesting::vesting_balance(&ALICE), None);
+
+		let nft =
+			NftStakingHandler::<Test>::mint(&ALICE, &pallet_nft_staking::PermissionType::DPoS, &0)
+				.expect("could mint permission nft");
+
+		assert_ok!(NftStaking::bind_validator(RawOrigin::Signed(ALICE).into(), nft));
+		assert_ok!(NftStaking::self_stake_currency(RawOrigin::Signed(ALICE).into(), 500));
+
+		assert_eq!(Balances::free_balance(ALICE), 1);
+		assert_eq!(Balances::total_balance_on_hold(&ALICE), 500);
+		assert_eq!(Balances::usable_balance(ALICE), 0); // The ED is 1
+
+		// NOTE: the minimum staking period has not passed as it's set to 200 sessions
+		next_session();
+
+		assert_ok!(NftStaking::force_undelegate_currency(RuntimeOrigin::root(), ALICE, ALICE, 500));
+
+		// Wait until it unlocks
+		next_session();
+		assert_eq!(Balances::total_balance_on_hold(&ALICE), 0);
+		assert_eq!(Balances::usable_balance(ALICE), 1);
+		assert_eq!(Balances::free_balance(ALICE), 501); // 500 from frozen schedule + 1 ED
+
+		// Forcefully thaw schedule
+		assert_ok!(VestingToFreeze::force_thaw(RuntimeOrigin::root(), ALICE, 0));
+
+		assert_eq!(Balances::usable_balance(ALICE), 501); // Usable balance does not take ED into account
+		assert_eq!(Balances::free_balance(ALICE), 501); // 500 from thawed schedule + 1 ED
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), ALICE.into(), 1)); // new_free = free - sched = 1 (ED)
+
+		assert_eq!(Balances::free_balance(ALICE), 1); // ED
+		assert_eq!(Balances::usable_balance(ALICE), 1);
+	});
+}
