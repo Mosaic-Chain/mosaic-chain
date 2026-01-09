@@ -47,7 +47,7 @@
           PROTOC = "${pkgs.protobuf}/bin/protoc";
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath nativeBuildInputs;
 
-          shellHook = "cargo install cargo-deny@0.18.4";
+          shellHook = "cargo install cargo-deny@0.18.9 --locked";
         };
       });
 }

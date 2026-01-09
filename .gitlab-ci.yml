@@ -37,7 +37,7 @@ test:
     - *build-deps
     - rustup component add rustfmt clippy
     - cargo install --locked cargo-nextest@0.9.103
-    - cargo install --locked cargo-deny@0.18.4
+    - cargo install --locked cargo-deny@0.18.9
     - cargo install --locked zepter@1.82.1
     - ./scripts/check.sh
 

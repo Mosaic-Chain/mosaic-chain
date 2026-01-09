@@ -848,7 +848,7 @@ pub mod pallet {
 			}
 
 			// TODO: there might be events missing for the indexer
-			Self::stage_unlock_currency(&target, contract.stake.currency);
+			Self::stage_unlock_currency(target, contract.stake.currency);
 			for (item_id, _) in &contract.stake.delegated_nfts {
 				UnlockingDelegatorNfts::<T>::insert(item_id.clone(), target.clone());
 			}
