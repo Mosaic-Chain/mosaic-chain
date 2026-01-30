@@ -42,7 +42,7 @@ pub mod xcmp_queue {
 
 	parameter_types! {
 		/// The asset ID for the asset that we use to pay for message delivery fees.
-		pub FeeAssetId: AssetId = AssetId(xcm_config::TokenLocation::get());
+		pub FeeAssetId: AssetId = AssetId(xcm_config::HereLocation::get());
 		/// The base fee for the message delivery fees.
 		pub const BaseDeliveryFee: u128 = message_fee(1, 0);
 		/// The fee for the message delivery per byte added to the base fee.
