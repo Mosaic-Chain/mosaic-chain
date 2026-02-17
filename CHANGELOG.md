@@ -2,6 +2,73 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2026-02-17
+
+### Runtime Compatibility Changes
+
+- **`pallet_nft_delegation`:**
+  - new call to remove item from the expiration cache: `force_stop_expiration(item_id)`
+
+- **`pallet_nft_staking`:**
+  - Ability to set the minimum staking amount as a validator:
+    - new call: `set_minimum_staking_amount(new_min_amount)`
+    - new event: `MinimumStakingAmountChanged { validator, new_amount }`
+    - new error: `InvalidSttakingAmount`
+  - `*force` calls:
+    - `force_kick(validator, target)`
+    - `force_undelegate_nft(validator, delegator, item_id)`
+    - `force_undelegate_currency(validator, delegator, amount)`
+    - `force_unbind_validator(validator, contract_count)`
+
+- **`pallet_treasury`:**
+  - Ability to add metadata to a proposal:
+    - new call: `set_proposal_metadata(proposal_id, preimage)`
+    - new event: `ProposalMetadataSet { proposal_index, preimage }`
+    - new error: `PreimageNotExist`
+    - new storage: `ProposalMetadata`
+
+- **`pallet_vesting_to_freeze`:**
+  - new call to forcefully thaw a schedule: `force_thaw(account_id, schedule_index)`
+  - new error: `InvalidFrozenScheduleIndex`
+
+### 🚀 Features
+
+- *cli*: Allow filtering private IPs by CIDRs
+- *nft-staking*: Minimum staking amount can be set per validator
+- *treasury*: Call for providing proposal metadata in form of a preimage
+- *nft-delegation*: Force_stop_expiration
+- *vesting-to-freeze*: Force_thaw
+- *nft-staking*: Force_ calls for unbinding, undelegating and kicking
+- *runtime*: Configured xcm to enable local reserve transfer of MOS
+
+### 🐛 Bug Fixes
+
+- Mainnet chainspec now contains 0 for ss58Prefix
+- *staking-incentive*: NewPayout event contains right index and Claim event is now emitted on account payout
+- *nft-staking*: UnitWeight in mock.rs implements set_minimum_staking_amount
+
+### 🧪 Testing
+
+- *im-online*: Adopted upstream tests
+- *im-online*: Added test for validators not in the active set
+- *staking-incentive*: Added tests for the pallet
+- *hold-vesting*: Adapted tests from upstream
+- *hold-vesting*: Added tests for schedules where starting block is not set
+- Basic vesting-freeze-staking integration test and a bunch of factored out mmocking machinery
+- *parachain*: Slashing frozen schedules
+- *parachain*: Using named account instead of numbers in integration tests
+- *nft-staking*: Tests for session ending
+- *parachain-runtime*: Burning a staked frozen schedule
+
+### ⚙️ Miscellaneous Tasks
+
+- Clickup automation
+- Using docker template
+- Approvals
+- Fixed cargo-deny version and new CVEs
+- Move from deprecated cpx41 benchmark machine to ccx23 (dedicated cpu)
+- Prepare for release 0.12.0
+
 ## [0.11.0] - 2025-10-07
 
 ### 🚀 Features
