@@ -64,7 +64,7 @@ benchmark:
       curl --fail-with-body \
         -H "Authorization: Bearer $HETZNER_API_KEY" \
         -H "Content-Type: application/json" \
-        -d "{ \"name\": \"mosaic-chain-benchmark-$CI_COMMIT_SHORT_SHA\", \"server_type\": \"cpx41\", \"location\": \"nbg1\", \"image\": \"debian-12\", \"ssh_keys\": [ $HETZNER_SSH_KEY_ID ] }" \
+        -d "{ \"name\": \"mosaic-chain-benchmark-$CI_COMMIT_SHORT_SHA\", \"server_type\": \"ccx23\", \"location\": \"nbg1\", \"image\": \"debian-12\", \"ssh_keys\": [ $HETZNER_SSH_KEY_ID ] }" \
         -X POST \
         'https://api.hetzner.cloud/v1/servers' > ./create_server_response
     - export HETZNER_SERVER_ID=$(cat ./create_server_response | jq -r '.server.id')
