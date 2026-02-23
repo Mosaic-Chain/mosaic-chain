@@ -13,14 +13,17 @@ stages:
   - release-mainnet
 
 include:
-  - project: 'mosaic-chain/gitlab-ci-templates'
-    file: '/clickup.yml'
+  - project: "mosaic-chain/gitlab-ci-templates"
+    file: "/clickup.yml"
     ref: main
-  - project: 'mosaic-chain/gitlab-ci-templates'
-    file: '/docker.yml'
+  - project: "mosaic-chain/gitlab-ci-templates"
+    file: "/docker.yml"
     ref: main
   - project: "mosaic-chain/gitlab-ci-templates"
     file: "/approval.yml"
+    ref: main
+  - project: "mosaic-chain/gitlab-ci-templates"
+    file: "/opensource.yml"
     ref: main
 
 .build-deps: &build-deps
@@ -101,22 +104,22 @@ benchmark:
     - git add ./runtime/parachain/src/weights/pallet
     - git commit -m 'Update benchmark weights'
     - git push origin HEAD:$CI_COMMIT_REF_NAME
-  
+
 .debian:
   image: rust:1.88.0-bookworm
   before_script:
-   - *build-deps
-   - apt install apt-transport-https ca-certificates gnupg curl -y
-   - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
-   - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-   - apt update -y && apt install google-cloud-cli -y
-   - cargo install cargo-deb
-   - gcloud auth activate-service-account --key-file $GCP_ARTIFACT_REGISTRY_WRITE_JSON_KEY
-   - gcloud config set core/project mosaicchain-general
-   - gcloud config set artifacts/location europe
-   # Doing this so enables versioning them separately and let's us reuse cargo pkgid instead of looking into the workspace's Cargo.toml
-   - DEBIAN_VERSION_SOLO="$(cargo pkgid -p mosaic-testnet-solo-node | cut -d'@' -f2).$CI_PIPELINE_IID+$CI_COMMIT_SHORT_SHA"
-   - DEBIAN_VERSION_PARA="$(cargo pkgid -p mosaic-chain-node | cut -d'@' -f2).$CI_PIPELINE_IID+$CI_COMMIT_SHORT_SHA"
+    - *build-deps
+    - apt install apt-transport-https ca-certificates gnupg curl -y
+    - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+    - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+    - apt update -y && apt install google-cloud-cli -y
+    - cargo install cargo-deb
+    - gcloud auth activate-service-account --key-file $GCP_ARTIFACT_REGISTRY_WRITE_JSON_KEY
+    - gcloud config set core/project mosaicchain-general
+    - gcloud config set artifacts/location europe
+    # Doing this so enables versioning them separately and let's us reuse cargo pkgid instead of looking into the workspace's Cargo.toml
+    - DEBIAN_VERSION_SOLO="$(cargo pkgid -p mosaic-testnet-solo-node | cut -d'@' -f2).$CI_PIPELINE_IID+$CI_COMMIT_SHORT_SHA"
+    - DEBIAN_VERSION_PARA="$(cargo pkgid -p mosaic-chain-node | cut -d'@' -f2).$CI_PIPELINE_IID+$CI_COMMIT_SHORT_SHA"
 
 publish-docker:
   extends: .docker-setup
@@ -213,7 +216,7 @@ release-debian-testnet:
     DEBIAN_REPOSITORY: apt-testnet-repository
   environment:
     name: testnet
-    
+
 release-debian-devnet:
   extends: .release-debian
   stage: release-devnet
@@ -252,7 +255,7 @@ clickup-devnet:
   variables:
     NETWORK: devnet
     TAG: blockchain
-    
+
 clickup-mainnet:
   extends: .clickup-network
   stage: release-mainnet
@@ -262,3 +265,6 @@ clickup-mainnet:
     NETWORK: mainnet
     TAG: blockchain
 
+opensource-mainnet:
+  extends: .github-release
+  stage: release-mainnet
