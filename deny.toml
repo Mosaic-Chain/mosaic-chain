@@ -14,6 +14,8 @@ ignore = [
     "RUSTSEC-2025-0118", # wasmtime linear memory is not used from multiple threads
     "RUSTSEC-2026-0002", # TODO: update polkadot-sdk when this (lru) is fixed there
     "RUSTSEC-2025-0141", # TODO: update polkadot-sdk when bincode is replaced by an alternative
+    "RUSTSEC-2026-0020", # `wasmtime` WASI host interfaces are susceptible to guest-controlled resource exhaustion on the host
+    "RUSTSEC-2026-0021", # `wasmtime` Panic adding excessive fields to a wasi:http/types.fields instance
 ]
 
 [licenses]
