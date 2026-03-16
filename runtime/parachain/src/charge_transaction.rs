@@ -1,4 +1,6 @@
-use sdk::{frame_support, pallet_authorship, sp_core, sp_runtime};
+use sdk::{
+	frame_support, pallet_authorship, pallet_transaction_payment::TxCreditHold, sp_core, sp_runtime,
+};
 
 use frame_support::traits::{
 	fungible::{Balanced, Credit, Debt, Inspect},
@@ -130,4 +132,8 @@ impl OnChargeTransaction<Runtime> for ChargeTransaction {
 	fn minimum_balance() -> Self::Balance {
 		Balances::minimum_balance()
 	}
+}
+
+impl TxCreditHold<Runtime> for ChargeTransaction {
+	type Credit = ();
 }

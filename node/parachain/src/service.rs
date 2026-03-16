@@ -14,10 +14,10 @@ use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
-use cumulus_client_consensus_proposer::Proposer;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
+	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
+	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{
 	relay_chain::{CollatorPair, ValidationCode},
@@ -30,10 +30,11 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{NetworkBackend, NetworkBlock};
+use sc_network::{NetworkBackend, NetworkBlock, PeerId};
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_core::Encode;
 use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
@@ -247,6 +248,7 @@ async fn start_node_impl<
 		system_rpc_tx,
 		tx_handler_controller,
 		telemetry: telemetry.as_mut(),
+		tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(client.clone()))),
 	})?;
 
 	if let Some(hwbench) = hwbench {
@@ -302,6 +304,8 @@ async fn start_node_impl<
 		prometheus_registry: prometheus_registry.as_ref(),
 	})?;
 
+	let collator_peer_id = network.local_peer_id();
+
 	start_bootnode_tasks(StartBootnodeTasksParams {
 		embedded_dht_bootnode: collator_options.embedded_dht_bootnode,
 		dht_bootnode_discovery: collator_options.dht_bootnode_discovery,
@@ -313,7 +317,7 @@ async fn start_node_impl<
 		request_receiver: paranode_rx,
 		parachain_network: network,
 		advertise_non_global_ips,
-		parachain_genesis_hash: client.chain_info().genesis_hash,
+		parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 		parachain_fork_id,
 		parachain_public_addresses,
 	});
@@ -332,6 +336,7 @@ async fn start_node_impl<
 			relay_chain_slot_duration,
 			para_id,
 			collator_key.expect("Command line arguments do not allow this. qed"),
+			collator_peer_id,
 			overseer_handle,
 			announce_block,
 		)?;
@@ -382,6 +387,7 @@ fn start_consensus(
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
 	collator_key: CollatorPair,
+	collator_peer_id: PeerId,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error> {
@@ -390,15 +396,13 @@ fn start_consensus(
 	// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
 	// when starting the network.
 
-	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+	let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool,
 		prometheus_registry,
 		telemetry.clone(),
 	);
-
-	let proposer = Proposer::new(proposer_factory);
 
 	let collator_service = CollatorService::new(
 		client.clone(),
@@ -418,6 +422,7 @@ fn start_consensus(
 		},
 		keystore,
 		collator_key,
+		collator_peer_id,
 		para_id,
 		overseer_handle,
 		relay_chain_slot_duration,

@@ -17,11 +17,6 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 type AccountIdLookupOf<T> = <<T as sdk::frame_system::Config>::Lookup as StaticLookup>::Source;
-
-#[expect(
-	clippy::useless_conversion,
-	reason = "pallet macro tries to convert PostDispatchInfo to itself"
-)]
 #[sdk::frame_support::pallet]
 pub mod pallet {
 	use super::*;

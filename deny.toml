@@ -16,6 +16,7 @@ ignore = [
     "RUSTSEC-2025-0141", # TODO: update polkadot-sdk when bincode is replaced by an alternative
     "RUSTSEC-2026-0020", # `wasmtime` WASI host interfaces are susceptible to guest-controlled resource exhaustion on the host
     "RUSTSEC-2026-0021", # `wasmtime` Panic adding excessive fields to a wasi:http/types.fields instance
+    "RUSTSEC-2026-0006", # `wasmtime` segfault or unused out-of-sandbox load with `f64.copysign` operator on x86-64
 ]
 
 [licenses]

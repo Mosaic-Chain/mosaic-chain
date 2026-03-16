@@ -38,10 +38,6 @@ mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
-#[expect(
-	clippy::useless_conversion,
-	reason = "pallet macro tries to convert PostDispatchInfo to itself"
-)]
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;

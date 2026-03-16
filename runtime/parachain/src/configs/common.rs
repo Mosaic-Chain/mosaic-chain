@@ -51,6 +51,7 @@ impl pallet_assets::Config for Runtime {
 	type Holder = ();
 	type Extra = ();
 	type CallbackHandle = ();
+	type ReserveData = ();
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -358,6 +359,8 @@ impl pallet_session::Config for Runtime {
 	type Keys = opaque::SessionKeys;
 	type WeightInfo = weights::pallet::session::Weights<Runtime>;
 	type DisablingStrategy = ();
+	type Currency = FungibleWrapper;
+	type KeyDeposit = ();
 }
 
 // TODO: figure out how to be more generic over the id tuple

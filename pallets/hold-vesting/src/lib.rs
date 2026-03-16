@@ -139,10 +139,6 @@ impl<T: Config> Get<u32> for MaxVestingSchedulesGet<T> {
 	}
 }
 
-#[expect(
-	clippy::useless_conversion,
-	reason = "pallet macro tries to convert PostDispatchInfo to itself"
-)]
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;

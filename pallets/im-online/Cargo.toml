@@ -32,6 +32,7 @@ utils = { workspace = true }
 
 [dev-dependencies]
 pallet-session = { workspace = true, default-features = false, features = [ "historical" ] }
+sdk = { workspace = true, features = ["pallet-balances"] }
 
 [features]
 default = [ "std" ]

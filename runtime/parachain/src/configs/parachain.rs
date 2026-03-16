@@ -120,8 +120,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	>;
 	type WeightInfo = weights::pallet::parachain_system::Weights<Runtime>;
 
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
-
 	// TODO: consider setting it to a slightly higher value to help reduce forks on the parachain side.
 	type RelayParentOffset = ConstU32<0>;
 }

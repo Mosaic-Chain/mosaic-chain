@@ -10,10 +10,6 @@ use sp_runtime::BuildStorage;
 use crate as doas;
 
 // Logger module to track execution.
-#[expect(
-	clippy::useless_conversion,
-	reason = "pallet macro tries to convert PostDispatchInfo to itself"
-)]
 #[frame_support::pallet]
 pub mod logger {
 	use sdk::frame_support::pallet_prelude::*;

@@ -536,4 +536,8 @@ impl<T: sdk::frame_system::Config> WeightInfo for Weights<T> {
 		Weight::from_parts(9_490_000, 3613)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
+
+	fn set_reserves(_n: u32) -> Weight {
+        Weight::default()
+    }
 }

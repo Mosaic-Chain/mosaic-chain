@@ -195,10 +195,6 @@ pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, Paymen
 /// Index of an approved treasury spend.
 pub type SpendIndex = u32;
 
-#[expect(
-	clippy::useless_conversion,
-	reason = "pallet macro tries to convert PostDispatchInfo to itself"
-)]
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;

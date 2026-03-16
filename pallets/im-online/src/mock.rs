@@ -1,4 +1,6 @@
-use sdk::{frame_support, frame_system, pallet_authorship, sp_io, sp_runtime, sp_staking};
+use sdk::{
+	frame_support, frame_system, pallet_authorship, pallet_balances, sp_io, sp_runtime, sp_staking,
+};
 
 use frame_support::{derive_impl, parameter_types, traits::ConstU64, weights::Weight};
 
@@ -22,6 +24,7 @@ frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Session: pallet_session,
+		Balances: pallet_balances,
 		ImOnline: imonline,
 		Historical: pallet_session::historical,
 	}
@@ -92,6 +95,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
+	type AccountData = pallet_balances::AccountData<u64>;
 }
 
 parameter_types! {
@@ -111,6 +115,13 @@ impl pallet_session::Config for Runtime {
 	type NextSessionRotation = TestNextSessionRotation;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Runtime {
+	type AccountStore = System;
 }
 
 impl pallet_session::historical::Config for Runtime {

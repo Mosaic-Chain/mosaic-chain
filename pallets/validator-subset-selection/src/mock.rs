@@ -1,7 +1,7 @@
 // construct_runtime! macro creates some non-camel-case type names.
 #![allow(non_camel_case_types)]
 
-use sdk::{frame_support, frame_system, pallet_session, sp_io, sp_runtime};
+use sdk::{frame_support, frame_system, pallet_balances, pallet_session, sp_io, sp_runtime};
 
 use frame_support::{
 	derive_impl,
@@ -24,6 +24,7 @@ frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Session: pallet_session,
+		Balances: pallet_balances,
 		ValidatorSubsetSelection: pallet_validator_subset_selection,
 	}
 );
@@ -74,6 +75,7 @@ impl Get<u32> for SubsetSize {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type AccountData = pallet_balances::AccountData<u64>;
 }
 
 pub struct MockSessionHandler;
@@ -112,6 +114,13 @@ impl pallet_session::Config for Test {
 	type Keys = MockSessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type AccountStore = System;
 }
 
 impl pallet_validator_subset_selection::Config for Test {

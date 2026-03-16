@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 
 use pallet_nft_staking::PermissionType;
 use sdk::{
-	cumulus_primitives_core, pallet_balances, pallet_session, pallet_xcm, sc_chain_spec,
-	sc_service, sp_consensus_aura, sp_core, staging_parachain_info as parachain_info, staging_xcm,
+	cumulus_primitives_core, pallet_balances, pallet_session, sc_chain_spec, sc_service,
+	sp_consensus_aura, sp_core, staging_parachain_info as parachain_info,
 };
 
 use crate::{
@@ -255,11 +255,6 @@ fn genesis(
 	let parachain_info =
 		parachain_info::GenesisConfig { parachain_id: para_id, _config: PhantomData };
 
-	let polkadot_xcm = pallet_xcm::GenesisConfig {
-		safe_xcm_version: Some(staging_xcm::prelude::XCM_VERSION),
-		_config: PhantomData,
-	};
-
 	let endowed = endowed_accounts.into_iter().map(|k| (k, 10 * MOSAIC));
 
 	let balances = pallet_balances::GenesisConfig {
@@ -302,7 +297,6 @@ fn genesis(
 		education_membership: membership_config(&council_members),
 		staking_incentive,
 		parachain_info,
-		polkadot_xcm,
 		..Default::default()
 	};
 
