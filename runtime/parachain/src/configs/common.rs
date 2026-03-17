@@ -360,7 +360,7 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = weights::pallet::session::Weights<Runtime>;
 	type DisablingStrategy = ();
 	type Currency = FungibleWrapper;
-	type KeyDeposit = ();
+	type KeyDeposit = params::dynamic::session::KeyDeposit;
 }
 
 // TODO: figure out how to be more generic over the id tuple

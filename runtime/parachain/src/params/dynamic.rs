@@ -140,6 +140,21 @@ pub mod recovery {
 	}
 }
 
+/// Dynamic constants for `pallet_session`
+///
+/// These params are dynamic since the `deposit()`
+/// function reads storage values defined by `dynamic_params`
+pub mod session {
+	use super::*;
+	use currency::{deposit, Balance};
+	use frame_support::parameter_types;
+
+	parameter_types! {
+		/// The amount to be held when setting keys.
+		pub KeyDeposit: Balance = deposit(0, 64);
+	}
+}
+
 #[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<crate::Runtime>)]
 mod imp {
 	use super::*;
