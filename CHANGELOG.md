@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] - 2026-03-18
+
+### 🚀 Features
+
+- Release opensource code to github
+- *runtime*: Waiving fees for HereLocation and directing xcm fees to treasury
+
+### 🐛 Bug Fixes
+
+- Mosaic testnet solo chainspec update
+
+### ⚙️ Miscellaneous Tasks
+
+- Added wasmtime rustsec advisories to deny.toml and updated keccak
+- Release 0.13.0
+
 ## [0.12.0] - 2026-02-17
 
 ### Runtime Compatibility Changes
