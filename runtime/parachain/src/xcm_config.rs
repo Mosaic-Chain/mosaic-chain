@@ -23,8 +23,8 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, MintLocation, ParentIsPreset,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
@@ -33,10 +33,13 @@ use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
-	pub const RelayNetwork: Option<NetworkId> = None;
+	// NOTE: paseo also uses `NetworkId::Polkadot`
+	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub const HereLocation: Location = Location::here();
+	pub AssetHubLocation: Location = Location::new(1, Parachain(1000));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((PolkadotXcm::check_account(), MintLocation::Local));
 }
 
 /// Locations that will not be charged fees in the executor,
@@ -67,8 +70,8 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// We don't track any teleports.
-	(),
+	// We track teleports.
+	TeleportTracking,
 >;
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -94,6 +97,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 
 parameter_types! {
 	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
+	// TODO: benchmark
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -102,7 +106,7 @@ parameter_types! {
 pub struct ParentOrParentsExecutivePlurality;
 impl Contains<Location> for ParentOrParentsExecutivePlurality {
 	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Plurality { id: BodyId::Executive, .. }]))
+		matches!(location.unpack(), (1, [] | [Plurality { id: BodyId::Executive, .. }]))
 	}
 }
 
@@ -127,7 +131,18 @@ pub type Barrier = TrailingSetTopicAsId<
 pub struct TrustedReserves;
 impl frame_support::traits::ContainsPair<Asset, Location> for TrustedReserves {
 	fn contains(asset: &Asset, location: &Location) -> bool {
+		log::debug!(target: "xcm::TrustedReserves", "Asset to be sent out: {asset:?}, location: {location:?}");
+		// Mosaic chain is a trusted reserve of MOS
 		matches!(asset, Asset { id: asset_id, fun: Fungible(_) } if asset_id.0 == HereLocation::get() && location == &HereLocation::get())
+	}
+}
+
+pub struct TrustedTeleporters;
+impl frame_support::traits::ContainsPair<Asset, Location> for TrustedTeleporters {
+	fn contains(asset: &Asset, location: &Location) -> bool {
+		log::debug!(target: "xcm::TrustedTeleporters", "Asset to be sent out: {asset:?}, location: {location:?}");
+		// AssetHub is trusted to receive MOS via teleport
+		matches!(asset, Asset { id: asset_id, fun: Fungible(_) } if asset_id.0 == HereLocation::get() && location == &AssetHubLocation::get())
 	}
 }
 
@@ -139,7 +154,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = TrustedReserves;
-	type IsTeleporter = (); // Teleporting is disabled.
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
@@ -205,7 +220,7 @@ impl pallet_xcm::Config for Runtime {
 	// ^ Disable dispatchable execute on the XCM pallet.
 	// Needs to be `Everything` for local testing.
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type XcmTeleportFilter = Nothing;
+	type XcmTeleportFilter = OnlySendNative;
 	type XcmReserveTransferFilter = OnlySendNative;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
