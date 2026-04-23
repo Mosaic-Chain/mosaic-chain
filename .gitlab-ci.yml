@@ -268,3 +268,5 @@ clickup-mainnet:
 opensource-mainnet:
   extends: .github-release
   stage: release-mainnet
+  needs: 
+    - approve-devnet
