@@ -2,6 +2,76 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0] - 2026-04-23
+
+### Runtime Compatibility Changes
+
+- **`pallet-parachain-system`:**
+  - Call `set_validation_data` signature changed:
+    - First argument type changed from `ParachainInherentData` to `BasicParachainInherentData`
+    - New argument added: `inbound_messages_data: InboundMessagesData`
+  - New storages added:
+    - `LastProcessedDownwardMessage`
+    - `LastProcessedHrmpMessage`
+    - `PendingUpwardSignals`
+
+- **`pallet-balances`:**
+  - Event indices were reassigned due to new events being inserted. This is a breaking change for off-chain indexers using numeric event indices.
+  - New events added:
+    - `MintedCredit` (index 11)
+    - `BurnedDebt` (index 13)
+    - `Held` (index 24)
+    - `BurnedHeld` (index 25)
+    - `TransferOnHold` (index 26)
+    - `TransferAndHold` (index 27)
+    - `Released` (index 28)
+    - `Unexpected` (index 29)
+  - Existing events shifted to new indices:
+    - `Burned`: 11 → 12
+    - `Suspended`: 12 → 14 (signature changed: `amount` argument added)
+    - `Restored`: 13 → 15 (signature changed: now `(amount: Balance)` instead of `(who, amount)`)
+    - `Upgraded`: 14 → 16 (signature changed: now `(who: AccountId)` only)
+    - `Issued`: 15 → 17 (signature changed: now `(who, amount)` instead of `(amount)`)
+    - `Rescinded`: 16 → 18 (signature changed: now `(who: AccountId)` instead of `(amount)`)
+    - `Locked`: 17 → 19
+    - `Unlocked`: 18 → 20
+    - `Frozen`: 19 → 21
+    - `Thawed`: 20 → 22
+    - `TotalIssuanceForced`: 21 → 23
+
+- **`pallet-transaction-payment`:**
+  - New storage added: `TxPaymentCredit`
+
+- **`pallet-session`:**
+  - New constant added: `KeyDeposit`
+
+- **`pallet-proxy`:**
+  - Event `PureCreated` signature changed:
+    - Two new arguments added: `at: BlockNumberFor<T>` and `extrinsic_index: u32`
+
+- **`pallet-assets`:**
+  - New call added: `set_reserves(id: AssetIdParameter, reserves: BoundedVec<ReserveData, MAX_RESERVES>)`
+  - New events added:
+    - `ReservesUpdated { asset_id, reserves }`
+    - `ReservesRemoved { asset_id }`
+  - New error added: `TooManyReserves`
+  - New storage added: `Reserves`
+
+- **`pallet-xcm`:**
+  - Constant `UniversalLocation` changed from `[1, 0, 145, 1]` to `[2, 9, 2, 0, 145, 1]`
+
+### 🚀 Features
+
+- Session key deposit set
+- *xcm*: Configure assethub as a trusted teleport location
+
+### ⚙️ Miscellaneous Tasks
+
+- Updating to polkadot-sdk 2512-2
+- Adding a staggering amount of ignored advisories to deny.toml
+- Updated rustl
+- Prepare for release 0.14.0
+
 ## [0.13.0] - 2026-03-18
 
 ### 🚀 Features
