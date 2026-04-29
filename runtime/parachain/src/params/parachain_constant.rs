@@ -1,6 +1,6 @@
-use sdk::frame_support::{parameter_types, weights::Weight};
+use sdk::frame_support::{parameter_types, weights::Weight, PalletId};
 
-use sdk::sp_runtime::Perbill;
+use sdk::sp_runtime::{Perbill, Permill};
 
 use super::{constant::system, currency::message_fee};
 
@@ -35,6 +35,16 @@ pub mod message_queue {
 		pub const MaxStale: u32 = 8;
 	}
 }
+
+pub mod asset_conversion {
+	use super::*;
+
+	parameter_types! {
+		pub const PalletId: super::PalletId = super::PalletId(*b"py/ascon");
+		pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+	}
+}
+
 pub mod xcmp_queue {
 	use super::*;
 	use crate::xcm_config;

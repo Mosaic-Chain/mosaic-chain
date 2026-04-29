@@ -26,6 +26,7 @@ sdk = { workspace = true, features = [
 	"pallet-preimage",
 	"pallet-scheduler",
 	"pallet-assets",
+	"pallet-asset-conversion",
 	"pallet-aura",
 	"pallet-authorship",
 	"pallet-balances",
@@ -73,7 +74,8 @@ sdk = { workspace = true, features = [
 	"polkadot-parachain-primitives",
 	"polkadot-runtime-common",
 	"parachains-common",
-]}
+	"assets-common",
+] }
 
 # TODO: once procmacros are compatible with umbrella crate remove this
 cumulus-pallet-parachain-system = { workspace = true }

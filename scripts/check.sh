@@ -5,7 +5,7 @@ zepter format features &&
 zepter lint propagate-feature --feature std,runtime-benchmarks,try-runtime --workspace &&
 cargo fmt --check &&
 cargo deny check --hide-inclusion-graph &&
-cargo clippy --color=always --tests --examples --bins --benches --release --all-features --no-deps -- -D warnings &&
+SKIP_PALLET_REVIVE_FIXTURES=1 cargo clippy --color=always --tests --examples --bins --benches --release --all-features --no-deps -- -D warnings &&
 cargo nextest run --release --all-features
 
 if [ $? -ne 0 ]; then

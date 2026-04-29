@@ -5,13 +5,13 @@ use sdk::{
 };
 
 use super::{
-	funds::treasury::Account as TreasuryAccount, AccountId, AllPalletsWithSystem, Balance,
+	funds::treasury::Account as TreasuryAccount, AccountId, AllPalletsWithSystem, Assets, Balance,
 	Balances, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeOrigin, XcmpQueue,
 };
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, Disabled, Equals, Everything, Nothing},
+	traits::{ConstU32, Contains, Disabled, Equals, Everything, Nothing, PalletInfoAccess},
 	weights::{IdentityFee, Weight},
 };
 use frame_system::EnsureRoot;
@@ -36,6 +36,8 @@ parameter_types! {
 	// NOTE: paseo also uses `NetworkId::Polkadot`
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
 	pub const HereLocation: Location = Location::here();
+	pub AssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
+	pub AssetsPalletLocation: Location = PalletInstance(AssetsPalletIndex::get()).into();
 	pub AssetHubLocation: Location = Location::new(1, Parachain(1000));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();

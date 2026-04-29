@@ -292,6 +292,12 @@ mod runtime {
 	pub type CumulusXcm = cumulus_pallet_xcm;
 	#[runtime::pallet_index(55)]
 	pub type MessageQueue = pallet_message_queue;
+	#[runtime::pallet_index(56)]
+	pub type ForeignAssets = pallet_assets<Instance2>;
+	#[runtime::pallet_index(57)]
+	pub type PoolAssets = pallet_assets<Instance3>;
+	#[runtime::pallet_index(58)]
+	pub type AssetConversion = pallet_asset_conversion;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

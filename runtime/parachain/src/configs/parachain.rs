@@ -1,22 +1,45 @@
 use sdk::{
-	cumulus_pallet_aura_ext, cumulus_pallet_xcmp_queue, cumulus_primitives_core,
-	cumulus_primitives_storage_weight_reclaim, frame_support, frame_system, pallet_balances,
-	pallet_message_queue, pallet_transaction_payment, parachains_common, polkadot_runtime_common,
-	sp_core, sp_runtime, staging_parachain_info,
+	assets_common, cumulus_pallet_aura_ext, cumulus_pallet_xcmp_queue, cumulus_primitives_core,
+	cumulus_primitives_storage_weight_reclaim, frame_support, frame_system,
+	pallet_asset_conversion, pallet_assets, pallet_balances, pallet_message_queue,
+	pallet_transaction_payment, parachains_common, polkadot_runtime_common, sp_core, sp_runtime,
+	staging_parachain_info, staging_xcm as xcm,
 };
 
-use codec::Encode;
+use assets_common::{
+	foreign_creators::ForeignCreators,
+	local_and_foreign_assets::{ForeignAssetReserveData, LocalFromLeft, TargetFromLeft},
+	matching::FromSiblingParachain,
+	AssetIdForPoolAssets, AssetIdForTrustBackedAssetsConvert,
+};
+use codec::{Compact, Encode};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-use frame_support::{derive_impl, traits::TransformOrigin, weights::constants::RocksDbWeight};
-use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
-use sp_core::ConstU32;
+use frame_support::{
+	derive_impl,
+	traits::{
+		fungible, fungibles, tokens::imbalance::ResolveAssetTo, NeverEnsureOrigin, TransformOrigin,
+	},
+	weights::constants::RocksDbWeight,
+};
+use parachains_common::{
+	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	AssetIdForTrustBackedAssets,
+};
+use sp_core::{ConstU128, ConstU32};
 use sp_runtime::{generic::Era, SaturatedConversion};
+use xcm::latest::prelude::*;
 
 use crate::{
-	collectives, params, weights, xcm_config::XcmOriginToTransactDispatchOrigin, Balance, Block,
-	MessageQueue, PalletInfo, ParachainInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, RuntimeTask, SignedPayload, System, UncheckedExtrinsic, XcmpQueue,
+	collectives,
+	funds::treasury::Account as TreasuryAccount,
+	params, weights,
+	xcm_config::{
+		AssetsPalletLocation, HereLocation, LocationToAccountId, XcmOriginToTransactDispatchOrigin,
+	},
+	AccountId, Assets, Balance, Balances, Block, ForeignAssets, MessageQueue, PalletInfo,
+	ParachainInfo, ParachainSystem, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	RuntimeTask, SignedPayload, System, UncheckedExtrinsic, XcmpQueue,
 };
 
 // Configure FRAME pallets to include in runtime.
@@ -50,6 +73,142 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 
 	type SystemWeightInfo = weights::pallet::frame_system::Weights<Runtime>;
+}
+
+pub type ForeignAssetsInstance = pallet_assets::Instance2;
+impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type AssetId = Location;
+	type AssetIdParameter = Location;
+	type Currency = Balances;
+	type CreateOrigin = ForeignCreators<
+		(
+			FromSiblingParachain<ParachainInfo, Location>,
+			/*
+			TODO: Consider these
+			FromNetwork<
+				xcm_config::UniversalLocation,
+				xcm_config::bridging::to_ethereum::EthereumNetwork,
+				Location,
+			>,
+			xcm_config::bridging::to_kusama::KusamaAssetFromAssetHubKusama,
+			*/
+		),
+		LocationToAccountId,
+		AccountId,
+		Location,
+	>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type Freezer = ();
+	type Holder = ();
+	type Extra = ();
+	type CallbackHandle = ();
+	type ReserveData = ForeignAssetReserveData;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
+
+	type AssetDeposit = params::dynamic::assets::AssetDeposit;
+	type AssetAccountDeposit = params::dynamic::assets::AssetAccountDeposit;
+	type MetadataDepositBase = params::dynamic::assets::MetadataDepositBase;
+	type MetadataDepositPerByte = params::dynamic::assets::MetadataDepositPerByte;
+	type ApprovalDeposit = params::dynamic::assets::ApprovalDeposit;
+
+	type StringLimit = params::constant::assets::StringLimit;
+	type RemoveItemsLimit = params::constant::assets::RemoveItemsLimit;
+	type WeightInfo = weights::pallet::assets::Weights<Runtime>;
+}
+
+pub type PoolAssetsInstance = pallet_assets::Instance3;
+impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type AssetId = AssetIdForPoolAssets;
+	type AssetIdParameter = Compact<AssetIdForPoolAssets>;
+	type Currency = Balances;
+	type CreateOrigin = NeverEnsureOrigin<AccountId>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type Freezer = ();
+	type Holder = ();
+	type Extra = ();
+	type CallbackHandle = ();
+	type ReserveData = ();
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+
+	type AssetDeposit = ConstU128<0>;
+	type AssetAccountDeposit = params::dynamic::assets::AssetAccountDeposit;
+	type MetadataDepositBase = ConstU128<0>;
+	type MetadataDepositPerByte = ConstU128<0>;
+	type ApprovalDeposit = params::dynamic::assets::ApprovalDeposit;
+
+	type StringLimit = params::constant::assets::StringLimit;
+	type RemoveItemsLimit = params::constant::assets::RemoveItemsLimit;
+	type WeightInfo = weights::pallet::assets::Weights<Runtime>;
+}
+
+/// Union fungibles implementation for `Assets`` and `ForeignAssets`.
+pub type LocalAndForeignAssets = fungibles::UnionOf<
+	Assets,
+	ForeignAssets,
+	LocalFromLeft<
+		AssetIdForTrustBackedAssetsConvert<AssetsPalletLocation, Location>,
+		AssetIdForTrustBackedAssets,
+		Location,
+	>,
+	Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
+pub type NativeAndAssets = fungible::UnionOf<
+	Balances,
+	LocalAndForeignAssets,
+	TargetFromLeft<HereLocation, Location>,
+	Location,
+	AccountId,
+>;
+
+pub type PoolAssetKind = Location;
+pub type PoolId = (PoolAssetKind, PoolAssetKind);
+pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
+	params::constant::asset_conversion::PalletId,
+	PoolId,
+>;
+
+impl pallet_asset_conversion::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type HigherPrecisionBalance = sp_core::U256;
+	type AssetKind = PoolAssetKind;
+	type Assets = NativeAndAssets;
+	type PoolId = PoolId;
+	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
+		HereLocation,
+		AccountId,
+		PoolAssetKind,
+		PoolIdToAccountId,
+	>;
+	type PoolAssetId = u32;
+	type PoolAssets = PoolAssets;
+	type PoolSetupFee = params::dynamic::asset_conversion::PoolSetupFee;
+	type PoolSetupFeeAsset = HereLocation;
+	type PoolSetupFeeTarget = ResolveAssetTo<TreasuryAccount, Self::Assets>;
+	type LiquidityWithdrawalFee = params::constant::asset_conversion::LiquidityWithdrawalFee;
+	type LPFee = ConstU32<3>;
+	type PalletId = params::constant::asset_conversion::PalletId;
+	type MaxSwapPathLength = ConstU32<3>;
+	type MintMinLiquidity = ConstU128<100>;
+	type WeightInfo = (); //weights::pallet::asset_conversion::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
+		HereLocation,
+		ParachainInfo,
+		crate::xcm_config::AssetsPalletIndex,
+		PoolAssetKind,
+	>;
 }
 
 impl staging_parachain_info::Config for Runtime {}

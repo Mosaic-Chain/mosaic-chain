@@ -39,7 +39,8 @@ impl pallet_parameters::Config for Runtime {
 	type WeightInfo = weights::pallet::parameters::Weights<Runtime>;
 }
 
-impl pallet_assets::Config for Runtime {
+pub type LocalAssetsInstance = ();
+impl pallet_assets::Config<LocalAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = u32;
@@ -373,6 +374,7 @@ impl pallet_offences::Config for Runtime {
 #[derive(
 	Copy,
 	Clone,
+	Default,
 	Eq,
 	PartialEq,
 	Ord,
@@ -386,7 +388,9 @@ impl pallet_offences::Config for Runtime {
 )]
 // We made these ProxyTypes according to this: https://mosaicchain.medium.com/account-abstractions-on-mosaic-chain-9b4162897536
 pub enum ProxyType {
+	// Default must be provided and MUST BE the the most permissive value.
 	/// Allow any kind of transaction, including balance transfers, staking, governance and others on behalf of the proxied account.
+	#[default]
 	Any,
 	/// Allow any type of transaction except the balance transfer functionality.
 	/// This proxy does not have permission to access calls in the Balances and XCM pallet.
@@ -400,13 +404,6 @@ pub enum ProxyType {
 	/// Allow to reject and remove any time-delay proxy announcements.
 	/// This proxy can only access the `reject_announcement` call from the Proxy pallet.
 	Cancel,
-}
-
-// Default must be provided and MUST BE the the most permissive value. aka Any
-impl Default for ProxyType {
-	fn default() -> Self {
-		Self::Any
-	}
 }
 
 impl InstanceFilter<RuntimeCall> for ProxyType {

@@ -155,6 +155,18 @@ pub mod session {
 	}
 }
 
+pub mod asset_conversion {
+	use super::*;
+	use currency::{deposit, Balance};
+	use frame_support::parameter_types;
+
+	parameter_types! {
+		// Storage deposit for pool setup within asset conversion pallet
+		// and pool's lp token creation within assets pallet.
+		pub PoolSetupFee: Balance = deposit(1, 4) + assets::AssetDeposit::get();
+	}
+}
+
 #[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<crate::Runtime>)]
 mod imp {
 	use super::*;
