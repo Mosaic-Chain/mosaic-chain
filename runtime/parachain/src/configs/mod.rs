@@ -1,4 +1,4 @@
 mod common;
-mod parachain;
+pub mod parachain;
 
 pub use common::*;

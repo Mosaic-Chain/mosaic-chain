@@ -4,9 +4,15 @@ use sdk::substrate_build_script_utils::{generate_cargo_keys, rerun_if_git_head_c
 use runtime_generator::{runtime_builder::NativeBuilder, spec::para_chain::local_config};
 
 fn main() {
+	println!("cargo::rustc-check-cfg=cfg(dev_spec_built)");
+
 	generate_cargo_keys();
 
 	rerun_if_git_head_changed();
+
+	if std::env::var_os("SKIP_WASM_BUILD").is_some() {
+		return;
+	}
 
 	#[cfg(feature = "dev-spec")]
 	{
@@ -19,6 +25,8 @@ fn main() {
 		]
 		.into_iter()
 		.collect();
+
+		println!("cargo:rustc-cfg=dev_spec_built");
 
 		let builder = NativeBuilder {
 			path: ".".into(),

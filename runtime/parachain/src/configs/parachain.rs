@@ -1,9 +1,9 @@
 use sdk::{
 	assets_common, cumulus_pallet_aura_ext, cumulus_pallet_xcmp_queue, cumulus_primitives_core,
 	cumulus_primitives_storage_weight_reclaim, frame_support, frame_system,
-	pallet_asset_conversion, pallet_assets, pallet_balances, pallet_message_queue,
-	pallet_transaction_payment, parachains_common, polkadot_runtime_common, sp_core, sp_runtime,
-	staging_parachain_info, staging_xcm as xcm,
+	pallet_asset_conversion, pallet_asset_conversion_tx_payment, pallet_assets, pallet_balances,
+	pallet_message_queue, pallet_transaction_payment, parachains_common, polkadot_runtime_common,
+	sp_core, sp_runtime, staging_parachain_info, staging_xcm as xcm,
 };
 
 use assets_common::{
@@ -35,7 +35,8 @@ use crate::{
 	funds::treasury::Account as TreasuryAccount,
 	params, weights,
 	xcm_config::{
-		AssetsPalletLocation, HereLocation, LocationToAccountId, XcmOriginToTransactDispatchOrigin,
+		self, AssetsPalletLocation, HereLocation, LocationToAccountId,
+		XcmOriginToTransactDispatchOrigin,
 	},
 	AccountId, Assets, Balance, Balances, Block, ForeignAssets, MessageQueue, PalletInfo,
 	ParachainInfo, ParachainSystem, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
@@ -206,9 +207,87 @@ impl pallet_asset_conversion::Config for Runtime {
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
 		HereLocation,
 		ParachainInfo,
-		crate::xcm_config::AssetsPalletIndex,
+		xcm_config::AssetsPalletIndex,
 		PoolAssetKind,
 	>;
+}
+
+impl pallet_asset_conversion_tx_payment::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = Location;
+	type OnChargeAssetTransaction = crate::charge_asset_transaction::ChargeAssetTransaction;
+	type WeightInfo = (); // TODO: weights::pallet_asset_conversion_tx_payment::WeightInfo<Self>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetConversionTxHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetConversionTxHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub type AssetConversionAssetIdFor<T> = <T as pallet_asset_conversion_tx_payment::Config>::AssetId;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl
+	pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<
+		AccountId,
+		AssetConversionAssetIdFor<Runtime>,
+		AssetConversionAssetIdFor<Runtime>,
+	> for AssetConversionTxHelper
+{
+	fn create_asset_id_parameter(
+		seed: u32,
+	) -> (AssetConversionAssetIdFor<Runtime>, AssetConversionAssetIdFor<Runtime>) {
+		// Use a different parachain' foreign assets pallet so that the asset is indeed foreign.
+		let asset_id = Location::new(
+			1,
+			[
+				Junction::Parachain(3000),
+				Junction::PalletInstance(53),
+				Junction::GeneralIndex(seed.into()),
+			],
+		);
+		(asset_id.clone(), asset_id)
+	}
+
+	fn setup_balances_and_pool(asset_id: AssetConversionAssetIdFor<Runtime>, account: AccountId) {
+		use crate::AssetConversion;
+		use alloc::boxed::Box;
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+
+		assert_ok!(ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			asset_id.clone(),
+			account.clone().into(), /* owner */
+			true,                   /* is_sufficient */
+			1,
+		));
+
+		let lp_provider = account.clone();
+		use frame_support::traits::Currency;
+		let _ = Balances::deposit_creating(&lp_provider, u64::MAX.into());
+		assert_ok!(ForeignAssets::mint_into(asset_id.clone(), &lp_provider, u64::MAX.into()));
+
+		let token_native = Box::new(HereLocation::get());
+		let token_second = Box::new(asset_id);
+
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native.clone(),
+			token_second.clone()
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native,
+			token_second,
+			(u32::MAX / 8).into(), // 1 desired
+			u32::MAX.into(),       // 2 desired
+			1,                     // 1 min
+			1,                     // 2 min
+			lp_provider,
+		));
+	}
 }
 
 impl staging_parachain_info::Config for Runtime {}
@@ -222,7 +301,7 @@ impl pallet_message_queue::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MessageProcessor = sdk::staging_xcm_builder::ProcessXcmMessage<
 		AggregateMessageOrigin,
-		sdk::staging_xcm_executor::XcmExecutor<crate::xcm_config::XcmConfig>,
+		sdk::staging_xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
 		RuntimeCall,
 	>;
 	type Size = u32;
@@ -312,6 +391,7 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
 			cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
 		);
 		let raw_payload = SignedPayload::new(call, extra)

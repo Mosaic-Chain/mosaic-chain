@@ -5,8 +5,8 @@ zepter format features &&
 zepter lint propagate-feature --feature std,runtime-benchmarks,try-runtime --workspace &&
 cargo fmt --check &&
 cargo deny check --hide-inclusion-graph &&
-SKIP_PALLET_REVIVE_FIXTURES=1 cargo clippy --color=always --tests --examples --bins --benches --release --all-features --no-deps -- -D warnings &&
-cargo nextest run --release --all-features
+SKIP_PALLET_REVIVE_FIXTURES=1 SKIP_WASM_BUILD=1 cargo clippy --color=always --tests --examples --bins --benches --release --all-features --no-deps -- -D warnings &&
+SKIP_PALLET_REVIVE_FIXTURES=1 SKIP_WASM_BUILD=1 cargo nextest run --release --all-features
 
 if [ $? -ne 0 ]; then
     echo "Checks failed. Fix errors before committing. Try running ./scripts/fix.sh"

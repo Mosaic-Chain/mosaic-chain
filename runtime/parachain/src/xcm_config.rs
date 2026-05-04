@@ -1,47 +1,74 @@
 use sdk::{
-	cumulus_pallet_xcm, cumulus_primitives_utility, frame_support, frame_system, pallet_xcm,
-	parachains_common, polkadot_parachain_primitives, polkadot_runtime_common, staging_xcm as xcm,
+	assets_common, cumulus_pallet_xcm, cumulus_primitives_utility, frame_support, frame_system,
+	pallet_xcm, parachains_common, polkadot_parachain_primitives, sp_runtime, staging_xcm as xcm,
 	staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor,
 };
 
 use super::{
-	funds::treasury::Account as TreasuryAccount, AccountId, AllPalletsWithSystem, Assets, Balance,
-	Balances, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, XcmpQueue,
+	configs::parachain::NativeAndAssets, funds::treasury::Account as TreasuryAccount, AccountId,
+	AllPalletsWithSystem, AssetConversion, Assets, Balance, Balances, ForeignAssets, ParachainInfo,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmpQueue,
 };
+
+use assets_common::{TrustBackedAssetsAsLocation, TrustBackedAssetsConvertedConcreteId};
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, Disabled, Equals, Everything, Nothing, PalletInfoAccess},
+	traits::{
+		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		ConstU32, Contains, Disabled, Equals, Everything, EverythingBut, Nothing, PalletInfoAccess,
+	},
 	weights::{IdentityFee, Weight},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_common::impls::ToAuthor;
+use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, MintLocation, ParentIsPreset,
-	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint,
+	MatchedConvertedConcreteId, MintLocation, NoChecking, ParentIsPreset, RelayChainAsNative,
+	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithLatestLocationConverter,
+	WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
 	// NOTE: paseo also uses `NetworkId::Polkadot`
-	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Polkadot);
+	pub const RelayNetworkId: NetworkId = NetworkId::Polkadot;
+	pub const RelayNetwork: Option<NetworkId> = Some(RelayNetworkId::get());
 	pub const HereLocation: Location = Location::here();
 	pub AssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
 	pub AssetsPalletLocation: Location = PalletInstance(AssetsPalletIndex::get()).into();
 	pub AssetHubLocation: Location = Location::new(1, Parachain(1000));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
-	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((PolkadotXcm::check_account(), MintLocation::Local));
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetworkId::get()), Parachain(ParachainInfo::parachain_id().into())].into();
+	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
+
+	pub DotLocation: Location = RelayLocation::get();
+	pub UsdtLocation: Location = Location::new(
+			1,
+			[
+				Parachain(1000),
+				PalletInstance(50),
+				GeneralIndex(1984)
+			],
+		);
+	pub UsdcLocation: Location = Location::new(
+			1,
+			[
+				Parachain(1000),
+				PalletInstance(50),
+				GeneralIndex(1337)
+			],
+		);
 }
 
 /// Locations that will not be charged fees in the executor,
@@ -63,7 +90,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting assets on this chain.
-pub type LocalAssetTransactor = FungibleAdapter<
+pub type NativeTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -74,6 +101,39 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	AccountId,
 	// We track teleports.
 	TeleportTracking,
+>;
+
+/// Means for transacting assets besides the native currency on this chain.
+pub type AssetsTransactor = FungiblesAdapter<
+	// Use this fungibles implementation:
+	Assets,
+	// Use this currency when it is a fungible asset matching the given location or name:
+	TrustBackedAssetsConvertedConcreteId<AssetsPalletLocation, Balance>,
+	// Convert an XCM `Location` into a local account ID:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// We only want to allow teleports of known assets. We use non-zero issuance as an indication
+	// that this asset is known.
+	LocalMint<parachains_common::impls::NonZeroIssuance<AccountId, Assets>>,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
+/// Means for transacting foreign assets from different global consensus.
+pub type ForeignAssetsTransactor = FungiblesAdapter<
+	// Use this fungibles implementation:
+	ForeignAssets,
+	// Use this currency when it is a fungible asset matching the given location or name:
+	ForeignAssetsConvertedConcreteId,
+	// Convert an XCM `Location` into a local account ID:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// We dont need to check teleports here.
+	NoChecking,
+	// The account to use for tracking teleports.
+	CheckingAccount,
 >;
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -148,20 +208,73 @@ impl frame_support::traits::ContainsPair<Asset, Location> for TrustedTeleporters
 	}
 }
 
+/// `AssetId`/`Balance` converter for `ForeignAssets`
+pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
+	Location,
+	Balance,
+	EverythingBut<(
+		// Here we rely on fact that something like this works:
+		// assert!(Location::new(1, [Parachain(100)]).starts_with(&Location::parent()));
+		// assert!([Parachain(100)].into().starts_with(&Here));
+		StartsWith<HereLocation>,
+		StartsWith<AssetsPalletLocation>,
+		// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
+		// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),..)}`
+		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won't be accepted here
+		StartsWithExplicitGlobalConsensus<RelayNetworkId>,
+	)>,
+	WithLatestLocationConverter<Location>,
+	TryConvertInto,
+>;
+
+pub type ConvertibleAssetsMatcher = (
+	TrustBackedAssetsAsLocation<AssetsPalletLocation, Balance, Location>,
+	ForeignAssetsConvertedConcreteId,
+);
+
+/// Asset converter for pool assets.
+/// Used to convert one asset to another, when there is a pool available between the two.
+/// This type thus allows paying delivery fees with any asset as long as there is a pool between
+/// said asset and the asset required for fee payment.
+pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
+	AssetConversion,
+	NativeAndAssets,
+	ConvertibleAssetsMatcher,
+	AccountId,
+>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
 	// How to withdraw and deposit an asset.
-	type AssetTransactor = LocalAssetTransactor;
+	type AssetTransactor = (NativeTransactor, AssetsTransactor, ForeignAssetsTransactor);
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = TrustedReserves;
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
-	type Trader =
-		UsingComponents<IdentityFee<Balance>, HereLocation, AccountId, Balances, ToAuthor<Runtime>>;
+	type Trader = (
+		UsingComponents<
+			IdentityFee<Balance>,
+			HereLocation,
+			AccountId,
+			Balances,
+			ResolveTo<TreasuryAccount, Balances>,
+		>,
+		// This trader allows to pay with any assets exchangeable to MOS with
+		// [`AssetConversion`].
+		cumulus_primitives_utility::SwapFirstAssetTrader<
+			HereLocation,
+			AssetConversion,
+			IdentityFee<Balance>,
+			NativeAndAssets,
+			ConvertibleAssetsMatcher,
+			ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
+			AccountId,
+		>,
+	);
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;
@@ -169,7 +282,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
-	type AssetExchanger = ();
+	type AssetExchanger = PoolAssetsExchanger;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
 		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,

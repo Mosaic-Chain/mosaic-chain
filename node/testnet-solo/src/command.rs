@@ -16,7 +16,7 @@ use crate::{
 	service,
 };
 
-#[cfg(feature = "dev-spec")]
+#[cfg(dev_spec_built)]
 fn dev_spec() -> Box<dyn sc_service::ChainSpec> {
 	let spec_bytes = include_bytes!(concat!(env!("OUT_DIR"), "/dev-spec.json"));
 	Box::new(
@@ -52,9 +52,9 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		match id {
-			#[cfg(feature = "dev-spec")]
+			#[cfg(dev_spec_built)]
 			"dev" | "" => Ok(dev_spec()),
-			#[cfg(not(feature = "dev-spec"))]
+			#[cfg(not(dev_spec_built))]
 			"dev" | "" => Err("Default and dev chainspecs are not included in the node. Please rebuild with 'dev-spec' feature on.".into()),
 			"testnet" | "local" => {
 				Err("Built in chainspecs have been removed from this version of the node".into())

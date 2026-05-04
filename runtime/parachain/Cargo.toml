@@ -27,6 +27,7 @@ sdk = { workspace = true, features = [
 	"pallet-scheduler",
 	"pallet-assets",
 	"pallet-asset-conversion",
+	"pallet-asset-conversion-tx-payment",
 	"pallet-aura",
 	"pallet-authorship",
 	"pallet-balances",

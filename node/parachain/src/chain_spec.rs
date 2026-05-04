@@ -23,7 +23,7 @@ impl Extensions {
 	}
 }
 
-#[cfg(feature = "dev-spec")]
+#[cfg(dev_spec_built)]
 pub fn dev_spec() -> Box<dyn sc_service::ChainSpec> {
 	let spec_bytes = include_bytes!(concat!(env!("OUT_DIR"), "/dev-spec.json"));
 	Box::new(

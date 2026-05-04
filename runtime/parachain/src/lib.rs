@@ -40,6 +40,7 @@ pub use pallet_validator_subset_selection;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use params::currency::Balance;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use staging_xcm::latest::Location;
 
 #[cfg(test)]
 mod mock;
@@ -47,6 +48,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod charge_asset_transaction;
 mod charge_transaction;
 mod migrations;
 pub mod params;
@@ -161,6 +163,7 @@ pub type TxExtension = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 
@@ -298,6 +301,8 @@ mod runtime {
 	pub type PoolAssets = pallet_assets<Instance3>;
 	#[runtime::pallet_index(58)]
 	pub type AssetConversion = pallet_asset_conversion;
+	#[runtime::pallet_index(59)]
+	pub type AssetConversionTxPayment = pallet_asset_conversion_tx_payment;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -336,6 +341,8 @@ mod benches {
 		[pallet_hold_vesting, HoldVesting]
 		[pallet_vesting_to_freeze, VestingToFreeze]
 		[pallet_staking_incentive, StakingIncentive]
+		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
 	);
 }
 
@@ -474,6 +481,43 @@ impl_runtime_apis! {
 		}
 		fn query_length_to_fee(length: u32) -> Balance {
 			TransactionPayment::length_to_fee(length)
+		}
+	}
+
+	impl pallet_asset_conversion::AssetConversionApi<Block, Balance, Location> for Runtime {
+		fn quote_price_exact_tokens_for_tokens(
+			asset1: Location,
+			asset2: Location,
+			amount: Balance,
+			include_fee: bool,
+		) -> Option<Balance> {
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				asset1,
+				asset2,
+				amount,
+				include_fee,
+			)
+		}
+
+		fn quote_price_tokens_for_exact_tokens(
+			asset1: Location,
+			asset2: Location,
+			amount: Balance,
+			include_fee: bool,
+		) -> Option<Balance> {
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				asset1,
+				asset2,
+				amount,
+				include_fee,
+			)
+		}
+
+		fn get_reserves(
+			asset1: Location,
+			asset2: Location,
+		) -> Option<(Balance, Balance)> {
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 
