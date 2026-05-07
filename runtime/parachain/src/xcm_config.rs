@@ -1,16 +1,24 @@
 use sdk::{
-	assets_common, cumulus_pallet_xcm, cumulus_primitives_utility, frame_support, frame_system,
-	pallet_xcm, parachains_common, polkadot_parachain_primitives, sp_runtime, staging_xcm as xcm,
-	staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor,
+	assets_common, cumulus_pallet_xcm, cumulus_primitives_core, cumulus_primitives_utility,
+	frame_support, frame_system, pallet_xcm, parachains_common, polkadot_parachain_primitives,
+	sp_runtime, staging_xcm as xcm, staging_xcm_builder as xcm_builder,
+	staging_xcm_executor as xcm_executor,
 };
 
 use super::{
-	configs::parachain::NativeAndAssets, funds::treasury::Account as TreasuryAccount, AccountId,
-	AllPalletsWithSystem, AssetConversion, Assets, Balance, Balances, ForeignAssets, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmpQueue,
+	charge_asset_transaction::AssetConverter, configs::parachain::NativeAndAssets,
+	funds::treasury::Account as TreasuryAccount, AccountId, AllPalletsWithSystem, AssetConversion,
+	Assets, Balance, Balances, ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmpQueue,
 };
 
-use assets_common::{TrustBackedAssetsAsLocation, TrustBackedAssetsConvertedConcreteId};
+use assets_common::{
+	matching::{
+		IsForeignConcreteAsset, NonTeleportableAssetFromTrustedReserve,
+		TeleportableAssetWithTrustedReserve,
+	},
+	TrustBackedAssetsAsLocation, TrustBackedAssetsConvertedConcreteId,
+};
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -19,9 +27,13 @@ use frame_support::{
 	},
 	weights::{IdentityFee, Weight},
 };
+
+use cumulus_primitives_core::ParaId;
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
+use parachains_common::xcm_config::{
+	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
@@ -48,7 +60,8 @@ parameter_types! {
 	pub AssetsPalletLocation: Location = PalletInstance(AssetsPalletIndex::get()).into();
 	pub AssetHubLocation: Location = Location::new(1, Parachain(1000));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetworkId::get()), Parachain(ParachainInfo::parachain_id().into())].into();
+	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetworkId::get()), Parachain(SelfParaId::get().into())].into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
 
@@ -190,23 +203,40 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-pub struct TrustedReserves;
-impl frame_support::traits::ContainsPair<Asset, Location> for TrustedReserves {
+pub struct OnlyNative;
+impl Contains<(Location, crate::Vec<Asset>)> for OnlyNative {
+	fn contains((_, assets): &(Location, crate::Vec<Asset>)) -> bool {
+		assets.iter().all(|asset| {
+			log::trace!(target: "xcm::OnlyNative", "Asset to be sent out: {asset:?}");
+			if let Asset { id: asset_id, fun: Fungible(_) } = asset {
+				asset_id.0 == HereLocation::get()
+			} else {
+				false
+			}
+		})
+	}
+}
+
+impl frame_support::traits::ContainsPair<Asset, Location> for OnlyNative {
 	fn contains(asset: &Asset, location: &Location) -> bool {
-		log::debug!(target: "xcm::TrustedReserves", "Asset to be sent out: {asset:?}, location: {location:?}");
+		log::debug!(target: "xcm::OnlyNative", "Asset to be sent out: {asset:?}, location: {location:?}");
 		// Mosaic chain is a trusted reserve of MOS
 		matches!(asset, Asset { id: asset_id, fun: Fungible(_) } if asset_id.0 == HereLocation::get() && location == &HereLocation::get())
 	}
 }
 
-pub struct TrustedTeleporters;
-impl frame_support::traits::ContainsPair<Asset, Location> for TrustedTeleporters {
-	fn contains(asset: &Asset, location: &Location) -> bool {
-		log::debug!(target: "xcm::TrustedTeleporters", "Asset to be sent out: {asset:?}, location: {location:?}");
-		// AssetHub is trusted to receive MOS via teleport
-		matches!(asset, Asset { id: asset_id, fun: Fungible(_) } if asset_id.0 == HereLocation::get() && location == &AssetHubLocation::get())
-	}
-}
+pub type TrustedReserves = (
+	OnlyNative,
+	IsForeignConcreteAsset<
+		NonTeleportableAssetFromTrustedReserve<SelfParaId, crate::ForeignAssets>,
+	>,
+);
+
+pub type TrustedTeleporters = (
+	// Can teleport sibling's assets back-and-forth according to their trusted reserves.
+	// (teleportable when `Here` and `origin` are both trusted reserve locations)
+	IsForeignConcreteAsset<TeleportableAssetWithTrustedReserve<SelfParaId, crate::ForeignAssets>>,
+);
 
 /// `AssetId`/`Balance` converter for `ForeignAssets`
 pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
@@ -264,10 +294,10 @@ impl xcm_executor::Config for XcmConfig {
 			ResolveTo<TreasuryAccount, Balances>,
 		>,
 		// This trader allows to pay with any assets exchangeable to MOS with
-		// [`AssetConversion`].
+		// [`AssetConverter`].
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			HereLocation,
-			AssetConversion,
+			AssetConverter,
 			IdentityFee<Balance>,
 			NativeAndAssets,
 			ConvertibleAssetsMatcher,
@@ -312,20 +342,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	XcmpQueue,
 )>;
 
-pub struct OnlySendNative;
-impl Contains<(Location, crate::Vec<Asset>)> for OnlySendNative {
-	fn contains((_, assets): &(Location, crate::Vec<Asset>)) -> bool {
-		assets.iter().all(|asset| {
-			log::trace!(target: "xcm::OnlySendNative", "Asset to be sent out: {asset:?}");
-			if let Asset { id: asset_id, fun: Fungible(_) } = asset {
-				asset_id.0 == HereLocation::get()
-			} else {
-				false
-			}
-		})
-	}
-}
-
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -335,8 +351,8 @@ impl pallet_xcm::Config for Runtime {
 	// ^ Disable dispatchable execute on the XCM pallet.
 	// Needs to be `Everything` for local testing.
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type XcmTeleportFilter = OnlySendNative;
-	type XcmReserveTransferFilter = OnlySendNative;
+	type XcmTeleportFilter = OnlyNative;
+	type XcmReserveTransferFilter = OnlyNative;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;

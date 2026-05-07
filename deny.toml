@@ -9,6 +9,7 @@ ignore = [
     "RUSTSEC-2025-0057", # `fxhash` is unmaintained
     "RUSTSEC-2025-0118", # wasmtime linear memory is not used from multiple threads
     "RUSTSEC-2025-0161", # `libsecp256k1` is unmaintained - no safe upgrade available
+    "RUSTSEC-2026-0002", # TODO: update polkadot-sdk when this (lru) is fixed there
     "RUSTSEC-2026-0006", # `wasmtime` segfault or unused out-of-sandbox load with `f64.copysign` operator on x86-64
     "RUSTSEC-2026-0020", # `wasmtime` WASI host interfaces are susceptible to guest-controlled resource exhaustion on the host
     "RUSTSEC-2026-0021", # `wasmtime` Panic adding excessive fields to a wasi:http/types.fields instance
@@ -23,6 +24,7 @@ ignore = [
     "RUSTSEC-2026-0094", # `wasmtime` improperly masked return value from `table.grow` with Winch compiler backend
     "RUSTSEC-2026-0095", # `wasmtime` with Winch compiler backend may allow a sandbox-escaping memory access
     "RUSTSEC-2026-0096", # `wasmtime` miscompiled guest heap access enables sandbox escape on aarch64 Cranelift
+    "RUSTSEC-2026-0097", # `rand` is unsound with a custom logger using `rand::rng()`
     "RUSTSEC-2026-0105", # `core2` is unmaintained
     "RUSTSEC-2026-0114", # `wasmtime` has a DoS vector
     "RUSTSEC-2026-0118", # `hickory-proto` has a DoS vector
@@ -124,9 +126,7 @@ unused = 'deny'
 unknown-registry = "warn"
 unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = [
-    "https://github.com/Mosaic-Chain/polkadot-sdk?branch=unsafe-warp-sync-2506-1",
-]
+allow-git = ["https://github.com/Mosaic-Chain/polkadot-sdk?branch=unsafe-warp-sync-2506-1"]
 
 [sources.allow-org]
 #github = ["wigy_opensource_developer"]

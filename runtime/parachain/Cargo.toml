@@ -25,6 +25,7 @@ sdk = { workspace = true, features = [
 	"pallet-membership",
 	"pallet-preimage",
 	"pallet-scheduler",
+	"pallet-asset-rate",
 	"pallet-assets",
 	"pallet-asset-conversion",
 	"pallet-asset-conversion-tx-payment",

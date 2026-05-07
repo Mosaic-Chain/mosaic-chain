@@ -9,9 +9,16 @@ use super::{params, weights, AccountId, Runtime, RuntimeCall, RuntimeEvent, Runt
 // basically turning all of the council members into a "dictator" account.
 //
 // This ensures that a vote with 2/3 aye ratio is needed for a doas proposal to be accepted.
-pub type CouncilOrigin = EitherOfDiverse<
+pub type CouncilOrigin = CollectiveSuperMajority<council::CollectiveInstance>;
+
+pub type CollectiveSuperMajority<Collective> = EitherOfDiverse<
 	frame_system::EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionAtLeast<AccountId, council::CollectiveInstance, 2, 3>,
+	pallet_collective::EnsureProportionAtLeast<AccountId, Collective, 2, 3>,
+>;
+
+pub type CollectiveMajority<Collective> = EitherOfDiverse<
+	frame_system::EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionMoreThan<AccountId, Collective, 1, 2>,
 >;
 
 macro_rules! impl_collective {

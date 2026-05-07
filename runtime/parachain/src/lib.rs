@@ -113,10 +113,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 106,
+	spec_version: 107,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 3,
+	transaction_version: 4,
 	system_version: 1,
 };
 
@@ -163,7 +163,6 @@ pub type TxExtension = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 
@@ -303,6 +302,8 @@ mod runtime {
 	pub type AssetConversion = pallet_asset_conversion;
 	#[runtime::pallet_index(59)]
 	pub type AssetConversionTxPayment = pallet_asset_conversion_tx_payment;
+	#[runtime::pallet_index(60)]
+	pub type AssetRate = pallet_asset_rate;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -343,6 +344,7 @@ mod benches {
 		[pallet_staking_incentive, StakingIncentive]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
+		[pallet_asset_rate, AssetRate]
 	);
 }
 

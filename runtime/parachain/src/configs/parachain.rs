@@ -1,9 +1,9 @@
 use sdk::{
 	assets_common, cumulus_pallet_aura_ext, cumulus_pallet_xcmp_queue, cumulus_primitives_core,
 	cumulus_primitives_storage_weight_reclaim, frame_support, frame_system,
-	pallet_asset_conversion, pallet_asset_conversion_tx_payment, pallet_assets, pallet_balances,
-	pallet_message_queue, pallet_transaction_payment, parachains_common, polkadot_runtime_common,
-	sp_core, sp_runtime, staging_parachain_info, staging_xcm as xcm,
+	pallet_asset_conversion, pallet_asset_conversion_tx_payment, pallet_asset_rate, pallet_assets,
+	pallet_balances, pallet_message_queue, pallet_transaction_payment, parachains_common,
+	polkadot_runtime_common, sp_core, sp_runtime, staging_parachain_info, staging_xcm as xcm,
 };
 
 use assets_common::{
@@ -31,7 +31,7 @@ use sp_runtime::{generic::Era, SaturatedConversion};
 use xcm::latest::prelude::*;
 
 use crate::{
-	collectives,
+	collectives::{self, CollectiveMajority, CollectiveSuperMajority},
 	funds::treasury::Account as TreasuryAccount,
 	params, weights,
 	xcm_config::{
@@ -290,6 +290,71 @@ impl
 	}
 }
 
+impl pallet_asset_rate::Config for Runtime {
+	type RuntimeEvent = <Runtime as cumulus_pallet_parachain_system::Config>::RuntimeEvent;
+
+	type Currency = Balances;
+	type AssetKind = Location;
+
+	type CreateOrigin =
+		CollectiveSuperMajority<collectives::financial_collective::CollectiveInstance>;
+	type RemoveOrigin = Self::CreateOrigin;
+	type UpdateOrigin = CollectiveMajority<collectives::financial_collective::CollectiveInstance>;
+	type WeightInfo = (); // TODO: benchmark
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = benchmarks::AssetRateArguments;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarks {
+	use super::*;
+	use core::marker::PhantomData;
+	use frame_support::traits::Get;
+	use pallet_asset_rate::AssetKindFactory;
+	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
+	use sp_core::{ConstU32, ConstU8};
+
+	/// Provides a factory method for the [`VersionedLocatableAsset`].
+	/// The location of the asset is determined as a Parachain with an ID equal to the passed seed.
+	pub struct AssetRateArguments;
+	impl AssetKindFactory<Location> for AssetRateArguments {
+		fn create_asset_kind(seed: u32) -> Location {
+			Location::new(
+				0,
+				[
+					Parachain(seed),
+					PalletInstance(seed.try_into().unwrap()),
+					GeneralIndex(seed.into()),
+				],
+			)
+		}
+	}
+
+	/// Provide factory methods for the [`Location`] and the `Beneficiary` of the
+	/// [`VersionedLocation`]. The location of the asset is determined as a Parachain with an
+	/// ID equal to the passed seed.
+	pub struct TreasuryArguments<Parents = ConstU8<0>, ParaId = ConstU32<0>>(
+		PhantomData<(Parents, ParaId)>,
+	);
+	impl<Parents: Get<u8>, ParaId: Get<u32>> TreasuryArgumentsFactory<Location, Location>
+		for TreasuryArguments<Parents, ParaId>
+	{
+		fn create_asset_kind(seed: u32) -> Location {
+			Location::new(
+				Parents::get(),
+				[
+					Parachain(ParaId::get()),
+					PalletInstance(seed.try_into().unwrap()),
+					GeneralIndex(seed.into()),
+				],
+			)
+		}
+		fn create_beneficiary(seed: [u8; 32]) -> Location {
+			Location::new(0, [AccountId32 { network: None, id: seed }])
+		}
+	}
+}
 impl staging_parachain_info::Config for Runtime {}
 
 impl pallet_message_queue::Config for Runtime {
@@ -391,7 +456,6 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
 			cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
 		);
 		let raw_payload = SignedPayload::new(call, extra)

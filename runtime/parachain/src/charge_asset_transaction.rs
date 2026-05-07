@@ -18,42 +18,22 @@ use pallet_asset_conversion::{QuotePrice, SwapCredit};
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 
 use super::{
-	configs::parachain::NativeAndAssets, funds, xcm_config, AccountId, AssetConversion, Balance,
+	configs::parachain::NativeAndAssets, funds, xcm_config, AccountId, AssetConversion, AssetRate,
+	Balance, Vec,
 };
 use funds::treasury::Account as TreasuryAccount;
+
+pub type AssetConverter = AssetConverterChain<
+	FundAssetConversion<funds::financial_fund::Account, AssetRate, NativeAndAssets>,
+	AssetConversion,
+>;
 
 pub type ChargeAssetTransaction = SwapAssetAdapter<
 	xcm_config::HereLocation,
 	NativeAndAssets,
-	AssetConverterChain<
-		FundAssetConversion<funds::financial_fund::Account, Foo, NativeAndAssets>,
-		AssetConversion,
-	>,
+	AssetConverter,
 	ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
 >;
-
-pub struct Foo;
-
-impl ConversionFromAssetBalance<Balance, Location, Balance> for Foo {
-	type Error = ();
-
-	fn from_asset_balance(_balance: Balance, _asset_id: Location) -> Result<Balance, Self::Error> {
-		todo!()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_asset_id: Location) {
-		todo!()
-	}
-}
-
-impl ConversionToAssetBalance<Balance, Location, Balance> for Foo {
-	type Error = ();
-
-	fn to_asset_balance(_balance: Balance, _asset_id: Location) -> Result<Balance, Self::Error> {
-		todo!()
-	}
-}
 
 pub struct AssetConverterChain<Left, Right> {
 	_phantom: core::marker::PhantomData<(Left, Right)>,
@@ -126,9 +106,11 @@ where
 		credit_in: Self::Credit,
 		amount_out_min: Option<Self::Balance>,
 	) -> Result<Self::Credit, (Self::Credit, sdk::sp_runtime::DispatchError)> {
-		Left::swap_exact_tokens_for_tokens(path.clone(), credit_in, amount_out_min).or_else(
-			|(credit_in, _)| Right::swap_exact_tokens_for_tokens(path, credit_in, amount_out_min),
-		)
+		Left::swap_exact_tokens_for_tokens(path.clone(), credit_in, amount_out_min)
+			.inspect_err(|e| log::debug!("Failed to swap with left: {:?}", e.1))
+			.or_else(|(credit_in, _)| {
+				Right::swap_exact_tokens_for_tokens(path, credit_in, amount_out_min)
+			})
 	}
 
 	fn swap_tokens_for_exact_tokens(
@@ -136,11 +118,11 @@ where
 		credit_in_max: Self::Credit,
 		amount_out: Self::Balance,
 	) -> Result<(Self::Credit, Self::Credit), (Self::Credit, sdk::sp_runtime::DispatchError)> {
-		Left::swap_tokens_for_exact_tokens(path.clone(), credit_in_max, amount_out).or_else(
-			|(credit_in_max, _)| {
+		Left::swap_tokens_for_exact_tokens(path.clone(), credit_in_max, amount_out)
+			.inspect_err(|e| log::debug!("Failed to swap with left: {:?}", e.1))
+			.or_else(|(credit_in_max, _)| {
 				Right::swap_tokens_for_exact_tokens(path, credit_in_max, amount_out)
-			},
-		)
+			})
 	}
 }
 
@@ -148,41 +130,29 @@ pub struct FundAssetConversion<FundAccount, AssetRate, Fungibles> {
 	_phantom: core::marker::PhantomData<(FundAccount, AssetRate, Fungibles)>,
 }
 
-impl<FundAccount, AssetRate, Fungibles> FundAssetConversion<FundAccount, AssetRate, Fungibles> {
+impl<FundAccount, AssetRate, Fungibles> FundAssetConversion<FundAccount, AssetRate, Fungibles>
+where
+	FundAccount: Get<AccountId>,
+	AssetRate: ConversionFromAssetBalance<Balance, Location, Balance>
+		+ ConversionToAssetBalance<Balance, Location, Balance>,
+	Fungibles: fungibles::Mutate<AccountId>
+		+ fungibles::Balanced<AccountId>
+		+ fungibles::Inspect<AccountId, AssetId = Location, Balance = Balance>,
+{
 	fn resolve_and_withdraw(
 		credit_in: <Self as SwapCredit<AccountId>>::Credit,
 		asset_out: Location,
 		amount_out: Balance,
-	) -> Result<<Self as SwapCredit<AccountId>>::Credit, <Self as SwapCredit<AccountId>>::Credit>
-	where
-		FundAccount: Get<AccountId>,
-		AssetRate: ConversionFromAssetBalance<Balance, Location, Balance>
-			+ ConversionToAssetBalance<Balance, Location, Balance>,
-		Fungibles: fungibles::Mutate<AccountId>
-			+ fungibles::Balanced<AccountId>
-			+ fungibles::Inspect<AccountId, AssetId = Location, Balance = Balance>,
-	{
+	) -> Result<<Self as SwapCredit<AccountId>>::Credit, <Self as SwapCredit<AccountId>>::Credit> {
 		use sdk::frame_support::storage::{
 			transactional::with_transaction_opaque_err, TransactionOutcome,
 		};
 		let credit_in_opt = &mut Some(credit_in);
 		let outer = with_transaction_opaque_err(|| {
-			let inner = (|| {
-				let credit_in = credit_in_opt.take().expect(
-					"The transaction nesting level could be incremented, so outer will not be Err",
-				);
-				let Ok(credit_out) = Fungibles::withdraw(
-					asset_out,
-					&FundAccount::get(),
-					amount_out,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
-				) else {
-					return Err(credit_in);
-				};
-				Fungibles::resolve(&FundAccount::get(), credit_in).map(|_| credit_out)
-			})();
+			let credit_in = credit_in_opt.take().expect(
+				"The transaction nesting level could be incremented, so outer will not be Err",
+			);
+			let inner = Self::do_resolve_and_withdraw(credit_in, asset_out, amount_out);
 			if inner.is_ok() {
 				TransactionOutcome::Commit(inner)
 			} else {
@@ -192,11 +162,30 @@ impl<FundAccount, AssetRate, Fungibles> FundAssetConversion<FundAccount, AssetRa
 		match outer {
 			Ok(inner) => inner,
 			Err(()) => {
-				let credit_in = credit_in_opt.take()
-					.expect("The transaction nesting level could NOT be incremented, so the inner will not be calculated");
-				Err(credit_in)
-			},
+				Err(credit_in_opt.take()
+					.expect("The transaction nesting level could NOT be incremented, so the inner will not be calculated"))
+			}
 		}
+	}
+
+	fn do_resolve_and_withdraw(
+		credit_in: <Self as SwapCredit<AccountId>>::Credit,
+		asset_out: Location,
+		amount_out: Balance,
+	) -> Result<<Self as SwapCredit<AccountId>>::Credit, <Self as SwapCredit<AccountId>>::Credit> {
+		let Ok(credit_out) = Fungibles::withdraw(
+			asset_out,
+			&FundAccount::get(),
+			amount_out,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		) else {
+			return Err(credit_in);
+		};
+
+		// `credit_out` is already withdrawn. If this next resolve does not succeed, we need to roll back all storage changes.
+		Fungibles::resolve(&FundAccount::get(), credit_in).map(|_| credit_out)
 	}
 }
 
@@ -210,31 +199,43 @@ where
 	type AssetKind = Location;
 
 	fn quote_price_tokens_for_exact_tokens(
-		asset1: Self::AssetKind,
-		asset2: Self::AssetKind,
-		amount2: Self::Balance,
+		in_asset: Self::AssetKind,
+		out_asset: Self::AssetKind,
+		out_asset_amount: Self::Balance,
 		_include_fee: bool,
 	) -> Option<Self::Balance> {
-		match (asset1, asset2) {
-			(left, right) if left == Location::here() && right == left => Some(amount2),
-			(left, right) if left == Location::here() => {
-				AssetRate::to_asset_balance(amount2, right).ok()
+		match (in_asset, out_asset) {
+			(in_asset, out_asset) if in_asset == Location::here() && out_asset == in_asset => {
+				Some(out_asset_amount)
 			},
-			(left, right) if right == Location::here() => {
-				AssetRate::from_asset_balance(amount2, left).ok()
+			(in_asset, out_asset) if in_asset == Location::here() => {
+				AssetRate::from_asset_balance(out_asset_amount, out_asset).ok()
+			},
+			(in_asset, out_asset) if out_asset == Location::here() => {
+				AssetRate::to_asset_balance(out_asset_amount, in_asset).ok()
 			},
 			_ => None,
 		}
 	}
 
 	fn quote_price_exact_tokens_for_tokens(
-		asset1: Self::AssetKind,
-		asset2: Self::AssetKind,
-		amount1: Self::Balance,
-		include_fee: bool,
+		in_asset: Self::AssetKind,
+		out_asset: Self::AssetKind,
+		in_asset_amount: Self::Balance,
+		_include_fee: bool,
 	) -> Option<Self::Balance> {
-		// No slippage when using fund for asset conversion
-		Self::quote_price_tokens_for_exact_tokens(asset1, asset2, amount1, include_fee)
+		match (in_asset, out_asset) {
+			(in_asset, out_asset) if in_asset == Location::here() && out_asset == in_asset => {
+				Some(in_asset_amount)
+			},
+			(in_asset, out_asset) if in_asset == Location::here() => {
+				AssetRate::to_asset_balance(in_asset_amount, out_asset).ok()
+			},
+			(in_asset, out_asset) if out_asset == Location::here() => {
+				AssetRate::from_asset_balance(in_asset_amount, in_asset).ok()
+			},
+			_ => None,
+		}
 	}
 }
 
@@ -309,5 +310,99 @@ where
 		Self::resolve_and_withdraw(credit_in, asset_out, amount_out)
 			.map(|credit_out| (credit_out, credit_remaining))
 			.map_err(|credit_in| (credit_in, DispatchError::Other("could not transact assets")))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use frame_support::pallet_prelude::CheckedDiv;
+	use sdk::sp_runtime::{FixedPointNumber, FixedU128};
+
+	use crate::xcm_config::{DotLocation, HereLocation};
+
+	use super::*;
+
+	struct MockAssetRate;
+
+	impl MockAssetRate {
+		pub const RATE: FixedU128 = FixedU128::from_u32(1_300_000_000);
+	}
+
+	impl ConversionFromAssetBalance<Balance, Location, Balance> for MockAssetRate {
+		type Error = pallet_asset_conversion::Error<crate::Runtime>;
+
+		fn from_asset_balance(
+			balance: Balance,
+			_asset_id: Location,
+		) -> Result<Balance, Self::Error> {
+			Ok(Self::RATE.saturating_mul_int(balance))
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn ensure_successful(_asset_id: Location) {
+			todo!()
+		}
+	}
+
+	impl ConversionToAssetBalance<Balance, Location, Balance> for MockAssetRate {
+		type Error = pallet_asset_conversion::Error<crate::Runtime>;
+
+		fn to_asset_balance(balance: Balance, _asset_id: Location) -> Result<Balance, Self::Error> {
+			Ok(FixedU128::from_u32(1)
+				.checked_div(&Self::RATE)
+				.ok_or(pallet_asset_conversion::Error::<crate::Runtime>::Overflow)?
+				.saturating_mul_int(balance))
+		}
+	}
+
+	type AssetConversion = FundAssetConversion<
+		funds::financial_fund::Account,
+		MockAssetRate,
+		/* This is not used in `QuotePrice`: */ NativeAndAssets,
+	>;
+
+	// When providing an asset-rate in typescript code or
+	// on polkadot js we have to provide the inner representation of `FixedU128`
+	// rather then the integer/rational we desire to represent.
+	//
+	// The inner representation for integers is the integer scaled by 10^18.
+	#[test]
+	fn asset_rate_representation_assumption_holds() {
+		let a = FixedU128::saturating_from_integer(42);
+		let b = FixedU128::from_inner(42 * 1_000_000_000_000_000_000);
+
+		assert_eq!(a, b);
+	}
+
+	#[test]
+	fn quote_price_tokens_for_exact_tokens() {
+		let tiles = 13_000_000_000_000_000_000; // 13 MOS
+		let plancks = 10_000_000_000; // 1 DOT
+
+		let actual_tiles = AssetConversion::quote_price_tokens_for_exact_tokens(
+			HereLocation::get(),
+			DotLocation::get(),
+			plancks,
+			false,
+		)
+		.unwrap();
+
+		assert_eq!(tiles, actual_tiles);
+	}
+
+	#[test]
+	fn quote_price_exact_tokens_for_tokens() {
+		let tiles = 13_000_000_000_000_000_000; // 13 MOS
+		let plancks = 10_000_000_000; // 1 DOT
+
+		let actual_plancks = AssetConversion::quote_price_exact_tokens_for_tokens(
+			HereLocation::get(),
+			DotLocation::get(),
+			tiles,
+			false,
+		)
+		.unwrap();
+
+		assert_eq!(plancks - actual_plancks, 3);
 	}
 }
