@@ -22,6 +22,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, MultiSignature, Vec,
 };
+use sp_std::vec;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::{Cow, RuntimeVersion};
@@ -483,6 +484,129 @@ impl_runtime_apis! {
 		}
 		fn query_length_to_fee(length: u32) -> Balance {
 			TransactionPayment::length_to_fee(length)
+		}
+	}
+
+	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
+		fn query_acceptable_payment_assets(xcm_version: staging_xcm::Version) -> Result<Vec<staging_xcm::VersionedAssetId>, xcm_runtime_apis::fees::Error> {
+			let native_asset = xcm_config::HereLocation::get();
+			// We accept the native asset to pay fees.
+			let mut acceptable_assets = vec![staging_xcm::latest::AssetId(native_asset.clone())];
+			// We also accept all assets in a pool with the native token.
+			acceptable_assets.extend(
+				assets_common::PoolAdapter::<Runtime>::get_assets_in_pool_with(native_asset)
+				.map_err(|()| xcm_runtime_apis::fees::Error::VersionedConversionFailed)?
+			);
+			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
+		}
+
+		fn query_weight_to_asset_fee(weight: Weight, asset: staging_xcm::VersionedAssetId) -> Result<u128, xcm_runtime_apis::fees::Error> {
+			use crate::xcm_config::XcmConfig;
+			type Trader = <XcmConfig as staging_xcm_executor::Config>::Trader;
+			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
+		}
+
+		fn query_xcm_weight(message: staging_xcm::VersionedXcm<()>) -> Result<Weight, xcm_runtime_apis::fees::Error> {
+			PolkadotXcm::query_xcm_weight(message)
+		}
+
+		fn query_delivery_fees(destination: staging_xcm::VersionedLocation, message: staging_xcm::VersionedXcm<()> , asset_id: staging_xcm::VersionedAssetId) -> Result<staging_xcm::VersionedAssets, xcm_runtime_apis::fees::Error> {
+			// The `PoolAssetsExchanger` only uses the liquidity pools to calculate fee conversions,
+			// but when it comes to xcm fees, we also use the Finnancial Fund for swaps.
+			type CombinedAssetsExchanger = staging_xcm_builder::SingleAssetExchangeAdapter<
+				charge_asset_transaction::AssetConverter,
+				configs::parachain::NativeAndAssets,
+				xcm_config::ConvertibleAssetsMatcher,
+				AccountId
+			>;
+
+			PolkadotXcm::query_delivery_fees::<CombinedAssetsExchanger>(destination, message, asset_id)
+		}
+	}
+
+	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: staging_xcm::Version) -> Result<xcm_runtime_apis::dry_run::CallDryRunEffects<RuntimeEvent>, xcm_runtime_apis::dry_run::Error> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
+		}
+
+		fn dry_run_xcm(origin_location: staging_xcm::VersionedLocation, xcm: staging_xcm::VersionedXcm<RuntimeCall>) -> Result<xcm_runtime_apis::dry_run::XcmDryRunEffects<RuntimeEvent>, xcm_runtime_apis::dry_run::Error> {
+			PolkadotXcm::dry_run_xcm::<xcm_config::XcmRouter>(origin_location, xcm)
+		}
+	}
+
+	impl xcm_runtime_apis::conversions::LocationToAccountApi<Block, AccountId> for Runtime {
+		fn convert_location(location: staging_xcm::VersionedLocation) -> Result<
+			AccountId,
+			xcm_runtime_apis::conversions::Error
+		> {
+			xcm_runtime_apis::conversions::LocationToAccountHelper::<
+				AccountId,
+				xcm_config::LocationToAccountId,
+			>::convert_location(location)
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: staging_xcm::VersionedAsset, location: staging_xcm::VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: staging_xcm::VersionedAsset, location: staging_xcm::VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl xcm_runtime_apis::authorized_aliases::AuthorizedAliasersApi<Block> for Runtime {
+		fn authorized_aliasers(target: staging_xcm::VersionedLocation) -> Result<
+			Vec<xcm_runtime_apis::authorized_aliases::OriginAliaser>,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::authorized_aliasers(target)
+		}
+		fn is_authorized_alias(origin: staging_xcm::VersionedLocation, target: staging_xcm::VersionedLocation) -> Result<
+			bool,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::is_authorized_alias(origin, target)
+		}
+	}
+
+	impl assets_common::runtime_api::FungiblesApi<
+		Block,
+		AccountId,
+	> for Runtime
+	{
+		fn query_account_balances(account: AccountId) -> Result<staging_xcm::VersionedAssets, assets_common::runtime_api::FungiblesAccessError> {
+			use assets_common::{fungible_conversion::{convert, convert_balance}, TrustBackedAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId};
+			Ok([
+				// collect pallet_balance
+				{
+					let balance = Balances::free_balance(account.clone());
+					if balance > 0 {
+						vec![convert_balance::<xcm_config::HereLocation, Balance>(balance)?]
+					} else {
+						vec![]
+					}
+				},
+				// collect pallet_assets (TrustBackedAssets)
+				convert::<_, _, _, _, TrustBackedAssetsConvertedConcreteId<xcm_config::AssetsPalletLocation, Balance>>(
+					Assets::account_balances(account.clone())
+						.iter()
+						.filter(|(_, balance)| balance > &0)
+				)?,
+				// collect pallet_assets (ForeignAssets)
+				convert::<_, _, _, _, xcm_config::ForeignAssetsConvertedConcreteId>(
+					ForeignAssets::account_balances(account.clone())
+						.iter()
+						.filter(|(_, balance)| balance > &0)
+				)?,
+				// collect pallet_assets (PoolAssets)
+				convert::<_, _, _, _, PoolAssetsConvertedConcreteId<xcm_config::PoolAssetsPalletLocation, Balance>>(
+					PoolAssets::account_balances(account)
+					.iter()
+					.filter(|(_, balance)| balance > &0)
+				)?,
+				// collect ... e.g. other tokens
+			].concat().into())
 		}
 	}
 

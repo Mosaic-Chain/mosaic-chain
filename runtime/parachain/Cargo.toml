@@ -77,6 +77,7 @@ sdk = { workspace = true, features = [
 	"polkadot-runtime-common",
 	"parachains-common",
 	"assets-common",
+	"xcm-runtime-apis"
 ] }
 
 # TODO: once procmacros are compatible with umbrella crate remove this

@@ -8,8 +8,8 @@ use sdk::{
 use super::{
 	charge_asset_transaction::AssetConverter, configs::parachain::NativeAndAssets,
 	funds::treasury::Account as TreasuryAccount, AccountId, AllPalletsWithSystem, AssetConversion,
-	Assets, Balance, Balances, ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmpQueue,
+	Assets, Balance, Balances, ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm,
+	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmpQueue,
 };
 
 use assets_common::{
@@ -31,9 +31,7 @@ use frame_support::{
 use cumulus_primitives_core::ParaId;
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::xcm_config::{
-	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
-};
+use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
@@ -58,6 +56,8 @@ parameter_types! {
 	pub const HereLocation: Location = Location::here();
 	pub AssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
 	pub AssetsPalletLocation: Location = PalletInstance(AssetsPalletIndex::get()).into();
+	pub PoolAssetsPalletIndex: u8 = <PoolAssets as PalletInfoAccess>::index() as u8;
+	pub PoolAssetsPalletLocation: Location = PalletInstance(PoolAssetsPalletIndex::get()).into();
 	pub AssetHubLocation: Location = Location::new(1, Parachain(1000));
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub SelfParaId: ParaId = ParachainInfo::parachain_id();
