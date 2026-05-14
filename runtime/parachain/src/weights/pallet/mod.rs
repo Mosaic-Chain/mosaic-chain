@@ -1,4 +1,7 @@
 pub mod airdrop;
+pub mod asset_conversion;
+pub mod asset_conversion_tx_payment;
+pub mod asset_rate;
 pub mod assets;
 pub mod balances;
 pub mod collective;

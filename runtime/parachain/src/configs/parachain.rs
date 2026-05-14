@@ -202,7 +202,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PalletId = params::constant::asset_conversion::PalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
-	type WeightInfo = (); //weights::pallet::asset_conversion::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet::asset_conversion::Weights<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
 		HereLocation,
@@ -216,7 +216,7 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = Location;
 	type OnChargeAssetTransaction = crate::charge_asset_transaction::ChargeAssetTransaction;
-	type WeightInfo = (); // TODO: weights::pallet_asset_conversion_tx_payment::WeightInfo<Self>;
+	type WeightInfo = weights::pallet::asset_conversion_tx_payment::Weights<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetConversionTxHelper;
 }
@@ -300,7 +300,7 @@ impl pallet_asset_rate::Config for Runtime {
 		CollectiveSuperMajority<collectives::financial_collective::CollectiveInstance>;
 	type RemoveOrigin = Self::CreateOrigin;
 	type UpdateOrigin = CollectiveMajority<collectives::financial_collective::CollectiveInstance>;
-	type WeightInfo = (); // TODO: benchmark
+	type WeightInfo = weights::pallet::asset_rate::Weights<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = benchmarks::AssetRateArguments;
