@@ -91,7 +91,7 @@ benchmark:
   script:
     - *build-deps
     - cargo install cargo-deb
-    - PKG=$(cargo deb -p mosaic-chain-node --profile release --variant benchmark)
+    - PKG=$(SKIP_PALLET_REVIVE_FIXTURES=1 cargo deb -p mosaic-chain-node --profile release --variant benchmark)
 
     - ssh-keyscan -H $HETZNER_SERVER_IP >> ~/.ssh/known_hosts
     - "scp $PKG root@$HETZNER_SERVER_IP:~/benchmark.deb"
@@ -142,11 +142,11 @@ publish-debian:
     - if: $CI_COMMIT_REF_PROTECTED == 'true'
   script:
     # solo
-    - PKG_SOLO=$(cargo deb -p mosaic-testnet-solo-node --profile release --deb-version "$DEBIAN_VERSION_SOLO")
+    - PKG_SOLO=$(SKIP_PALLET_REVIVE_FIXTURES=1 cargo deb -p mosaic-testnet-solo-node --profile release --deb-version "$DEBIAN_VERSION_SOLO")
     - gcloud artifacts apt upload apt-canary-repository --source $PKG_SOLO
 
     # para
-    - PKG_PARA=$(cargo deb -p mosaic-chain-node --profile release --deb-version "$DEBIAN_VERSION_PARA")
+    - PKG_PARA=$(SKIP_PALLET_REVIVE_FIXTURES=1 cargo deb -p mosaic-chain-node --profile release --deb-version "$DEBIAN_VERSION_PARA")
     - gcloud artifacts apt upload apt-canary-repository --source $PKG_PARA
 
 .release-docker:
