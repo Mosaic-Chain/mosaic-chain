@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0] - 2026-05-15
+
+### 🚀 Features
+
+- Add pallets for accepting foreign assets
+- Accept XCM fees in all foreign assets having a pool
+- Financial fund can protect fee exchange rates for some assets
+- XCM related runtime apis
+- Update benchmark weights
+
+### 🐛 Bug Fixes
+
+- *ci*: Do not build smart contracts
+
 ## [0.14.0] - 2026-04-23
 
 ### Runtime Compatibility Changes
@@ -357,7 +371,7 @@ of unsigned ones:
 
 ### ⚙️ Miscellaneous Tasks
 
-- Rename parachain-template-* to mosaic-chain-*
+- Rename parachain-template-*to mosaic-chain-*
 - Moved from shell.nix to flake.nix and added missing dependencies for zombienet
 - Reorganized imports and deduped pallet configuration between runtimes
 - Runtime construction uses attribute macro
