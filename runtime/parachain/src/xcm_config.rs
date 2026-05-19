@@ -220,8 +220,9 @@ impl Contains<(Location, crate::Vec<Asset>)> for OnlyNative {
 impl frame_support::traits::ContainsPair<Asset, Location> for OnlyNative {
 	fn contains(asset: &Asset, location: &Location) -> bool {
 		log::debug!(target: "xcm::OnlyNative", "Asset to be sent out: {asset:?}, location: {location:?}");
-		// Mosaic chain is a trusted reserve of MOS
-		matches!(asset, Asset { id: asset_id, fun: Fungible(_) } if asset_id.0 == HereLocation::get() && location == &HereLocation::get())
+		// Mosaic chain and AssetHub is a trusted reserve of MOS
+		matches!(asset, Asset { id: asset_id, fun: Fungible(_) } if asset_id.0 == HereLocation::get()
+			&& (location == &HereLocation::get() || location == &AssetHubLocation::get()))
 	}
 }
 
@@ -233,6 +234,7 @@ pub type TrustedReserves = (
 );
 
 pub type TrustedTeleporters = (
+	OnlyNative,
 	// Can teleport sibling's assets back-and-forth according to their trusted reserves.
 	// (teleportable when `Here` and `origin` are both trusted reserve locations)
 	IsForeignConcreteAsset<TeleportableAssetWithTrustedReserve<SelfParaId, crate::ForeignAssets>>,
@@ -351,8 +353,9 @@ impl pallet_xcm::Config for Runtime {
 	// ^ Disable dispatchable execute on the XCM pallet.
 	// Needs to be `Everything` for local testing.
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type XcmTeleportFilter = OnlyNative;
-	type XcmReserveTransferFilter = OnlyNative;
+	// NOTE: `TrustedTeleporters` and `TrustedReserves` already filter these
+	type XcmTeleportFilter = Everything;
+	type XcmReserveTransferFilter = Everything;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
