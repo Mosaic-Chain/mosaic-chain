@@ -1,9 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sdk::{frame_support, sp_runtime, staging_xcm as xcm, staging_xcm_executor};
-
-use frame_support::{
-	pallet_prelude::{DispatchError, DispatchResult, Encode, StorageValue, TypeInfo, ValueQuery},
+use sdk::frame_support::{
+	pallet_prelude::{DispatchError, DispatchResult, Encode, TypeInfo},
 	traits::{
 		fungible::{
 			hold::DoneSlash, Balanced, BalancedHold, Credit, Debt, Dust, Inspect, InspectFreeze,
@@ -15,11 +13,19 @@ use frame_support::{
 		},
 	},
 };
-use xcm::latest::Location;
 
+#[cfg(feature = "xcm")]
+use sdk::{
+	frame_support::pallet_prelude::{StorageValue, ValueQuery},
+	staging_xcm::latest::Location,
+};
+
+#[cfg(feature = "xcm")]
 mod xcm_transact_asset;
 
 pub use pallet::*;
+
+#[cfg(feature = "xcm")]
 pub use xcm_transact_asset::AssetTransactor;
 
 #[sdk::frame_support::pallet]
@@ -73,17 +79,14 @@ mod pallet {
 		},
 
 		// XCM related event
-		CheckedOut {
-			to: Location,
-			amount: <T::Fungible as Inspect<T::AccountId>>::Balance,
-		},
+		#[cfg(feature = "xcm")]
+		CheckedOut { to: Location, amount: <T::Fungible as Inspect<T::AccountId>>::Balance },
 
-		CheckedIn {
-			from: Location,
-			amount: <T::Fungible as Inspect<T::AccountId>>::Balance,
-		},
+		#[cfg(feature = "xcm")]
+		CheckedIn { from: Location, amount: <T::Fungible as Inspect<T::AccountId>>::Balance },
 	}
 
+	#[cfg(feature = "xcm")]
 	#[pallet::storage]
 	pub type CheckedOutBalance<T: Config> =
 		StorageValue<_, <T::Fungible as Inspect<T::AccountId>>::Balance, ValueQuery>;

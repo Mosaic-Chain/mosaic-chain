@@ -16,6 +16,7 @@ scale-info = { workspace = true, features = ["derive"] }
 delegate = { workspace = true }
 
 [features]
+xcm = [ "sdk/staging-xcm", "sdk/staging-xcm-executor" ]
 default = [ "std" ]
 std = [ "sdk/std" ]
 try-runtime = [ "sdk/try-runtime" ]
