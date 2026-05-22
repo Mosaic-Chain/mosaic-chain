@@ -37,10 +37,10 @@ use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, IsConcrete, LocalMint,
-	MatchedConvertedConcreteId, MintLocation, NoChecking, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	CreateMatcher, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
+	FixedWeightBounds, FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, LocalMint,
+	MatchXcm, MatchedConvertedConcreteId, MintLocation, NoChecking, ParentIsPreset,
+	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
 	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithLatestLocationConverter,
@@ -102,20 +102,13 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 );
 
-/// Means for transacting assets on this chain.
-pub type NativeTransactor = FungibleAdapter<
-	// Use this currency:
-	Balances,
-	// Use this currency when it is a fungible asset matching the given location or name:
+pub type NativeTransactor = pallet_extra_fungible_events::AssetTransactor<
+	Runtime,
 	IsConcrete<HereLocation>,
-	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
-	AccountId,
-	// We track teleports.
-	TeleportTracking,
 >;
 
+// TODO: when enabling asset teleportation use a solution similar to above for tracking issuance
 /// Means for transacting assets besides the native currency on this chain.
 pub type AssetsTransactor = FungiblesAdapter<
 	// Use this fungibles implementation:
@@ -185,9 +178,39 @@ impl Contains<Location> for ParentOrParentsExecutivePlurality {
 	}
 }
 
+pub struct DenyLocalReserveTransferOfNativeAsset;
+impl xcm_executor::traits::DenyExecution for DenyLocalReserveTransferOfNativeAsset {
+	fn deny_execution<RuntimeCall>(
+		_origin: &Location,
+		message: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut xcm_executor::traits::Properties,
+	) -> Result<(), frame_support::traits::ProcessMessageError> {
+		message.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				InitiateReserveWithdraw { assets, .. } | DepositReserveAsset { assets, .. }
+					if assets
+						.matches(&Asset { id: HereLocation::get().into(), fun: Fungible(0) }) =>
+				{
+					Err(frame_support::traits::ProcessMessageError::Unsupported)
+				},
+				TransferReserveAsset { assets, .. } | ReserveAssetDeposited(assets)
+					if assets.inner().iter().any(|asset| asset.id.0 == HereLocation::get()) =>
+				{
+					Err(frame_support::traits::ProcessMessageError::Unsupported) // Deny
+				},
+
+				_ => Ok(core::ops::ControlFlow::Continue(())),
+			},
+		)?;
+		Ok(())
+	}
+}
+
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		DenyReserveTransferToRelayChain,
+		(DenyReserveTransferToRelayChain, DenyLocalReserveTransferOfNativeAsset),
 		(
 			TakeWeightCredit,
 			WithComputedOrigin<
@@ -204,19 +227,6 @@ pub type Barrier = TrailingSetTopicAsId<
 >;
 
 pub struct OnlyNative;
-impl Contains<(Location, crate::Vec<Asset>)> for OnlyNative {
-	fn contains((_, assets): &(Location, crate::Vec<Asset>)) -> bool {
-		assets.iter().all(|asset| {
-			log::trace!(target: "xcm::OnlyNative", "Asset to be sent out: {asset:?}");
-			if let Asset { id: asset_id, fun: Fungible(_) } = asset {
-				asset_id.0 == HereLocation::get()
-			} else {
-				false
-			}
-		})
-	}
-}
-
 impl frame_support::traits::ContainsPair<Asset, Location> for OnlyNative {
 	fn contains(asset: &Asset, location: &Location) -> bool {
 		log::debug!(target: "xcm::OnlyNative", "Asset to be sent out: {asset:?}, location: {location:?}");
@@ -227,7 +237,6 @@ impl frame_support::traits::ContainsPair<Asset, Location> for OnlyNative {
 }
 
 pub type TrustedReserves = (
-	OnlyNative,
 	IsForeignConcreteAsset<
 		NonTeleportableAssetFromTrustedReserve<SelfParaId, crate::ForeignAssets>,
 	>,
